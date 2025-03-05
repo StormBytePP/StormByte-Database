@@ -17,11 +17,14 @@ jobs:
       matrix:
         compiler: [gcc, clang]
         stdlib: [libstdc++, libc++]
+        enable_sqlite: [ON, OFF]
         system_sqlite: [ON, OFF]
         exclude:
         - compiler: gcc
           stdlib: libc++
-    name: ${{ matrix.compiler }}-${{ matrix.stdlib }}-system_sqlite(${{ matrix.system_sqlite }})
+        - enable_sqlite: OFF
+          system_sqlite: OFF
+    name: ${{ matrix.compiler }}-${{ matrix.stdlib }}-sqlite(${{ matrix.enable_sqlite }})-system_sqlite(${{ matrix.system_sqlite }})
 
     steps:
     - name: Checkout repository and submodules
@@ -62,6 +65,7 @@ jobs:
           -DCMAKE_C_COMPILER=/usr/bin/${{ matrix.compiler }} \
           -DCMAKE_CXX_COMPILER=$([[ ${{ matrix.compiler }} == 'gcc' ]] && echo '/usr/bin/g++' || echo '/usr/bin/clang++') \
           -DCMAKE_CXX_FLAGS="${{ matrix.stdlib == 'libc++' && matrix.compiler == 'clang' && '--stdlib=libc++' || '' }}" \
+          -DENABLE_SQLITE=${{ matrix.enable_sqlite }} \
           -DWITH_SYSTEM_SQLITE=${{ matrix.system_sqlite }} \
           -DWITH_SYSTEM_STORMBYTE=OFF \
           -DENABLE_TEST=ON
@@ -87,7 +91,7 @@ jobs:
           arch: ${{ matrix.arch }}
 
       - name: Configure CMake
-        run: cmake -B ${{ github.workspace }}\build -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DWITH_SYSTEM_SQLITE=OFF -DWITH_SYSTEM_STORMBYTE=OFF -DENABLE_TEST=ON
+        run: cmake -B ${{ github.workspace }}\build -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DENABLE_SQLITE=ON -DWITH_SYSTEM_SQLITE=OFF -DWITH_SYSTEM_STORMBYTE=OFF -DENABLE_TEST=ON
 
       - name: Build
         run: cmake --build ${{ github.workspace }}\build --config ${{ env.BUILD_TYPE }}

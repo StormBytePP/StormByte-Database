@@ -23,7 +23,7 @@ jobs:
         - compiler: gcc
           stdlib: libc++
         - enable_sqlite: OFF
-          system_sqlite: OFF
+          system_sqlite: ON
     name: ${{ matrix.compiler }}-${{ matrix.stdlib }}-sqlite(${{ matrix.enable_sqlite }})-system_sqlite(${{ matrix.system_sqlite }})
 
     steps:

@@ -4,10 +4,10 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-project("StormByte Database"
+project("StormByte C++ Library: Database module"
 	VERSION 1.0.0
-	DESCRIPTION "StormByte Database is a StormByte library for handling database connections"
-	HOMEPAGE_URL "https://github.com/StormBytePP/StormByteDatabase"
+	DESCRIPTION "StormByte-Database is a StormByte library module for handling database connections"
+	HOMEPAGE_URL "https://dev.stormbyte.org/StormByte-Database"
 )
 
 enable_testing()

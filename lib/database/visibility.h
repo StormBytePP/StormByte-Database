@@ -3,7 +3,7 @@
 #include <definitions.h>
 
 #ifdef WINDOWS
-	#ifdef StormByteDatabase_EXPORTS
+	#ifdef StormByte_Database_EXPORTS
 		#define STORMBYTE_DATABASE_PUBLIC	__declspec(dllexport)
   	#else
       	#define STORMBYTE_DATABASE_PUBLIC	__declspec(dllimport)

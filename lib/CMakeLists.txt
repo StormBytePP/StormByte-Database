@@ -28,17 +28,17 @@ set(STORMBYTE_DATABASE_SQLITE3_HEADERS
 )
 
 # Library
-add_library(StormByteDatabase SHARED ${STORMBYTE_DATABASE_SOURCES})
-add_library(StormByte::Database ALIAS StormByteDatabase)
-target_link_libraries(StormByteDatabase PUBLIC StormByte)
-set_target_properties(StormByteDatabase PROPERTIES
+add_library(StormByte-Database SHARED ${STORMBYTE_DATABASE_SOURCES})
+add_library(StormByte::Database ALIAS StormByte-Database)
+target_link_libraries(StormByte-Database PUBLIC StormByte)
+set_target_properties(StormByte-Database PROPERTIES
 	LINKER_LANGUAGE CXX
 	SOVERSION		${CMAKE_PROJECT_VERSION}
 	VERSION 		${CMAKE_PROJECT_VERSION}
 )
 if (ENABLE_SQLITE)
-	target_sources(StormByteDatabase PRIVATE ${STORMBYTE_DATABASE_SQLITE3_SOURCES})
-	target_link_libraries(StormByteDatabase PRIVATE sqlite3)
+	target_sources(StormByte-Database PRIVATE ${STORMBYTE_DATABASE_SQLITE3_SOURCES})
+	target_link_libraries(StormByte-Database PRIVATE sqlite3)
 endif()
 
 # Compile options
@@ -47,17 +47,17 @@ if(MSVC)
 	add_compile_definitions(UNICODE) # Create problems if disabled
 else()
 	set(CMAKE_CXX_FLAGS_DEBUG "-pipe -g -ggdb -Wall -Wextra -Wnon-virtual-dtor -pedantic -pedantic-errors -O0")
-	target_compile_options(StormByteDatabase PRIVATE -fvisibility=hidden $<$<COMPILE_LANGUAGE:CXX>:-fvisibility-inlines-hidden>)
+	target_compile_options(StormByte-Database PRIVATE -fvisibility=hidden $<$<COMPILE_LANGUAGE:CXX>:-fvisibility-inlines-hidden>)
 endif()
 
 # Include directories
-target_include_directories(StormByteDatabase
+target_include_directories(StormByte-Database
 	SYSTEM BEFORE PUBLIC "${CMAKE_CURRENT_LIST_DIR}"
 )
 
 # Install
 if (NOT STORMBYTE_AS_DEPENDENCY)
-	install(TARGETS StormByteDatabase
+	install(TARGETS StormByte-Database
 		ARCHIVE 		DESTINATION "${CMAKE_INSTALL_LIBDIR}"
 		LIBRARY 		DESTINATION "${CMAKE_INSTALL_LIBDIR}"
 		RUNTIME 		DESTINATION ${CMAKE_INSTALL_BINDIR}

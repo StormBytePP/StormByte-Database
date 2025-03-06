@@ -27,7 +27,17 @@ PreparedSTMT& PreparedSTMT::Bind(const int& column, const int& val) noexcept {
 	return *this;
 }
 
+PreparedSTMT& PreparedSTMT::Bind(const int& column, const unsigned int& val) noexcept {
+	sqlite3_bind_int(m_stmt, column + 1, val);
+	return *this;
+}
+
 PreparedSTMT& PreparedSTMT::Bind(const int& column, const int64_t& val) noexcept {
+	sqlite3_bind_int64(m_stmt, column + 1, val);
+	return *this;
+}
+
+PreparedSTMT& PreparedSTMT::Bind(const int& column, const uint64_t& val) noexcept {
 	sqlite3_bind_int64(m_stmt, column + 1, val);
 	return *this;
 }

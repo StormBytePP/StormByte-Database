@@ -72,7 +72,21 @@ namespace StormByte::Database {
 			 * @param index parameter index
 			 * @param value Value to be bound
 			 */
+			virtual PreparedSTMT&										Bind(const int& index, const unsigned int& value) noexcept = 0;
+
+			/**
+			 * Binds a value to a prepared statement
+			 * @param index parameter index
+			 * @param value Value to be bound
+			 */
 			virtual PreparedSTMT&										Bind(const int& index, const int64_t& value) noexcept = 0;
+
+			/**
+			 * Binds a value to a prepared statement
+			 * @param index parameter index
+			 * @param value Value to be bound
+			 */
+			virtual PreparedSTMT&										Bind(const int& index, const uint64_t& value) noexcept = 0;
 
 			/**
 			 * Binds a value to a prepared statement

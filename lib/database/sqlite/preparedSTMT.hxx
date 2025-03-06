@@ -60,7 +60,21 @@ namespace StormByte::Database::SQLite {
 			 * @param index parameter index
 			 * @param value Value to be bound
 			 */
+			PreparedSTMT&												Bind(const int& index, const unsigned int& value) noexcept override;
+
+			/**
+			 * Binds a value to a prepared statement
+			 * @param index parameter index
+			 * @param value Value to be bound
+			 */
 			PreparedSTMT&												Bind(const int& index, const int64_t& value) noexcept override;
+
+			/**
+			 * Binds a value to a prepared statement
+			 * @param index parameter index
+			 * @param value Value to be bound
+			 */
+			PreparedSTMT&												Bind(const int& index, const uint64_t& value) noexcept override;
 
 			/**
 			 * Binds a value to a prepared statement

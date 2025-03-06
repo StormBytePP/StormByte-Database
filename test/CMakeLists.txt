@@ -1,5 +1,5 @@
 option(ENABLE_TEST "Enable Unit Tests" OFF)
-if(ENABLE_TEST)
+if(ENABLE_TEST AND NOT STORMBYTE_AS_DEPENDENCY)
 	add_executable(DummyTests dummy_test.cxx)
 	target_link_libraries(DummyTests StormByte::Database)
 	add_test(NAME DummyTests COMMAND DummyTests)

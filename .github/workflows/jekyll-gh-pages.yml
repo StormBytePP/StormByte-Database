@@ -42,7 +42,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt install -y clang-19 libc++-19-dev libc++abi-19-dev clang-format-19 clang-tidy-19
+          sudo apt install -y clang-19 libc++-19-dev libc++abi-19-dev clang-format-19 clang-tidy-19 sqlite3
           sudo update-alternatives --remove-all clang
           sudo update-alternatives --remove-all clang++
           sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-19 190 --slave /usr/bin/clang++ clang++ /usr/bin/clang++-19
@@ -55,6 +55,8 @@ jobs:
             -DCMAKE_CXX_COMPILER=/usr/bin/clang++ \
             -DCMAKE_CXX_FLAGS="--stdlib=libc++" \
             -G "Ninja" \
+            -DENABLE_SQLITE=ON \
+            -DWITH_SYSTEM_SQLITE=ON \
             -DENABLE_TEST=OFF \
             -DENABLE_DOC=ON \
             -DWITH_SYSTEM_STORMBYTE=OFF

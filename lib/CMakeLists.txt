@@ -1,31 +1,11 @@
 include(GNUInstallDirs)
 
 # Sources
-set(STORMBYTE_DATABASE_SOURCES
-	"${CMAKE_CURRENT_LIST_DIR}/database/exception.cxx"
-)
-set(STORMBYTE_DATABASE_HEADERS
-	"${CMAKE_CURRENT_LIST_DIR}/database/database.hxx"
-	"${CMAKE_CURRENT_LIST_DIR}/database/exception.hxx"
-	"${CMAKE_CURRENT_LIST_DIR}/database/preparedSTMT.hxx"
-	"${CMAKE_CURRENT_LIST_DIR}/database/query.hxx"
-	"${CMAKE_CURRENT_LIST_DIR}/database/row.hxx"
-	"${CMAKE_CURRENT_LIST_DIR}/database/visibility.h"
-)
-set(STORMBYTE_DATABASE_SQLITE3_SOURCES
-	"${CMAKE_CURRENT_LIST_DIR}/database/sqlite/exception.cxx"
-	"${CMAKE_CURRENT_LIST_DIR}/database/sqlite/preparedSTMT.cxx"
-	"${CMAKE_CURRENT_LIST_DIR}/database/sqlite/query.cxx"
-	"${CMAKE_CURRENT_LIST_DIR}/database/sqlite/sqlite3.cxx"
-)
-set(STORMBYTE_DATABASE_SQLITE3_HEADERS
-	"${CMAKE_CURRENT_LIST_DIR}/database/sqlite/alias.hxx"
-	"${CMAKE_CURRENT_LIST_DIR}/database/sqlite/exception.hxx"
-	"${CMAKE_CURRENT_LIST_DIR}/database/sqlite/preparedSTMT.hxx"
-	"${CMAKE_CURRENT_LIST_DIR}/database/sqlite/query.hxx"
-	"${CMAKE_CURRENT_LIST_DIR}/database/sqlite/sqlite3.hxx"
-	"${CMAKE_CURRENT_LIST_DIR}/database/sqlite/type.hxx"
-)
+file(GLOB_RECURSE STORMBYTE_DATABASE_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/public/*.cxx")
+file(GLOB_RECURSE STORMBYTE_DATABASE_SQLITE_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/optional/database/sqlite/*.cxx")
+
+# Remove redundant sources
+
 
 # Library
 add_library(StormByte-Database SHARED ${STORMBYTE_DATABASE_SOURCES})
@@ -36,9 +16,15 @@ set_target_properties(StormByte-Database PROPERTIES
 	SOVERSION		${CMAKE_PROJECT_VERSION}
 	VERSION 		${CMAKE_PROJECT_VERSION}
 )
+
+# SQLite optional
 if (ENABLE_SQLITE)
-	target_sources(StormByte-Database PRIVATE ${STORMBYTE_DATABASE_SQLITE3_SOURCES})
-	target_link_libraries(StormByte-Database PRIVATE sqlite3)
+	target_sources(StormByte-Database PRIVATE ${STORMBYTE_DATABASE_SQLITE_SOURCES})
+	if (WITH_SYSTEM_SQLITE)
+		target_link_libraries(StormByte-Database PUBLIC sqlite3)
+	else()
+		target_link_libraries(StormByte-Database PRIVATE sqlite3)
+	endif()
 endif()
 
 # Compile options
@@ -52,7 +38,7 @@ endif()
 
 # Include directories
 target_include_directories(StormByte-Database
-	SYSTEM BEFORE PUBLIC "${CMAKE_CURRENT_LIST_DIR}"
+	SYSTEM BEFORE PUBLIC "${CMAKE_CURRENT_LIST_DIR}/public" "${CMAKE_CURRENT_LIST_DIR}/private" "${CMAKE_CURRENT_LIST_DIR}/optional"
 )
 
 # Install
@@ -62,8 +48,18 @@ if (NOT STORMBYTE_AS_DEPENDENCY)
 		LIBRARY 		DESTINATION "${CMAKE_INSTALL_LIBDIR}"
 		RUNTIME 		DESTINATION ${CMAKE_INSTALL_BINDIR}
 	)
-	install(FILES ${STORMBYTE_DATABASE_HEADERS} DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/StormByte/database")
+	install(DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/public/"
+		DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/StormByte"
+		FILES_MATCHING
+		PATTERN "*.h"
+		PATTERN "*.hxx"
+	)
 	if (ENABLE_SQLITE)
-		install(FILES ${STORMBYTE_DATABASE_SQLITE3_HEADERS} DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/StormByte/database/sqlite")
+		install(DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/optional/database/sqlite"
+			DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/StormByte/database"
+			FILES_MATCHING
+			PATTERN "*.h"
+			PATTERN "*.hxx"
+		)
 	endif()
 endif()

@@ -38,17 +38,17 @@ if (ENABLE_SQLITE)
 				RUNTIME 		DESTINATION ${CMAKE_INSTALL_BINDIR}
 			)
 		else()
-			add_library(sqlite3 STATIC "${sqlite3_SOURCE_DIR}/sqlite3.c")
+			add_library(SQLite3 STATIC "${sqlite3_SOURCE_DIR}/sqlite3.c")
 		endif()
-		target_include_directories(sqlite3 SYSTEM INTERFACE ${sqlite3_SOURCE_DIR})
-		target_include_directories(sqlite3 PRIVATE ${sqlite3_SOURCE_DIR})
-		set_target_properties(sqlite3 PROPERTIES
+		target_include_directories(SQLite3 SYSTEM INTERFACE ${sqlite3_SOURCE_DIR})
+		target_include_directories(SQLite3 PRIVATE ${sqlite3_SOURCE_DIR})
+		set_target_properties(SQLite3 PROPERTIES
 			VERSION 	${sqlite3_VERSION}
 			SOVERSION 	${sqlite3_VERSION}
 		)
 
 		if (NOT WIN32)
-			target_compile_options(sqlite3 PRIVATE -fvisibility=hidden $<$<COMPILE_LANGUAGE:CXX>:-fvisibility-inlines-hidden>)
+			target_compile_options(SQLite3 PRIVATE -fvisibility=hidden $<$<COMPILE_LANGUAGE:CXX>:-fvisibility-inlines-hidden>)
 		endif()
 
 		message(STATUS "Found SQLite3: bundled ${sqlite3_VERSION}")

@@ -24,7 +24,7 @@ jobs:
           stdlib: libc++
         - enable_sqlite: OFF
           system_sqlite: ON
-    name: ${{ matrix.compiler }}-${{ matrix.stdlib }}
+    name: ${{ matrix.compiler }}-${{ matrix.stdlib }}-sqlite(${{ matrix.enable_sqlite }})-system-sqlite(${{ matrix.system_sqlite }})
 
     steps:
     - name: Checkout repository and submodules
@@ -48,6 +48,11 @@ jobs:
           sudo update-alternatives --remove-all clang
           sudo update-alternatives --remove-all clang++
           sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-19 190 --slave /usr/bin/clang++ clang++ /usr/bin/clang++-19
+        fi
+        if [ "${{ matrix.system_sqlite }}" == "OFF" ]; then
+          sudo apt remove -y sqlite3
+        else
+          sudo apt install -y sqlite3
         fi
 
     - name: Install CMake
@@ -93,7 +98,7 @@ jobs:
           arch: ${{ matrix.arch }}
 
       - name: Configure CMake
-        run: cmake -B ${{ github.workspace }}\build -G "Ninja" -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DENABLE_TEST=ON -DWITH_SYSTEM_STORMBYTE=OFF
+        run: cmake -B ${{ github.workspace }}\build -G "Ninja" -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DENABLE_TEST=ON -DENABLE_SQLITE=ON -DWITH_SYSTEM_STORMBYTE=OFF -DWITH_SYSTEM_SQLITE=OFF
 
       - name: Build
         run: cmake --build ${{ github.workspace }}\build --config ${{ env.BUILD_TYPE }}
@@ -101,7 +106,8 @@ jobs:
       - name: Copy DLLs
         run: |
           copy ${{ github.workspace }}\build\thirdparty\StormByte\base\lib\StormByte.dll ${{ github.workspace }}\build\test
-          copy ${{ github.workspace }}\build\lib\StormByte-Config.dll ${{ github.workspace }}\build\test
+          copy ${{ github.workspace }}\build\lib\StormByte-Database.dll ${{ github.workspace }}\build\test
+          copy ${{ github.workspace }}\build\thirdparty\sqlite3\sqlite3.dll ${{ github.workspace }}\build\test
 
       - name: Run unit tests
         run: ctest --output-on-failure --test-dir ${{ github.workspace }}\build

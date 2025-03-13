@@ -1,7 +1,7 @@
 #pragma once
 
-#include <database/preparedSTMT.hxx>
-#include <database/row.hxx>
+#include <StormByte/database/preparedSTMT.hxx>
+#include <StormByte/database/row.hxx>
 
 /**
  * @namespace Database

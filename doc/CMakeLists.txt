@@ -22,8 +22,8 @@ if(ENABLE_DOC)
 	# Add documentation target
 	doxygen_add_docs(
 		StormByteDatabaseDoc
-		"${CMAKE_SOURCE_DIR}/lib/public" # Input directory
-		"${CMAKE_SOURCE_DIR}/lib/optional" # Optional directory
+		"${CMAKE_SOURCE_DIR}/lib/public/StormByte" # Input directory
+		"${CMAKE_SOURCE_DIR}/lib/optional/StormByte" # Optional directory
 		"${CMAKE_SOURCE_DIR}/README.md" # Explicitly include README.md
 		COMMENT "Generate HTML pages"
 	)

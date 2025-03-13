@@ -1,9 +1,9 @@
 #pragma once
 
-#include <database/database.hxx>
-#include <database/sqlite/preparedSTMT.hxx>
-#include <database/sqlite/query.hxx>
-#include <database/sqlite/exception.hxx>
+#include <StormByte/database/database.hxx>
+#include <StormByte/database/sqlite/preparedSTMT.hxx>
+#include <StormByte/database/sqlite/query.hxx>
+#include <StormByte/database/sqlite/exception.hxx>
 
 #include <filesystem>
 #include <list>

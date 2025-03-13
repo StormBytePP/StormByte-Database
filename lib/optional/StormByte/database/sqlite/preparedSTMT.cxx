@@ -1,5 +1,5 @@
-#include <database/sqlite/preparedSTMT.hxx>
-#include <database/row.hxx>
+#include <StormByte/database/sqlite/preparedSTMT.hxx>
+#include <StormByte/database/row.hxx>
 
 #include <limits>
 #include <sqlite3.h>

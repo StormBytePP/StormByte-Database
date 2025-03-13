@@ -1,6 +1,6 @@
 #pragma once
 
-#include <database/visibility.h>
+#include <StormByte/database/visibility.h>
 
 #include <map>
 #include <memory>

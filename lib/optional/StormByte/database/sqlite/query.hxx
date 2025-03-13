@@ -1,8 +1,8 @@
 #pragma once
 
-#include <database/query.hxx>
-#include <database/sqlite/preparedSTMT.hxx>
-#include <database/sqlite/alias.hxx>
+#include <StormByte/database/query.hxx>
+#include <StormByte/database/sqlite/preparedSTMT.hxx>
+#include <StormByte/database/sqlite/alias.hxx>
 
 /**
  * @namespace SQLite3

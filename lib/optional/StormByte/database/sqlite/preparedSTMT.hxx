@@ -1,7 +1,7 @@
 #pragma once
 
-#include <database/preparedSTMT.hxx>
-#include <database/sqlite/alias.hxx>
+#include <StormByte/database/preparedSTMT.hxx>
+#include <StormByte/database/sqlite/alias.hxx>
 
 class sqlite3_stmt; // Forward declaration so we don't have to depend on sqlite3 headers
 /**

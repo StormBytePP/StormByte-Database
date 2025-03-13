@@ -1,7 +1,7 @@
 #pragma once
 
-#include <exception.hxx>
-#include <database/visibility.h>
+#include <StormByte/exception.hxx>
+#include <StormByte/database/visibility.h>
 
 /**
  * @namespace Database

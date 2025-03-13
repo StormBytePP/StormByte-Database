@@ -1,4 +1,4 @@
-#include <database/exception.hxx>
+#include <StormByte/database/exception.hxx>
 
 using namespace StormByte::Database;
 

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <database/sqlite/type.hxx>
-#include <exception.hxx>
+#include <StormByte/database/sqlite/type.hxx>
+#include <StormByte/exception.hxx>
 
 /**
  * @namespace Database::SQLite

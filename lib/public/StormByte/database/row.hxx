@@ -1,8 +1,8 @@
 #pragma once
 
-#include <util/templates/variadic_value.hxx>
-#include <util/templates/iterator.hxx>
-#include <database/exception.hxx>
+#include <StormByte/database/exception.hxx>
+#include <StormByte/util/templates/variadic_value.hxx>
+#include <StormByte/util/templates/iterator.hxx>
 
 #include <algorithm>
 #include <memory>

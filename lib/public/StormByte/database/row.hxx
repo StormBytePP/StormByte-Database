@@ -1,12 +1,12 @@
 #pragma once
 
 #include <StormByte/database/exception.hxx>
-#include <StormByte/util/templates/variadic_value.hxx>
-#include <StormByte/util/templates/iterator.hxx>
+#include <StormByte/util/variadic_value.hxx>
 
 #include <algorithm>
 #include <memory>
 #include <vector>
+#include <span>
 
 /**
  * @namespace Database
@@ -18,11 +18,11 @@ namespace StormByte::Database {
 	 * @brief Row class for databases
 	 */
 	template<class Value> class STORMBYTE_DATABASE_PUBLIC Row {
-		using NamedValue = std::pair<std::string, std::shared_ptr<Value>>;		///< Shortcut alias for pair
-		using Storage = std::vector<NamedValue>;								///< Shortcut alias for internal storage
 		public:
-			using Iterator = Util::Templates::Iterator<Storage>;				///< Iterator for Row
-			using ConstIterator = Util::Templates::ConstIterator<Storage>;		///< ConstIterator for Row
+			using NamedValue 		= std::pair<std::string, std::shared_ptr<Value>>;	///< Shortcut alias for pair
+			using Storage 			= std::vector<NamedValue>;							///< Shortcut alias for internal storage
+			using iterator 			= typename Storage::iterator;						///< Shortcut alias for iterator
+			using const_iterator 	= typename Storage::const_iterator;					///< Shortcut alias for const iterator
 
 			/**
 			 * Constructor
@@ -110,32 +110,48 @@ namespace StormByte::Database {
 			 * Gets an iterator pointing to the first element
 			 * @return Iterator
 			 */
-			Iterator 											Begin() noexcept {
-				return Iterator::Begin(m_values);
+			iterator 											begin() noexcept {
+				return m_values.begin();
 			}
 
 			/**
 			 * Gets a ConstIterator pointing to the first element
 			 * @return ConstIterator
 			 */
-			ConstIterator 										Begin() const noexcept {
-				return ConstIterator::Begin(m_values);
+			const_iterator 										begin() const noexcept {
+				return m_values.begin();
 			}
 
 			/**
 			 * Gets an iterator pointing to past last element
 			 * @return Iterator
 			 */
-			Iterator 											End() noexcept {
-				return Iterator::End(m_values);
+			iterator 											end() noexcept {
+				return m_values.end();
 			}
 
 			/**
 			 * Gets a ConstIterator pointing to past last element
 			 * @return ConstIterator
 			 */
-			ConstIterator 										End() const noexcept {
-				return ConstIterator::End(m_values);
+			const_iterator 										end() const noexcept {
+				return m_values.end();
+			}
+
+			/**
+			 * Gets a span iterator pointing to the first element
+			 * @return Span
+			 */
+			std::span<NamedValue>								Values() noexcept {
+				return m_values;
+			}
+
+			/**
+			 * Gets a span iterator pointing to the first element
+			 * @return Span
+			 */
+			std::span<const NamedValue>							Values() const noexcept {
+				return m_values;
 			}
 
 			/**
@@ -151,7 +167,7 @@ namespace StormByte::Database {
 			 * Gets the number of columns
 			 * @return number of columns
 			 */
-			constexpr size_t									Columns() const noexcept {
+			constexpr size_t									Count() const noexcept {
 				return m_values.size();
 			}
 

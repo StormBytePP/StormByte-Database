@@ -29,8 +29,10 @@ endif()
 
 # Compile options
 if(MSVC)
-	target_compile_options(StormByte-Database PRIVATE /wd4251 /EHsc /O2 /Gs)
-	target_link_options(StormByte-Database PRIVATE /LTCG /GL)
+	target_compile_options(StormByte-Database PRIVATE /EHsc)
+	target_compile_options(StormByte-Database PRIVATE $<$<CONFIG:Release>:/O2>)
+	target_compile_options(StormByte-Database PRIVATE $<$<CONFIG:Debug>:/Od>)
+	target_link_options(StormByte-Database PRIVATE $<$<CONFIG:Release>:/LTCG /GL>)
 else()
 	set(CMAKE_CXX_FLAGS_DEBUG "-pipe -g -ggdb -Wall -Wextra -Wnon-virtual-dtor -pedantic -pedantic-errors -O0")
 	target_compile_options(StormByte-Database PRIVATE -fvisibility=hidden $<$<COMPILE_LANGUAGE:CXX>:-fvisibility-inlines-hidden>)

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <StormByte/database/exception.hxx>
-#include <StormByte/variadic_value.hxx>
 
 #include <algorithm>
 #include <memory>

@@ -94,12 +94,12 @@ int verify_inserted_users() {
 	// 1. Verify that users were inserted correctly
 	auto rows = db.get_users();
 	ASSERT_EQUAL("verify_inserted_users", 2, rows[0].Count());
-	ASSERT_EQUAL("verify_inserted_users", "Alice", rows[0][0].Get<std::string>());
-	ASSERT_EQUAL("verify_inserted_users", "alice@example.com", rows[0][1].Get<std::string>());
+	ASSERT_EQUAL("verify_inserted_users", "Alice", std::get<std::string>(rows[0][0]));
+	ASSERT_EQUAL("verify_inserted_users", "alice@example.com", std::get<std::string>(rows[0][1]));
 
 	ASSERT_EQUAL("verify_inserted_users", 2, rows[1].Count());
-    ASSERT_EQUAL("verify_inserted_users", "Bob", rows[1][0].Get<std::string>());
-    ASSERT_EQUAL("verify_inserted_users", "bob@example.com", rows[1][1].Get<std::string>());
+	ASSERT_EQUAL("verify_inserted_users", "Bob", std::get<std::string>(rows[1][0]));
+	ASSERT_EQUAL("verify_inserted_users", "bob@example.com", std::get<std::string>(rows[1][1]));
 
 	return 0;
 }
@@ -111,12 +111,12 @@ int verify_inserted_products() {
 	// 2. Verify that products were inserted correctly
 	auto rows = db.get_products();
 	ASSERT_EQUAL("verify_inserted_products", 2, rows[0].Count());
-	ASSERT_EQUAL("verify_inserted_products", "Laptop", rows[0][0].Get<std::string>());
-	ASSERT_EQUAL("verify_inserted_products", 999.99, rows[0][1].Get<double>());
+	ASSERT_EQUAL("verify_inserted_products", "Laptop", std::get<std::string>(rows[0][0]));
+	ASSERT_EQUAL("verify_inserted_products", 999.99, std::get<double>(rows[0][1]));
 
 	ASSERT_EQUAL("verify_inserted_products", 2, rows[1].Count());
-	ASSERT_EQUAL("verify_inserted_products", "Mouse", rows[1][0].Get<std::string>());
-	ASSERT_EQUAL("verify_inserted_products", 19.99, rows[1][1].Get<double>());
+	ASSERT_EQUAL("verify_inserted_products", "Mouse", std::get<std::string>(rows[1][0]));
+	ASSERT_EQUAL("verify_inserted_products", 19.99, std::get<double>(rows[1][1]));
 
 	return 0;
 }
@@ -128,14 +128,14 @@ int verify_inserted_orders() {
 	// 3. Verify that orders were inserted correctly
 	auto rows = db.get_orders();
 	ASSERT_EQUAL("verify_inserted_orders", 3, rows[0].Count());
-	ASSERT_EQUAL("verify_inserted_orders", 1, rows[0][0].Get<int>());
-	ASSERT_EQUAL("verify_inserted_orders", 1, rows[0][1].Get<int>());
-	ASSERT_EQUAL("verify_inserted_orders", 1, rows[0][2].Get<int>());
+	ASSERT_EQUAL("verify_inserted_orders", 1, std::get<int>(rows[0][0]));
+	ASSERT_EQUAL("verify_inserted_orders", 1, std::get<int>(rows[0][1]));
+	ASSERT_EQUAL("verify_inserted_orders", 1, std::get<int>(rows[0][2]));
 
 	ASSERT_EQUAL("verify_inserted_orders", 3, rows[1].Count());
-	ASSERT_EQUAL("verify_inserted_orders", 2, rows[1][0].Get<int>());
-	ASSERT_EQUAL("verify_inserted_orders", 2, rows[1][1].Get<int>());
-	ASSERT_EQUAL("verify_inserted_orders", 2, rows[1][2].Get<int>());
+	ASSERT_EQUAL("verify_inserted_orders", 2, std::get<int>(rows[1][0]));
+	ASSERT_EQUAL("verify_inserted_orders", 2, std::get<int>(rows[1][1]));
+	ASSERT_EQUAL("verify_inserted_orders", 2, std::get<int>(rows[1][2]));
 
 	return 0;
 }
@@ -147,14 +147,14 @@ int verify_relationships() {
 	// 4. Verify that the relationship between tables works correctly
 	auto rows = db.get_joined_data();
 	ASSERT_EQUAL("verify_relationships", 3, rows[0].Count());
-	ASSERT_EQUAL("verify_relationships", "Alice", rows[0][0].Get<std::string>());
-	ASSERT_EQUAL("verify_relationships", "Laptop", rows[0][1].Get<std::string>());
-	ASSERT_EQUAL("verify_relationships", 1, rows[0][2].Get<int>());
+	ASSERT_EQUAL("verify_relationships", "Alice", std::get<std::string>(rows[0][0]));
+	ASSERT_EQUAL("verify_relationships", "Laptop", std::get<std::string>(rows[0][1]));
+	ASSERT_EQUAL("verify_relationships", 1, std::get<int>(rows[0][2]));
 
 	ASSERT_EQUAL("verify_relationships", 3, rows[1].Count());
-	ASSERT_EQUAL("verify_relationships", "Bob", rows[1][0].Get<std::string>());
-	ASSERT_EQUAL("verify_relationships", "Mouse", rows[1][1].Get<std::string>());
-	ASSERT_EQUAL("verify_relationships", 2, rows[1][2].Get<int>());
+	ASSERT_EQUAL("verify_relationships", "Bob", std::get<std::string>(rows[1][0]));
+	ASSERT_EQUAL("verify_relationships", "Mouse", std::get<std::string>(rows[1][1]));
+	ASSERT_EQUAL("verify_relationships", 2, std::get<int>(rows[1][2]));
 
 	return 0;
 }
@@ -167,7 +167,7 @@ int query_test() {
 	auto query = db.PrepareQuery("SELECT COUNT(*) FROM users;");
 	auto row = query->Step();
 	ASSERT_EQUAL("query_test", 1, row.Count());
-	ASSERT_EQUAL("query_test", 2, row[0].Get<int>());
+	ASSERT_EQUAL("query_test", 2, std::get<int>(row[0]));
 
 	RETURN_TEST("query_test", 0);
 }
@@ -180,7 +180,7 @@ int bool_test() {
 	auto query = db.PrepareQuery("SELECT COUNT(*) > 0 FROM users;");
 	auto row = query->Step();
 	ASSERT_EQUAL("bool_test", 1, row.Count());
-	ASSERT_EQUAL("bool_test", true, (bool)row[0].Get<int>());
+	ASSERT_EQUAL("bool_test", true, (bool)std::get<int>(row[0]));
 
 	RETURN_TEST("bool_test", 0);
 }
@@ -192,12 +192,12 @@ int read_from_binary_database() {
 	// 1. Verify that users were inserted correctly
 	auto rows = db.get_users();
 	ASSERT_EQUAL("verify_inserted_users", 2, rows[0].Count());
-	ASSERT_EQUAL("verify_inserted_users", "John Doe", rows[0][0].Get<std::string>());
-	ASSERT_EQUAL("verify_inserted_users", "john@example.com", rows[0][1].Get<std::string>());
+	ASSERT_EQUAL("verify_inserted_users", "John Doe", std::get<std::string>(rows[0][0]));
+	ASSERT_EQUAL("verify_inserted_users", "john@example.com", std::get<std::string>(rows[0][1]));
 
 	ASSERT_EQUAL("verify_inserted_users", 2, rows[1].Count());
-    ASSERT_EQUAL("verify_inserted_users", "Sarah Connor", rows[1][0].Get<std::string>());
-    ASSERT_EQUAL("verify_inserted_users", "sarah@example.com", rows[1][1].Get<std::string>());
+	ASSERT_EQUAL("verify_inserted_users", "Sarah Connor", std::get<std::string>(rows[1][0]));
+	ASSERT_EQUAL("verify_inserted_users", "sarah@example.com", std::get<std::string>(rows[1][1]));
 
 	return 0;
 }

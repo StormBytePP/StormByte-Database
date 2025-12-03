@@ -49,7 +49,7 @@ if (ENABLE_SQLITE)
 		)
 
 		if (NOT WIN32)
-			target_compile_options(sqlite3 PRIVATE -fvisibility=hidden $<$<COMPILE_LANGUAGE:CXX>:-fvisibility-inlines-hidden>)
+			target_compile_options(sqlite3 PRIVATE -fPIC -fvisibility=hidden $<$<COMPILE_LANGUAGE:CXX>:-fvisibility-inlines-hidden>)
 		endif()
 
 		message(STATUS "Found SQLite3: bundled ${sqlite3_VERSION}")

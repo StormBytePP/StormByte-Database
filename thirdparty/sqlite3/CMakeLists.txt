@@ -41,6 +41,11 @@ if (ENABLE_SQLITE)
 		else()
 			add_library(sqlite3 STATIC "${sqlite3_SOURCE_DIR}/sqlite3.c")
 		endif()
+		set_target_properties(sqlite3 PROPERTIES
+			POSITION_INDEPENDENT_CODE        ON
+			CXX_VISIBILITY_PRESET            hidden
+			VISIBILITY_INLINES_HIDDEN        ON
+		)
 		target_include_directories(sqlite3 SYSTEM INTERFACE ${sqlite3_SOURCE_DIR})
 		target_include_directories(sqlite3 PRIVATE ${sqlite3_SOURCE_DIR})
 		set_target_properties(sqlite3 PROPERTIES
@@ -48,9 +53,7 @@ if (ENABLE_SQLITE)
 			SOVERSION 	${sqlite3_VERSION}
 		)
 
-		if (NOT WIN32)
-			target_compile_options(sqlite3 PRIVATE -fPIC -fvisibility=hidden $<$<COMPILE_LANGUAGE:CXX>:-fvisibility-inlines-hidden>)
-		endif()
+		
 
 		message(STATUS "Found SQLite3: bundled ${sqlite3_VERSION}")
 	endif()

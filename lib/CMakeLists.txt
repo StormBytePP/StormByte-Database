@@ -16,6 +16,11 @@ set_target_properties(StormByte-Database PROPERTIES
 	SOVERSION		${CMAKE_PROJECT_VERSION}
 	VERSION 		${CMAKE_PROJECT_VERSION}
 )
+set_target_properties(StormByte-Database PROPERTIES
+	POSITION_INDEPENDENT_CODE        ON
+	CXX_VISIBILITY_PRESET            hidden
+	VISIBILITY_INLINES_HIDDEN        ON
+)
 
 # SQLite optional
 if (ENABLE_SQLITE)
@@ -35,7 +40,6 @@ if(MSVC)
 	target_link_options(StormByte-Database PRIVATE $<$<CONFIG:Release>:/LTCG /GL>)
 else()
 	set(CMAKE_CXX_FLAGS_DEBUG "-pipe -g -ggdb -Wall -Wextra -Wnon-virtual-dtor -pedantic -pedantic-errors -O0")
-	target_compile_options(StormByte-Database PRIVATE -fvisibility=hidden $<$<COMPILE_LANGUAGE:CXX>:-fvisibility-inlines-hidden>)
 endif()
 
 # Include directories

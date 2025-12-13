@@ -16,11 +16,11 @@ if (ENABLE_SQLITE)
 		include(FetchContent)
 
 		#Lowercase "sqlite3" prefixes needed by CMake
-		set(sqlite3_VERSION 3.49.0)
+		set(sqlite3_VERSION 3.51.1)
 
 		FetchContent_Declare(sqlite3
-			URL      https://sqlite.org/2025/sqlite-amalgamation-3490000.zip
-			URL_HASH SHA3_256=138b6922eb274c953c9d8f3249c39706ad3e40f3eef5d81bbeb73509b41f52c9
+			URL      https://sqlite.org/2025/sqlite-amalgamation-3510100.zip
+			URL_HASH SHA3_256=856b52ffe7383d779bb86a0ed1ddc19c41b0e5751fa14ce6312f27534e629b64
 			DOWNLOAD_EXTRACT_TIMESTAMP false
 		)
 		

@@ -4,3 +4,6 @@
 [submodule "thirdparty/StormByte/logger"]
 	path = thirdparty/StormByte/logger
 	url = https://github.com/StormBytePP/StormByte-Logger.git
+[submodule "thirdparty/postgres/postgres"]
+	path = thirdparty/postgres/postgres
+	url = https://github.com/postgres/postgres.git

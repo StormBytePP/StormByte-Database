@@ -44,9 +44,10 @@ if (NOT WITH_SQLITE STREQUAL "OFF")
 			VERSION 	${sqlite3_VERSION}
 			SOVERSION 	${sqlite3_VERSION}
 		)
-
-		
-
+		add_library(SQLite::SQLite3 ALIAS sqlite3)
 		message(STATUS "Found SQLite3: bundled ${sqlite3_VERSION}")
 	endif()
+
+	cmake_policy(SET CMP0079 NEW)
+	target_link_libraries(StormByte-Database PRIVATE SQLite::SQLite3)
 endif()

@@ -18,12 +18,15 @@ jobs:
         compiler: [gcc, clang]
         stdlib: [libstdc++, libc++]
         sqlite: [BUNDLED, SYSTEM, OFF]
+        postgres: [BUNDLED, SYSTEM, OFF]
         exclude:
         - compiler: gcc
           stdlib: libc++
         - stdlib: libc++
           sqlite: SYSTEM
-    name: ${{ matrix.compiler }}-${{ matrix.stdlib }}-sqlite(${{ matrix.sqlite }})
+        - stdlib: libc++
+          postgres: SYSTEM
+    name: ${{ matrix.compiler }}-${{ matrix.stdlib }}-sqlite(${{ matrix.sqlite }})-postgres(${{ matrix.postgres }})
 
     steps:
     - name: Checkout repository and submodules
@@ -37,11 +40,18 @@ jobs:
       with:
         compiler: ${{ matrix.compiler }}
 
-    - name: Install system dependencies (apt)
+    - name: Install system dependencies (sqlite)
       if: ${{ matrix.sqlite == 'SYSTEM' }}
       run: |
         pkgs=""
         if [ "${{ matrix.sqlite }}" = "SYSTEM" ]; then pkgs="$pkgs libsqlite3-dev"; fi
+        if [ -n "$pkgs" ]; then sudo apt-get install -y $pkgs; fi
+
+    - name: Install system dependencies (postgres)
+      if: ${{ matrix.postgres != 'OFF' }}
+      run: |
+        pkgs="meson bison flex"
+        if [ "${{ matrix.postgres }}" = "SYSTEM" ]; then pkgs="$pkgs libpq-dev"; fi
         if [ -n "$pkgs" ]; then sudo apt-get install -y $pkgs; fi
 
     - name: Build with CMake
@@ -55,6 +65,7 @@ jobs:
           -DENABLE_TEST=ON
           -DENABLE_ASAN=ON
           -DWITH_SQLITE=${{ matrix.sqlite }}
+          -DWITH_POSTGRES=${{ matrix.postgres }}
           -DWITH_SYSTEM_STORMBYTE=OFF
         build-type: ${{ env.BUILD_TYPE }}
         run-test: true
@@ -80,6 +91,20 @@ jobs:
           compiler: msvc
           arch: ${{ matrix.arch }}
 
+      - name: Setup Python for Meson
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Meson
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install meson==1.9.2
+
+      - name: Install win_flex_bison
+        run: choco install winflexbison -y
+        shell: powershell
+
       - name: Build with CMake
         uses: ashutoshvarma/action-cmake-build@master
         with:
@@ -88,6 +113,7 @@ jobs:
             -G Ninja
             -DENABLE_TEST=ON
             -DWITH_SQLITE=BUNDLED
+            -DWITH_POSTGRES=BUNDLED
             -DWITH_SYSTEM_STORMBYTE=OFF
           build-type: ${{ env.BUILD_TYPE }}
 
@@ -96,8 +122,8 @@ jobs:
           Copy-Item -Path "${{ github.workspace }}\build\thirdparty\StormByte\base\lib\StormByte.dll" -Destination "${{ github.workspace }}\build\test" -Force
           Copy-Item -Path "${{ github.workspace }}\build\thirdparty\StormByte\logger\lib\StormByte-Logger.dll" -Destination "${{ github.workspace }}\build\test" -Force
           Copy-Item -Path "${{ github.workspace }}\build\thirdparty\sqlite3\sqlite3.dll" -Destination "${{ github.workspace }}\build\test" -Force
+          Copy-Item -Path "${{ github.workspace }}\build\thirdparty/postgres/build/src/interfaces/libpq/libpq.dll" -Destination "${{ github.workspace }}\build\test" -Force
           Copy-Item -Path "${{ github.workspace }}\build\lib\StormByte-Database.dll" -Destination "${{ github.workspace }}\build\test" -Force
-          
 
       - name: Run unit tests
         run: ctest --output-on-failure --test-dir ${{ github.workspace }}\build\test

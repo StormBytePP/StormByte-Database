@@ -12,6 +12,7 @@ file(GLOB_RECURSE STORMBYTE_DATABASE_SQLITE_SOURCES_PRIVATE CONFIGURE_DEPENDS "$
 add_library(StormByte-Database SHARED ${STORMBYTE_DATABASE_SOURCES})
 add_library(StormByte::Database ALIAS StormByte-Database)
 target_link_libraries(StormByte-Database PUBLIC StormByte StormByte-Logger)
+
 set_target_properties(StormByte-Database PROPERTIES
 	LINKER_LANGUAGE CXX
 	SOVERSION		${CMAKE_PROJECT_VERSION}
@@ -30,11 +31,10 @@ if (NOT WITH_SQLITE STREQUAL "OFF")
 		${STORMBYTE_DATABASE_SQLITE_SOURCES}
 		${STORMBYTE_DATABASE_SQLITE_SOURCES_PRIVATE}
 	)
-	if (WITH_SQLITE STREQUAL "SYSTEM")
-		target_link_libraries(StormByte-Database PUBLIC sqlite3)
-	else()
-		target_link_libraries(StormByte-Database PRIVATE sqlite3)
-	endif()
+endif()
+
+if (NOT WITH_POSTGRES STREQUAL "OFF")
+	
 endif()
 
 # Compile options
@@ -65,7 +65,7 @@ if (NOT STORMBYTE_AS_DEPENDENCY)
 		PATTERN "*.h"
 		PATTERN "*.hxx"
 	)
-	if (ENABLE_SQLITE)
+	if (WITH_SQLITE STREQUAL "BUNDLED")
 		install(DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/optional/StormByte/database/sqlite"
 			DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/StormByte/database"
 			FILES_MATCHING

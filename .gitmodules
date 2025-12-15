@@ -7,3 +7,6 @@
 [submodule "thirdparty/postgres/postgres"]
 	path = thirdparty/postgres/postgres
 	url = https://github.com/postgres/postgres.git
+[submodule "thirdparty/mariadb/mariadb-connector-c"]
+	path = thirdparty/mariadb/mariadb-connector-c
+	url = https://github.com/mariadb-corporation/mariadb-connector-c.git

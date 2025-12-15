@@ -19,6 +19,7 @@ jobs:
         stdlib: [libstdc++, libc++]
         sqlite: [BUNDLED, SYSTEM, OFF]
         postgres: [BUNDLED, SYSTEM, OFF]
+        mariadb: [BUNDLED, OFF]
         exclude:
         - compiler: gcc
           stdlib: libc++
@@ -26,7 +27,8 @@ jobs:
           sqlite: SYSTEM
         - stdlib: libc++
           postgres: SYSTEM
-    name: ${{ matrix.compiler }}-${{ matrix.stdlib }}-sqlite(${{ matrix.sqlite }})-postgres(${{ matrix.postgres }})
+
+    name: ${{ matrix.compiler }}-${{ matrix.stdlib }}-sqlite(${{ matrix.sqlite }})-postgres(${{ matrix.postgres }})-mariadb(${{ matrix.mariadb }})
 
     steps:
     - name: Checkout repository and submodules
@@ -52,6 +54,13 @@ jobs:
       run: |
         pkgs="meson bison flex"
         if [ "${{ matrix.postgres }}" = "SYSTEM" ]; then pkgs="$pkgs libpq-dev"; fi
+        if [ -n "$pkgs" ]; then sudo apt-get install -y $pkgs; fi
+
+    - name: Install system dependencies (mariadb)
+      if: ${{ matrix.mariadb != 'OFF' }}
+      run: |
+        pkgs=""
+        if [ "${{ matrix.mariadb }}" = "BUNDLED" ]; then pkgs="$pkgs openssl-devel"; fi
         if [ -n "$pkgs" ]; then sudo apt-get install -y $pkgs; fi
 
     - name: Install and start Postgres server (Linux runners)
@@ -84,6 +93,7 @@ jobs:
           -DENABLE_ASAN=ON
           -DWITH_SQLITE=${{ matrix.sqlite }}
           -DWITH_POSTGRES=${{ matrix.postgres }}
+          -DWITH_MARIADB=${{ matrix.mariadb }}
           -DWITH_SYSTEM_STORMBYTE=OFF
         build-type: ${{ env.BUILD_TYPE }}
         run-test: true
@@ -132,6 +142,7 @@ jobs:
             -DENABLE_TEST=ON
             -DWITH_SQLITE=BUNDLED
             -DWITH_POSTGRES=BUNDLED
+            -DWITH_MARIADB=BUNDLED
             -DWITH_SYSTEM_STORMBYTE=OFF
           build-type: ${{ env.BUILD_TYPE }}
 
@@ -141,6 +152,7 @@ jobs:
           Copy-Item -Path "${{ github.workspace }}\build\thirdparty\StormByte\logger\lib\StormByte-Logger.dll" -Destination "${{ github.workspace }}\build\test" -Force
           Copy-Item -Path "${{ github.workspace }}\build\thirdparty\sqlite3\sqlite3.dll" -Destination "${{ github.workspace }}\build\test" -Force
           Copy-Item -Path "${{ github.workspace }}\build\thirdparty\postgres\build\src\interfaces\libpq\libpq.dll" -Destination "${{ github.workspace }}\build\test" -Force
+          Copy-Item -Path "${{ github.workspace }}\build\thirdparty\mariadb\mariadb-connector-c\libmariadb\libmariadb.dll" -Destination "${{ github.workspace }}\build\test" -Force
           Copy-Item -Path "${{ github.workspace }}\build\lib\StormByte-Database.dll" -Destination "${{ github.workspace }}\build\test" -Force
 
       - name: Install and start Postgres (Windows)

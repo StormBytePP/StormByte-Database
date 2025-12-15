@@ -1,9 +1,7 @@
 #pragma once
 
 #include <StormByte/database/database.hxx>
-#include <StormByte/database/sqlite/preparedSTMT.hxx>
-#include <StormByte/database/sqlite/query.hxx>
-#include <StormByte/database/sqlite/exception.hxx>
+#include <StormByte/database/sqlite/prepared_stmt.hxx>
 
 #include <filesystem>
 #include <list>
@@ -11,6 +9,7 @@
 #include <memory>
 
 class sqlite3; // Forward declaration so we don't have to depend on sqlite3 headers
+
 /**
  * @namespace Database::SQLite
  * @brief All the classes for handling SQLite databases
@@ -20,7 +19,7 @@ namespace StormByte::Database::SQLite {
 	 * @class SQLite3
 	 * @brief SQLite3 database class
 	 */
-	class STORMBYTE_DATABASE_PUBLIC SQLite3: public Database<Query, PreparedSTMT> {
+	class STORMBYTE_DATABASE_PUBLIC SQLite3: public Database {
 		public:
 			/**
 			 * Copy constructor
@@ -47,75 +46,82 @@ namespace StormByte::Database::SQLite {
 			 */
 			virtual ~SQLite3() noexcept;
 
+			/**
+			 * Executes a query
+			 * @param query The query to execute.
+			 * @return ExpectedRows containing the result rows or an error.
+			 */
+			ExpectedRows 											Query(const std::string& query) noexcept override;
+
+			/**
+			 * Executes a silent query (no results expected)
+			 * @param query The query to execute.
+			 * @return True if the query was executed successfully
+			 */
+			bool 													SilentQuery(const std::string& query) noexcept override;
+
 		protected:
 			/**
 			 * Constructor
 			 */
-			SQLite3();
+			SQLite3(std::shared_ptr<Logger::Log> logger) noexcept;
 
 			/**
 			 * Constructor
 			 * @param dbfile database file
 			 */
-			SQLite3(const std::filesystem::path& dbfile);
+			SQLite3(const std::filesystem::path& dbfile, std::shared_ptr<Logger::Log> logger);
 
 			/**
 			 * Constructor
 			 * @param dbfile database file
 			 */
-			SQLite3(std::filesystem::path&& dbfile);
+			SQLite3(std::filesystem::path&& dbfile, std::shared_ptr<Logger::Log>&& logger);
 
 			/**
-			 * Connects to the database.
+			 * Enable the foreign keys for SQLite3 (default is disabled)
 			 */
-			void 												Connect() override;
-
-			/**
-			 * Disconnects from the database.
-			 */
-			void 												Disconnect() override;
-
-			/**
-			 * Gets the last error
-			 * @return last error
-			 */
-			const std::string 									LastError() const override;
+			void 													EnableForeignKeys();
 
 		private:
 			/**
 			 * Database file
 			 */
-			std::filesystem::path m_database_file;	///< Database file
+			std::filesystem::path m_database_file;					///< Database file
 
 			/**
 			 * SQLite3 database
 			 * (can not use std::unique_ptr because sqlite3 is an incomplete type)
 			 */
-			sqlite3* m_database;					///< SQLite3 database
+			sqlite3* m_database;									///< SQLite3 database
 
 			/**
-			 * Enable the foreign keys for SQLite3 (default is disabled)
+			 * Internal function for connecting
+			 * @return true if connection was successful, false otherwise
 			 */
-			void 												EnableForeignKeys();
+			bool 													DoConnect() noexcept override;
+
+			/**
+			 * Internal function for pre-disconnection setup
+			 */
+			void 													DoPreDisconnect() noexcept override;
 
 			/**
 			 * Internal function for disconnecting
 			 */
-			void												InternalDisconnect();
+			void 													DoDisconnect() noexcept override;
 
 			/**
-			 * Prepares a statement
+			 * Internal function for post-disconnection setup
+			 */
+			void 													DoPostDisconnect() noexcept override;
+
+			/**
+			 * Creates a prepared statement
 			 * @param name The name of the prepared statement
 			 * @param query The query to prepare
 			 * @return The created prepared statement
 			 */
-			std::unique_ptr<PreparedSTMT>						InternalPrepare(const std::string& name, const std::string& query) override;
-
-			/**
-			 * Executes a query
-			 * @param query The query to execute.
-			 * @return The created query
-			 */
-			std::unique_ptr<Query>								InternalQuery(const std::string& query) override;
+			std::unique_ptr<StormByte::Database::PreparedSTMT> 		CreatePreparedSTMT(std::string&& name, std::string&& query) noexcept override;
 	};
 }

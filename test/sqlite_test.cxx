@@ -1,4 +1,5 @@
 #include <StormByte/database/sqlite/sqlite3.hxx>
+#include <StormByte/logger/log.hxx>
 #include <StormByte/system.hxx>
 #include <StormByte/test_handlers.h>
 
@@ -6,15 +7,36 @@
 #include <iostream>
 #include <vector>
 
+using ExpectedRows = StormByte::Database::ExpectedRows;
 using namespace StormByte::Database::SQLite;
+
+std::shared_ptr<StormByte::Logger::Log> logger = std::make_shared<StormByte::Logger::Log>(std::cout, StormByte::Logger::Level::Info);
 
 class TestMemoryDatabase : public SQLite3 {
 	public:
-		TestMemoryDatabase() : SQLite3() {
-			post_init_action();
+		TestMemoryDatabase(): SQLite3(logger) {}
+
+		const ExpectedRows get_users() {
+			return ExecuteSTMT("select_users");
 		}
 	
-		void post_init_action() noexcept {
+		const ExpectedRows get_products() {
+			return ExecuteSTMT("select_products");
+		}
+	
+		const ExpectedRows get_orders() {
+			return ExecuteSTMT("select_orders");
+		}
+	
+		const ExpectedRows get_joined_data() {
+			return ExecuteSTMT("select_join");
+		}
+
+	private:
+		void DoPostConnect() noexcept override {
+			// Enable foreign keys
+			EnableForeignKeys();
+
 			// Create tables
 			SilentQuery("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE);");
 			SilentQuery("CREATE TABLE products (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, price REAL NOT NULL);");
@@ -34,189 +56,184 @@ class TestMemoryDatabase : public SQLite3 {
 			PrepareSTMT("select_orders", "SELECT user_id, product_id, quantity FROM orders;");
 			PrepareSTMT("select_join", "SELECT users.name, products.name, orders.quantity FROM orders JOIN users ON orders.user_id = users.id JOIN products ON orders.product_id = products.id;");
 		}
-
-		const std::vector<Row> get_users() const {
-			auto& stmt = GetPreparedSTMT("select_users");
-			std::vector<Row> rows;
-			while (const Row& r = stmt.Step())
-				rows.push_back(r);
-			return rows;
-		}
-	
-		const std::vector<Row> get_products() const {
-			auto& stmt = GetPreparedSTMT("select_products");
-			std::vector<Row> rows;
-			while (const Row& r = stmt.Step())
-				rows.push_back(r);
-			return rows;
-		}
-	
-		const std::vector<Row> get_orders() const {
-			auto& stmt = GetPreparedSTMT("select_orders");
-			std::vector<Row> rows;
-			while (const Row& r = stmt.Step())
-				rows.push_back(r);
-			return rows;
-		}
-	
-		const std::vector<Row> get_joined_data() const {
-			auto& stmt = GetPreparedSTMT("select_join");
-			std::vector<Row> rows;
-			while (const Row& r = stmt.Step())
-				rows.push_back(r);
-			return rows;
-		}
 };
 
 class TestFileDatabase : public SQLite3 {
 	public:
-		TestFileDatabase() : SQLite3(CurrentFileDirectory / "files" / "test.db") {
-			post_init_action();
-		}
+		TestFileDatabase() : SQLite3(CurrentFileDirectory / "files" / "test.db", logger) {}
 	
-		void post_init_action() noexcept {
+		void DoPostConnect() noexcept override {
+			// Enable foreign keys
+			EnableForeignKeys();
+
+			// Prepare statements
 			PrepareSTMT("select_users", "SELECT name, email FROM users;");
 		}
 
-		const std::vector<Row> get_users() const {
-			auto& stmt = GetPreparedSTMT("select_users");
-			std::vector<Row> rows;
-			while (const Row& r = stmt.Step())
-				rows.push_back(r);
-			return rows;
+		const ExpectedRows get_users() {
+			return ExecuteSTMT("select_users");
 		}
 };
 
 int verify_inserted_users() {
+	const std::string fn_name = "verify_inserted_users";
 	// Create an in-memory database for testing
 	TestMemoryDatabase db;
+	db.Connect();
 
 	// 1. Verify that users were inserted correctly
-	auto rows = db.get_users();
-	ASSERT_EQUAL("verify_inserted_users", 2, rows[0].Count());
-	ASSERT_EQUAL("verify_inserted_users", "Alice", std::get<std::string>(rows[0][0]));
-	ASSERT_EQUAL("verify_inserted_users", "alice@example.com", std::get<std::string>(rows[0][1]));
+	auto expected_rows = db.get_users();
+	ASSERT_TRUE(fn_name , expected_rows.has_value());
 
-	ASSERT_EQUAL("verify_inserted_users", 2, rows[1].Count());
-	ASSERT_EQUAL("verify_inserted_users", "Bob", std::get<std::string>(rows[1][0]));
-	ASSERT_EQUAL("verify_inserted_users", "bob@example.com", std::get<std::string>(rows[1][1]));
+	const auto& rows = expected_rows.value();
+	ASSERT_EQUAL(fn_name , 2, rows.Count());
+	ASSERT_EQUAL(fn_name, 2, rows[0].Count());
+	ASSERT_EQUAL(fn_name , "Alice", rows[0][0].Get<std::string>());
+	ASSERT_EQUAL(fn_name , "alice@example.com", rows[0][1].Get<std::string>());
+	ASSERT_EQUAL(fn_name, 2, rows[1].Count());
+	ASSERT_EQUAL(fn_name , "Bob", rows[1][0].Get<std::string>());
+	ASSERT_EQUAL(fn_name , "bob@example.com", rows[1][1].Get<std::string>());
 
-	return 0;
+	RETURN_TEST(fn_name , 0);
 }
 
 int verify_inserted_products() {
+	const std::string fn_name = "verify_inserted_products";
 	// Create an in-memory database for testing
 	TestMemoryDatabase db;
+	db.Connect();
 
 	// 2. Verify that products were inserted correctly
-	auto rows = db.get_products();
-	ASSERT_EQUAL("verify_inserted_products", 2, rows[0].Count());
-	ASSERT_EQUAL("verify_inserted_products", "Laptop", std::get<std::string>(rows[0][0]));
-	ASSERT_EQUAL("verify_inserted_products", 999.99, std::get<double>(rows[0][1]));
+	auto expected_rows = db.get_products();
+	ASSERT_TRUE(fn_name, expected_rows.has_value());
+	const auto& rows = expected_rows.value();
+	ASSERT_EQUAL(fn_name, 2, rows.Count());
+	ASSERT_EQUAL(fn_name, 2, rows[0].Count());
+	ASSERT_EQUAL(fn_name, "Laptop", rows[0][0].Get<std::string>());
+	ASSERT_EQUAL(fn_name, 999.99, rows[0][1].Get<double>());
+	ASSERT_EQUAL(fn_name, 2, rows[1].Count());
+	ASSERT_EQUAL(fn_name, "Mouse", rows[1][0].Get<std::string>());
+	ASSERT_EQUAL(fn_name, 19.99, rows[1][1].Get<double>());
 
-	ASSERT_EQUAL("verify_inserted_products", 2, rows[1].Count());
-	ASSERT_EQUAL("verify_inserted_products", "Mouse", std::get<std::string>(rows[1][0]));
-	ASSERT_EQUAL("verify_inserted_products", 19.99, std::get<double>(rows[1][1]));
-
-	return 0;
+	RETURN_TEST(fn_name , 0);
 }
 
 int verify_inserted_orders() {
+	const std::string fn_name = "verify_inserted_orders";
 	// Create an in-memory database for testing
 	TestMemoryDatabase db;
+	db.Connect();
 
 	// 3. Verify that orders were inserted correctly
-	auto rows = db.get_orders();
-	ASSERT_EQUAL("verify_inserted_orders", 3, rows[0].Count());
-	ASSERT_EQUAL("verify_inserted_orders", 1, std::get<int>(rows[0][0]));
-	ASSERT_EQUAL("verify_inserted_orders", 1, std::get<int>(rows[0][1]));
-	ASSERT_EQUAL("verify_inserted_orders", 1, std::get<int>(rows[0][2]));
+	auto expected_rows = db.get_orders();
+	ASSERT_TRUE(fn_name, expected_rows.has_value());
+	const auto rows = expected_rows.value();
+	ASSERT_EQUAL(fn_name, 2, rows.Count());
+	ASSERT_EQUAL(fn_name, 3, rows[0].Count());
+	ASSERT_EQUAL(fn_name, 1, rows[0][0].Get<int>());
+	ASSERT_EQUAL(fn_name, 1, rows[0][1].Get<int>());
+	ASSERT_EQUAL(fn_name, 1, rows[0][2].Get<int>());
+	ASSERT_EQUAL(fn_name, 3, rows[1].Count());
+	ASSERT_EQUAL(fn_name, 2, rows[1][0].Get<int>());
+	ASSERT_EQUAL(fn_name, 2, rows[1][1].Get<int>());
+	ASSERT_EQUAL(fn_name, 2, rows[1][2].Get<int>());
 
-	ASSERT_EQUAL("verify_inserted_orders", 3, rows[1].Count());
-	ASSERT_EQUAL("verify_inserted_orders", 2, std::get<int>(rows[1][0]));
-	ASSERT_EQUAL("verify_inserted_orders", 2, std::get<int>(rows[1][1]));
-	ASSERT_EQUAL("verify_inserted_orders", 2, std::get<int>(rows[1][2]));
-
-	return 0;
+	RETURN_TEST(fn_name , 0);
 }
 
 int verify_relationships() {
+	const std::string fn_name = "verify_relationships";
 	// Create an in-memory database for testing
 	TestMemoryDatabase db;
+	db.Connect();
 
 	// 4. Verify that the relationship between tables works correctly
-	auto rows = db.get_joined_data();
-	ASSERT_EQUAL("verify_relationships", 3, rows[0].Count());
-	ASSERT_EQUAL("verify_relationships", "Alice", std::get<std::string>(rows[0][0]));
-	ASSERT_EQUAL("verify_relationships", "Laptop", std::get<std::string>(rows[0][1]));
-	ASSERT_EQUAL("verify_relationships", 1, std::get<int>(rows[0][2]));
+	auto expected_rows = db.get_joined_data();
+	ASSERT_TRUE(fn_name, expected_rows.has_value());
+	const auto& rows = expected_rows.value();
+	ASSERT_EQUAL(fn_name, 2, rows.Count());
+	ASSERT_EQUAL(fn_name, 3, rows[0].Count());
+	ASSERT_EQUAL(fn_name, "Alice", rows[0][0].Get<std::string>());
+	ASSERT_EQUAL(fn_name, "Laptop", rows[0][1].Get<std::string>());
+	ASSERT_EQUAL(fn_name, 1, rows[0][2].Get<int>());
+	ASSERT_EQUAL(fn_name, 3, rows[1].Count());
+	ASSERT_EQUAL(fn_name, "Bob", rows[1][0].Get<std::string>());
+	ASSERT_EQUAL(fn_name, "Mouse", rows[1][1].Get<std::string>());
+	ASSERT_EQUAL(fn_name, 2, rows[1][2].Get<int>());
 
-	ASSERT_EQUAL("verify_relationships", 3, rows[1].Count());
-	ASSERT_EQUAL("verify_relationships", "Bob", std::get<std::string>(rows[1][0]));
-	ASSERT_EQUAL("verify_relationships", "Mouse", std::get<std::string>(rows[1][1]));
-	ASSERT_EQUAL("verify_relationships", 2, std::get<int>(rows[1][2]));
-
-	return 0;
+	RETURN_TEST(fn_name , 0);
 }
 
 int query_test() {
+	const std::string fn_name = "query_test";
 	// Create an in-memory database for testing
 	TestMemoryDatabase db;
+	db.Connect();
 
 	// 5. Verify that the query method works correctly
-	auto query = db.PrepareQuery("SELECT COUNT(*) FROM users;");
-	auto row = query->Step();
-	ASSERT_EQUAL("query_test", 1, row.Count());
-	ASSERT_EQUAL("query_test", 2, std::get<int>(row[0]));
+	auto expected_rows = db.Query("SELECT COUNT(*) FROM users;");
+	ASSERT_TRUE(fn_name, expected_rows.has_value());
+	const auto& rows = expected_rows.value();
+	ASSERT_EQUAL(fn_name, 1, rows.Count());
+	ASSERT_EQUAL(fn_name, 1, rows[0].Count());
+	ASSERT_EQUAL(fn_name, 2, rows[0][0].Get<int>());
 
-	RETURN_TEST("query_test", 0);
+	RETURN_TEST(fn_name, 0);
 }
 
 int bool_test() {
+	const std::string fn_name = "bool_test";
 	// Create an in-memory database for testing
 	TestMemoryDatabase db;
+	db.Connect();
 
 	// 6. Verify that the query method works correctly
-	auto query = db.PrepareQuery("SELECT COUNT(*) > 0 FROM users;");
-	auto row = query->Step();
-	ASSERT_EQUAL("bool_test", 1, row.Count());
-	ASSERT_EQUAL("bool_test", true, (bool)std::get<int>(row[0]));
+	auto expected_rows = db.Query("SELECT COUNT(*) > 0 FROM users;");
+	ASSERT_TRUE(fn_name, expected_rows.has_value());
+	const auto& rows = expected_rows.value();
+	ASSERT_EQUAL(fn_name, 1, rows.Count());
+	ASSERT_EQUAL(fn_name, 1, rows[0].Count());
+	ASSERT_EQUAL(fn_name, true, (bool)rows[0][0].Get<int>());
 
-	RETURN_TEST("bool_test", 0);
+	RETURN_TEST(fn_name, 0);
 }
 
 int read_from_binary_database() {
+	const std::string fn_name = "read_from_binary_database";
 	// Create an in-memory database for testing
 	TestFileDatabase db;
+	db.Connect();
 
 	// 1. Verify that users were inserted correctly
-	auto rows = db.get_users();
-	ASSERT_EQUAL("verify_inserted_users", 2, rows[0].Count());
-	ASSERT_EQUAL("verify_inserted_users", "John Doe", std::get<std::string>(rows[0][0]));
-	ASSERT_EQUAL("verify_inserted_users", "john@example.com", std::get<std::string>(rows[0][1]));
-
-	ASSERT_EQUAL("verify_inserted_users", 2, rows[1].Count());
-	ASSERT_EQUAL("verify_inserted_users", "Sarah Connor", std::get<std::string>(rows[1][0]));
-	ASSERT_EQUAL("verify_inserted_users", "sarah@example.com", std::get<std::string>(rows[1][1]));
-
+	auto expected_rows = db.get_users();
+	ASSERT_TRUE(fn_name, expected_rows.has_value());
+	const auto& rows = expected_rows.value();
+	ASSERT_EQUAL(fn_name, 2, rows.Count());
+	ASSERT_EQUAL(fn_name, 2, rows[0].Count());
+	ASSERT_EQUAL(fn_name, "John Doe", rows[0][0].Get<std::string>());
+	ASSERT_EQUAL(fn_name, "john@example.com", rows[0][1].Get<std::string>());
+	ASSERT_EQUAL(fn_name, 2, rows[1].Count());
+	ASSERT_EQUAL(fn_name, "Sarah Connor", rows[1][0].Get<std::string>());
+	ASSERT_EQUAL(fn_name, "sarah@example.com", rows[1][1].Get<std::string>());
 	return 0;
 }
 
 int main() {
     int result = 0;
-    try {
-		//result += verify_inserted_users();
-		//result += verify_inserted_products();
-		//result += verify_inserted_orders();
-		//result += verify_relationships();
-		//result += query_test();
-		//result += bool_test();
-		result += read_from_binary_database();
+
+	result += verify_inserted_users();
+	result += verify_inserted_products();
+	result += verify_inserted_orders();
+	result += verify_relationships();
+	result += query_test();
+	result += bool_test();
+	result += read_from_binary_database();
+
+	if (result == 0) {
         std::cout << "All tests passed successfully.\n";
-    } catch (const StormByte::Database::SQLite::Exception& ex) {
-		std::cerr << "Exception: " << ex.what() << std::endl;
-        result++;
+	} else {
+		std::cout << result << " tests failed.\n";
 	}
 
-    return result;
+	return result;
 }

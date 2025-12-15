@@ -10,7 +10,7 @@ file(GLOB_RECURSE STORMBYTE_DATABASE_SQLITE_SOURCES CONFIGURE_DEPENDS "${CMAKE_C
 # Library
 add_library(StormByte-Database SHARED ${STORMBYTE_DATABASE_SOURCES})
 add_library(StormByte::Database ALIAS StormByte-Database)
-target_link_libraries(StormByte-Database PUBLIC StormByte)
+target_link_libraries(StormByte-Database PUBLIC StormByte StormByte-Logger)
 set_target_properties(StormByte-Database PROPERTIES
 	LINKER_LANGUAGE CXX
 	SOVERSION		${CMAKE_PROJECT_VERSION}

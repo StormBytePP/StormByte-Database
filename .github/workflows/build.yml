@@ -97,6 +97,7 @@ jobs:
       - name: Copy DLLs
         run: |
           Copy-Item -Path "${{ github.workspace }}\build\thirdparty\StormByte\base\lib\StormByte.dll" -Destination "${{ github.workspace }}\build\test" -Force
+          Copy-Item -Path "${{ github.workspace }}\build\thirdparty\StormByte\logger\lib\StormByte-Logger.dll" -Destination "${{ github.workspace }}\build\test" -Force
           Copy-Item -Path "${{ github.workspace }}\build\thirdparty\sqlite3\sqlite3.dll" -Destination "${{ github.workspace }}\build\test" -Force
           Copy-Item -Path "${{ github.workspace }}\build\lib\StormByte-Database.dll" -Destination "${{ github.workspace }}\build\test" -Force
           

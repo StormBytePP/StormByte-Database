@@ -14,42 +14,28 @@ namespace StormByte::Database {
 	 */
 	class STORMBYTE_DATABASE_PUBLIC Exception: public StormByte::Exception {
 		public:
-			/**
-			 * Constructor
-			 * @param reason
-			 */
-			Exception(const std::string& reason);
+			template <typename... Args>
+			Exception(const std::string& component, std::format_string<Args...> fmt, Args&&... args):
+			StormByte::Exception("Database::" + component, fmt, std::forward<Args>(args)...) {}
 
-			/**
-			 * Constructor
-			 * @param reason
-			 */
-			Exception(std::string&& reason);
-
-			/**
-			 * Copy constructor
-			 */
-			Exception(const Exception&)					= default;
-
-			/**
-			 * Move constructor
-			 */
-			Exception(Exception&&) noexcept				= default;
-
-			/**
-			 * Assignment operator
-			 */
-			Exception& operator=(const Exception&)		= default;
-
-			/**
-			 * Move assignment operator
-			 */
-			Exception& operator=(Exception&&) noexcept	= default;
+			using StormByte::Exception::Exception;
 
 			/**
 			 * Destructor
 			 */
-			virtual ~Exception() noexcept				= default;
+			virtual ~Exception() noexcept override = default;
+	};
+
+	/**
+	 * @class WrongValueType
+	 * @brief Exception thrown when value type requested is not correct
+	 */
+	class STORMBYTE_DATABASE_PUBLIC ConnectionError final: public Exception {
+		public:
+			ConnectionError(const std::string& error):
+			Exception("Connection: ", error) {}
+			
+			using Exception::Exception;
 	};
 
 	/**
@@ -58,36 +44,11 @@ namespace StormByte::Database {
 	 */
 	class STORMBYTE_DATABASE_PUBLIC WrongValueType final: public Exception {
 		public:
-			/**
-			 * Constructor
-			 * @param targettype item type trying to be converted
-			 */
-			WrongValueType(const std::string& targettype);
+			template <typename... Args>
+			WrongValueType(const std::string& component, std::format_string<Args...> fmt, Args&&... args):
+			Exception("WrongValueType: ", fmt, std::forward<Args>(args)...) {}
 
-			/**
-			 * Copy constructor
-			 */
-			WrongValueType(const WrongValueType&)				= default;
-
-			/**
-			 * Move constructor
-			 */
-			WrongValueType(WrongValueType&&)					= default;
-
-			/**
-			 * Assignment operator
-			 */
-			WrongValueType& operator=(const WrongValueType&)	= default;
-
-			/**
-			 * Move assignment operator
-			 */
-			WrongValueType& operator=(WrongValueType&&)			= default;
-
-			/**
-			 * Destructor
-			 */
-			~WrongValueType() noexcept override					= default;
+			using Exception::Exception;
 	};
 
 	/**
@@ -96,36 +57,11 @@ namespace StormByte::Database {
 	 */
 	class STORMBYTE_DATABASE_PUBLIC ColumnNotFound: public Exception {
 		public:
-			/**
-			 * Constructor
-			 * @param name column name
-			 */
-			ColumnNotFound(const std::string& name);
+			template <typename... Args>
+			ColumnNotFound(const std::string& collumn):
+			Exception("ColumnNotFound: ", "Column '{}' not found", collumn) {}
 
-			/**
-			 * Copy constructor
-			 */
-			ColumnNotFound(const ColumnNotFound&)					= default;
-
-			/**
-			 * Move constructor
-			 */
-			ColumnNotFound(ColumnNotFound&&) noexcept				= default;
-
-			/**
-			 * Assignment operator
-			 */
-			ColumnNotFound& operator=(const ColumnNotFound&)		= default;
-
-			/**
-			 * Move operator
-			 */
-			ColumnNotFound& operator=(ColumnNotFound&&) noexcept 	= default;
-
-			/**
-			 * Destructor
-			 */
-			~ColumnNotFound() noexcept override						= default;
+			using Exception::Exception;
 	};
 
 	/**
@@ -134,35 +70,46 @@ namespace StormByte::Database {
 	 */
 	class STORMBYTE_DATABASE_PUBLIC OutOfBounds: public Exception {
 		public:
-			/**
-			 * Constructor
-			 * @param index index
-			 */
-			OutOfBounds(const size_t& index);
+			OutOfBounds(int pos, std::size_t size):
+			Exception("OutOfBounds: ", "Position {} is out of bounds for size {}", pos, size) {}
+			
+			using Exception::Exception;
+	};
 
-			/**
-			 * Copy constructor
-			 */
-			OutOfBounds(const OutOfBounds&)							= default;
+	/**
+	 * @class QueryException
+	 * @brief Exception related to query execution
+	 */
+	class STORMBYTE_DATABASE_PUBLIC QueryException: public Exception {
+		public:
+			template <typename... Args>
+			QueryException(const std::string& component, std::format_string<Args...> fmt, Args&&... args):
+			Exception("Query::" + component, fmt, std::forward<Args>(args)...) {}
+			
+			using Exception::Exception;
+	};
 
-			/**
-			 * Move constructor
-			 */
-			OutOfBounds(OutOfBounds&&) noexcept						= default;
+	/**
+	 * @class UnknownSTMT
+	 * @brief Exception when accessing an unknown prepared statement
+	 */
+	class STORMBYTE_DATABASE_PUBLIC UnknownSTMT: public QueryException {
+		public:
+			UnknownSTMT(const std::string& name):
+			QueryException("PreparedSTMT: ", "Statement '{}' not found", name) {}
+			
+			using QueryException::QueryException;
+	};
 
-			/**
-			 * Assignment operator
-			 */
-			OutOfBounds& operator=(const OutOfBounds&)				= default;
-
-			/**
-			 * Move operator
-			 */
-			OutOfBounds& operator=(OutOfBounds&&) noexcept 			= default;
-
-			/**
-			 * Destructor
-			 */
-			~OutOfBounds() noexcept override						= default;
+	/**
+	 * @class ExecuteError
+	 * @brief Exception when executing a query
+	 */
+	class STORMBYTE_DATABASE_PUBLIC ExecuteError: public QueryException {
+		public:
+			ExecuteError(const std::string& error):
+			QueryException("Execute: ", "Error executing query: {}", error) {}
+			
+			using QueryException::QueryException;
 	};
 }

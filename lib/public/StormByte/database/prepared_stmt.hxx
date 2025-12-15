@@ -4,14 +4,6 @@
 
 /**
  * @namespace Database
-#pragma once
-
-#include <StormByte/database/rows.hxx>
-#include <vector>
-#include <cstddef>
-
-/**
- * @namespace Database
  * @brief Contains classes and functions for database operations.
  */
 namespace StormByte::Database {

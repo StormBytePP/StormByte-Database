@@ -35,7 +35,10 @@ Ensure you have the following installed:
 
 - C++23 compatible compiler
 - CMake 3.12 or higher
-- SQLite3 for database backend support (optional)
+- Database optional backends:
+
+  - SQLite3
+  - PostgreSQL
 
 ### Building
 
@@ -58,46 +61,60 @@ StormByte Library is composed by several modules:
 
 The `Database` module provides support for SQLite, an embedded SQL database engine. It includes classes for managing database connections, prepared statements, and result rows.
 
-#### Example: Database
+#### SQLite
+
+Below are short examples showing how to open a connection and run simple queries using the bundled optional backends.
+
+##### SQLite example
+
+This example shows an in-process SQLite database (file or in-memory). It uses the StormByte `SQLite` optional backend which exposes the same `Database`-style API as other backends.
 
 ```cpp
 #include <StormByte/database/sqlite/sqlite3.hxx>
-#include <memory>
-#include <iostream>
+#include <StormByte/logger/log.hxx>
 
-class MyDatabase : public StormByte::Database::SQLite::SQLite3 {
-public:
-	MyDatabase(const std::filesystem::path& dbfile) : SQLite3(dbfile) {
-		init_database();
-	}
+auto logger = std::make_shared<StormByte::Logger::Log>(std::cout, StormByte::Logger::Level::Info);
 
-	void print_all_users() {
-		auto stmt = prepare_select_all_users();
-		while (auto row = stmt->Step()) {
-			std::cout << "ID: " << row->At(0)->Value<int>() << " Name: " << row->At(1)->Value<std::string>() << std::endl;
-		}
-	}
-
-protected:
-	void post_init_action() noexcept override {
-		try {
-			silent_query("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT NOT NULL)");
-		} catch (const StormByte::Database::SQLite::Exception& e) {
-			std::cerr << "Database initialization error: " << e.what() << std::endl;
-		}
-	}
-
-	std::shared_ptr<StormByte::Database::SQLite::PreparedSTMT> prepare_select_all_users() {
-		return prepare_sentence("select_all_users", "SELECT * FROM users");
-	}
-};
-
-// Example usage
-int main() {
-	MyDatabase db("/path/to/database.db");
-	db.print_all_users();
-	return 0;
+// Open an in-memory SQLite database
+StormByte::Database::SQLite db(":memory:", logger);
+if (!db.Connect()) {
+	// handle connection error
 }
+
+// Execute a simple query
+auto res = db.Query("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);");
+// use PrepareSTMT / ExecuteSTMT for prepared statements
+
+db.Disconnect();
+```
+
+##### PostgreSQL example
+
+This example uses the optional Postgres backend which delegates to libpq. The API mirrors the SQLite backend — constructors and connection semantics differ (host/user/password/db).
+
+```cpp
+#include <StormByte/database/postgres/postgres.hxx>
+#include <StormByte/logger/log.hxx>
+
+auto logger = std::make_shared<StormByte::Logger::Log>(std::cout, StormByte::Logger::Level::Info);
+
+// Connect to a Postgres server (host, user, password, dbname)
+StormByte::Database::Postgres::Postgres pg("localhost", "testuser", "testpass", "stormbyte_test", logger);
+if (!pg.Connect()) {
+	// handle connection error (inspect logger for details)
+}
+
+// Run queries (Query returns ExpectedRows / optional-like)
+auto rows = pg.Query("SELECT 1 as one;");
+if (rows.has_value()) {
+	// inspect rows.value()
+}
+
+// Use prepared statements:
+pg.PrepareSTMT("get_users", "SELECT name, email FROM users");
+auto users = pg.ExecuteSTMT("get_users");
+
+pg.Disconnect();
 ```
 
 ## Contributing

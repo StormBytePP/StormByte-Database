@@ -54,6 +54,24 @@ jobs:
         if [ "${{ matrix.postgres }}" = "SYSTEM" ]; then pkgs="$pkgs libpq-dev"; fi
         if [ -n "$pkgs" ]; then sudo apt-get install -y $pkgs; fi
 
+    - name: Install and start Postgres server (Linux runners)
+      if: ${{ matrix.postgres != 'OFF' }}
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y postgresql postgresql-contrib
+        # Try systemctl, fall back to service command
+        sudo systemctl enable --now postgresql || true
+        sudo service postgresql start || true
+        sleep 2
+        # Create test role and database used by tests (idempotent)
+        if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='testuser'" | grep -q 1; then
+          sudo -u postgres psql -c "CREATE ROLE testuser WITH LOGIN PASSWORD 'testpass';"
+        fi
+        if ! sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw stormbyte_test; then
+          sudo -u postgres psql -c "CREATE DATABASE stormbyte_test OWNER testuser;"
+        fi
+        sudo -u postgres psql -c "ALTER ROLE testuser CREATEDB;" || true
+
     - name: Build with CMake
       uses: ashutoshvarma/action-cmake-build@master
       with:
@@ -122,8 +140,31 @@ jobs:
           Copy-Item -Path "${{ github.workspace }}\build\thirdparty\StormByte\base\lib\StormByte.dll" -Destination "${{ github.workspace }}\build\test" -Force
           Copy-Item -Path "${{ github.workspace }}\build\thirdparty\StormByte\logger\lib\StormByte-Logger.dll" -Destination "${{ github.workspace }}\build\test" -Force
           Copy-Item -Path "${{ github.workspace }}\build\thirdparty\sqlite3\sqlite3.dll" -Destination "${{ github.workspace }}\build\test" -Force
-          Copy-Item -Path "${{ github.workspace }}\build\thirdparty/postgres/build/src/interfaces/libpq/libpq.dll" -Destination "${{ github.workspace }}\build\test" -Force
+          Copy-Item -Path "${{ github.workspace }}\build\thirdparty\postgres\build\src\interfaces\libpq\libpq.dll" -Destination "${{ github.workspace }}\build\test" -Force
           Copy-Item -Path "${{ github.workspace }}\build\lib\StormByte-Database.dll" -Destination "${{ github.workspace }}\build\test" -Force
+
+      - name: Install and start Postgres (Windows)
+        shell: powershell
+        run: |
+          choco install postgresql -y
+          # Find installed PostgreSQL root (e.g. C:\Program Files\PostgreSQL\14)
+          $pgroot = Get-ChildItem 'C:\Program Files\PostgreSQL' | Sort-Object Name -Descending | Select-Object -First 1
+          if ($null -eq $pgroot) { Write-Host "Postgres not found under Program Files\PostgreSQL"; exit 0 }
+          $pgroot = $pgroot.FullName
+          $bindir = Join-Path $pgroot 'bin'
+          $env:Path += ";$bindir"
+          # Initialize data directory if missing
+          if (-Not (Test-Path (Join-Path $pgroot 'data'))) {
+            & initdb.exe -D (Join-Path $pgroot 'data') -U postgres -A trust
+          }
+          # Start PostgreSQL instance
+          & pg_ctl.exe -D (Join-Path $pgroot 'data') -l (Join-Path $pgroot 'data\logfile') start
+          Start-Sleep -Seconds 2
+          # Create test role and database (idempotent)
+          $exists = & psql.exe -U postgres -t -c "SELECT 1 FROM pg_roles WHERE rolname='testuser';" | Out-String
+          if ($exists -notmatch '1') { & psql.exe -U postgres -c "CREATE ROLE testuser WITH LOGIN PASSWORD 'testpass';" }
+          $dbs = & psql.exe -U postgres -lqt | Out-String
+          if ($dbs -notmatch 'stormbyte_test') { & psql.exe -U postgres -c "CREATE DATABASE stormbyte_test OWNER testuser;" }
 
       - name: Run unit tests
         run: ctest --output-on-failure --test-dir ${{ github.workspace }}\build\test

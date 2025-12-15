@@ -87,8 +87,12 @@ if (NOT WITH_POSTGRES STREQUAL "OFF")
 		endif()
 		
 		add_dependencies(PostgreSQL::PostgreSQL postgres_bundled)
-		set_target_properties(PostgreSQL::PostgreSQL PROPERTIES
-			INTERFACE_INCLUDE_DIRECTORIES "${POSTGRES_SRC_DIR}/src/include"
+		# Export include dirs from the Postgres source tree so libpq and common headers are found
+		target_include_directories(PostgreSQL::PostgreSQL
+			SYSTEM INTERFACE
+			"${POSTGRES_SRC_DIR}/src/include"
+			"${POSTGRES_SRC_DIR}/src/interfaces/libpq"
+			"${POSTGRES_LIBPQ_DIR}"
 		)
 
 		message(STATUS "Using PostgreSQL: bundled ${POSTGRES_VERSION}")

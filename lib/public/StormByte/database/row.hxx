@@ -11,15 +11,11 @@
  * @brief Contains classes and functions for database operations.
  */
 namespace StormByte::Database {
-	namespace SQLite { class PreparedSTMT; class SQLite3; }		///< Forward declaration of SQLite PreparedSTMT class
-
 	/**
 	 * @class Row
 	 * @brief Row class for databases
 	 */
 	class STORMBYTE_DATABASE_PUBLIC Row {
-		friend class SQLite::PreparedSTMT;
-		friend class SQLite::SQLite3;
 		public:
 			/**
 			 * @class Iterator
@@ -32,7 +28,7 @@ namespace StormByte::Database {
 					using difference_type							= std::ptrdiff_t;
 					using pointer									= Value*;
 					using reference									= Value&;
-				const Value&											operator[](std::size_t index) const &;
+
 					/**
 					 * @brief Dereference operator
 					 * @return Reference to the current Value
@@ -330,6 +326,11 @@ namespace StormByte::Database {
 			using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
 			/**
+			 * @brief Default Constructor
+			 */
+			Row() noexcept											= default;
+
+			/**
 			 * @brief Copy Constructor
 			 * @param other Other Row to copy from
 			 */
@@ -407,6 +408,15 @@ namespace StormByte::Database {
 			 * @throw ColumnNotFound if the column name does not exist
 			 */
 			Value													operator[](const std::string& columnName) &&;
+
+			/**
+			 * @brief Adds a value to the Row
+			 * @param columnName Optional name of the column
+			 * @param value Value to add
+			 */
+			inline void												Add(std::string&& columnName, Value&& value) {
+				m_values.emplace_back(std::move(columnName), std::move(value));
+			}
 
 			/**
 			 * @brief Gets begin iterator
@@ -498,19 +508,5 @@ namespace StormByte::Database {
 
 		private:
 			std::vector<std::pair<std::string, Value>> m_values;	///< Internal storage of values
-
-			/**
-			 * @brief Default Constructor
-			 */
-			Row() noexcept											= default;
-
-			/**
-			 * @brief Adds a value to the Row
-			 * @param columnName Optional name of the column
-			 * @param value Value to add
-			 */
-			inline void												Add(std::string&& columnName, Value&& value) {
-				m_values.emplace_back(std::move(columnName), std::move(value));
-			}
 	};
 }

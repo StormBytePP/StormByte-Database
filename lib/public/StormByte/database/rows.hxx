@@ -7,15 +7,11 @@
  * @brief Contains classes and functions for database operations.
  */
 namespace StormByte::Database {
-	namespace SQLite { class PreparedSTMT; class SQlite3; }	///< Forward declaration of SQLite PreparedSTMT class
-
 	/**
 	 * @class Rows
 	 * @brief Rows class for databases
 	 */
 	class STORMBYTE_DATABASE_PUBLIC Rows {
-		friend class SQLite::PreparedSTMT;
-		friend class SQLite::SQLite3;
 		public:
 			/**
 			 * @class Iterator
@@ -326,6 +322,12 @@ namespace StormByte::Database {
 			using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
 			/**
+			 * @brief Adds a row to the Rows
+			 * @param row Row to add
+			 */
+			Rows() noexcept										= default;
+
+			/**
 			 * @brief Copy Constructor
 			 * @param other Other Rows to copy from
 			 */
@@ -379,6 +381,14 @@ namespace StormByte::Database {
 			 * @throw OutOfBounds if index is out of bounds
 			 */
 			Row													operator[](std::size_t index) &&;
+
+			/**
+			 * @brief Adds a row to the Rows
+			 * @param row Row to add
+			 */
+			inline void 										Add(Row&& row) {
+				m_rows.emplace_back(std::move(row));
+			}
 
 			/**
 			 * @brief Gets begin iterator
@@ -470,19 +480,5 @@ namespace StormByte::Database {
 
 		private:
 			std::vector<Row> m_rows;							///< Internal storage of values
-
-			/**
-			 * @brief Adds a row to the Rows
-			 * @param row Row to add
-			 */
-			Rows() noexcept										= default;
-
-			/**
-			 * @brief Adds a row to the Rows
-			 * @param row Row to add
-			 */
-			inline void 										Add(Row&& row) {
-				m_rows.emplace_back(std::move(row));
-			}
 	};
 }

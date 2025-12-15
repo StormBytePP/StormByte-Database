@@ -1,6 +1,5 @@
+#include <StormByte/database/sqlite/result_fetch.hxx>
 #include <StormByte/database/sqlite/sqlite3.hxx>
-
-#include <sqlite3.h>
 
 using namespace StormByte::Database::SQLite;
 
@@ -56,45 +55,9 @@ StormByte::Database::ExpectedRows SQLite3::Query(const std::string& query) noexc
 		if (stmt) sqlite3_finalize(stmt);
 		return Unexpected<ExecuteError>(errorStr);
 	}
-	Rows rows;
-	while (sqlite3_step(stmt) == SQLITE_ROW) {
-		Row row;
-		for (auto i = 0; i < sqlite3_column_count(stmt); i++) {
-			const char* colName = sqlite3_column_name(stmt, i);
-			switch (sqlite3_column_type(stmt, i)) {
-				case SQLITE_INTEGER:
-				{
-					sqlite3_int64 v = sqlite3_column_int64(stmt, i);
-					if (v > std::numeric_limits<int>::max() || v < std::numeric_limits<int>::min())
-						row.Add(colName, static_cast<long int>(v));
-					else
-						row.Add(colName, static_cast<int>(v));
-					break;
-				}
-					break;
-				case SQLITE_FLOAT:
-					row.Add(colName, sqlite3_column_double(stmt, i));
-					break;
-				case SQLITE_TEXT:
-					row.Add(colName, std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, i))));
-					break;
-				case SQLITE_BLOB: {
-					const std::byte* blobData = reinterpret_cast<const std::byte*>(sqlite3_column_blob(stmt, i));
-					int blobSize = sqlite3_column_bytes(stmt, i);
-					std::vector<std::byte> blobVec(blobData, blobData + blobSize);
-					row.Add(colName, std::move(blobVec));
-					break;
-				}
-				case SQLITE_NULL:
-				default:
-					row.Add(colName, nullptr);
-					break;
-			}
-		}
-		rows.Add(std::move(row));
-	}
+	ExpectedRows result = StepResults(stmt);
 	sqlite3_finalize(stmt);
-	return rows;
+	return result;
 }
 
 bool SQLite3::SilentQuery(const std::string& query) noexcept {

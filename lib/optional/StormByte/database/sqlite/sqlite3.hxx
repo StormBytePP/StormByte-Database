@@ -11,7 +11,7 @@
 class sqlite3; // Forward declaration so we don't have to depend on sqlite3 headers
 
 /**
- * @namespace Database::SQLite
+ * @namespace SQLite
  * @brief All the classes for handling SQLite databases
  */
 namespace StormByte::Database::SQLite {

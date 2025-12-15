@@ -3,6 +3,7 @@ include(GNUInstallDirs)
 # Sources
 file(GLOB_RECURSE STORMBYTE_DATABASE_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/public/*.cxx")
 file(GLOB_RECURSE STORMBYTE_DATABASE_SQLITE_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/optional/StormByte/database/sqlite/*.cxx")
+file(GLOB_RECURSE STORMBYTE_DATABASE_SQLITE_SOURCES_PRIVATE CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/private/StormByte/database/sqlite/*.cxx")
 
 # Remove redundant sources
 
@@ -24,7 +25,11 @@ set_target_properties(StormByte-Database PROPERTIES
 
 # SQLite optional
 if (NOT WITH_SQLITE STREQUAL "OFF")
-	target_sources(StormByte-Database PRIVATE ${STORMBYTE_DATABASE_SQLITE_SOURCES})
+	target_sources(StormByte-Database
+		PRIVATE
+		${STORMBYTE_DATABASE_SQLITE_SOURCES}
+		${STORMBYTE_DATABASE_SQLITE_SOURCES_PRIVATE}
+	)
 	if (WITH_SQLITE STREQUAL "SYSTEM")
 		target_link_libraries(StormByte-Database PUBLIC sqlite3)
 	else()

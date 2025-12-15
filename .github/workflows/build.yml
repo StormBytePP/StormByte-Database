@@ -60,7 +60,7 @@ jobs:
       if: ${{ matrix.mariadb != 'OFF' }}
       run: |
         pkgs=""
-        if [ "${{ matrix.mariadb }}" = "BUNDLED" ]; then pkgs="$pkgs openssl-devel"; fi
+        if [ "${{ matrix.mariadb }}" = "BUNDLED" ]; then pkgs="$pkgs libssl-dev"; fi
         if [ -n "$pkgs" ]; then sudo apt-get install -y $pkgs; fi
 
     - name: Install and start Postgres server (Linux runners)

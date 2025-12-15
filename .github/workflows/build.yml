@@ -17,14 +17,13 @@ jobs:
       matrix:
         compiler: [gcc, clang]
         stdlib: [libstdc++, libc++]
-        enable_sqlite: [ON, OFF]
-        system_sqlite: [ON, OFF]
+        sqlite: [BUNDLED, SYSTEM, OFF]
         exclude:
         - compiler: gcc
           stdlib: libc++
-        - enable_sqlite: OFF
-          system_sqlite: ON
-    name: ${{ matrix.compiler }}-${{ matrix.stdlib }}-sqlite(${{ matrix.enable_sqlite }})-system-sqlite(${{ matrix.system_sqlite }})
+        - stdlib: libc++
+          sqlite: SYSTEM
+    name: ${{ matrix.compiler }}-${{ matrix.stdlib }}-sqlite(${{ matrix.sqlite }})
 
     steps:
     - name: Checkout repository and submodules
@@ -39,10 +38,10 @@ jobs:
         compiler: ${{ matrix.compiler }}
 
     - name: Install system dependencies (apt)
-      if: ${{ matrix.system_sqlite == 'ON' }}
+      if: ${{ matrix.sqlite == 'SYSTEM' }}
       run: |
         pkgs=""
-        if [ "${{ matrix.system_sqlite }}" = "ON" ]; then pkgs="$pkgs libsqlite3-dev"; fi
+        if [ "${{ matrix.sqlite }}" = "SYSTEM" ]; then pkgs="$pkgs libsqlite3-dev"; fi
         if [ -n "$pkgs" ]; then sudo apt-get install -y $pkgs; fi
 
     - name: Build with CMake
@@ -55,8 +54,7 @@ jobs:
           -G Ninja
           -DENABLE_TEST=ON
           -DENABLE_ASAN=ON
-          -DENABLE_SQLITE=${{ matrix.enable_sqlite }}
-          -DWITH_SYSTEM_SQLITE=${{ matrix.system_sqlite }}
+          -DWITH_SQLITE=${{ matrix.sqlite }}
           -DWITH_SYSTEM_STORMBYTE=OFF
         build-type: ${{ env.BUILD_TYPE }}
         run-test: true
@@ -89,8 +87,7 @@ jobs:
           configure-options: >-
             -G Ninja
             -DENABLE_TEST=ON
-            -DENABLE_SQLITE=ON
-            -DWITH_SYSTEM_SQLITE=OFF
+            -DWITH_SQLITE=BUNDLED
             -DWITH_SYSTEM_STORMBYTE=OFF
           build-type: ${{ env.BUILD_TYPE }}
 

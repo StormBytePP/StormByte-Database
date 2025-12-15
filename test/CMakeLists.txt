@@ -6,7 +6,7 @@ if(ENABLE_TEST AND NOT STORMBYTE_AS_DEPENDENCY)
 	target_link_libraries(DummyTests StormByte::Database)
 	add_test(NAME DummyTests COMMAND DummyTests)
 	
-	if (ENABLE_SQLITE)
+	if (NOT WITH_SQLITE STREQUAL "OFF")
 		add_executable(SQLiteTests sqlite_test.cxx)
 		target_link_libraries(SQLiteTests StormByte::Database)
 		add_test(NAME SQLiteTests COMMAND SQLiteTests)

@@ -23,9 +23,9 @@ set_target_properties(StormByte-Database PROPERTIES
 )
 
 # SQLite optional
-if (ENABLE_SQLITE)
+if (NOT WITH_SQLITE STREQUAL "OFF")
 	target_sources(StormByte-Database PRIVATE ${STORMBYTE_DATABASE_SQLITE_SOURCES})
-	if (WITH_SYSTEM_SQLITE)
+	if (WITH_SQLITE STREQUAL "SYSTEM")
 		target_link_libraries(StormByte-Database PUBLIC sqlite3)
 	else()
 		target_link_libraries(StormByte-Database PRIVATE sqlite3)

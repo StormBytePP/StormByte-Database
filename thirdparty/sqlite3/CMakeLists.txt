@@ -1,15 +1,7 @@
-option(ENABLE_SQLITE "Enable SQLite3 support" ON)
+set(WITH_SQLITE "BUNDLED" CACHE STRING "SQLite mode: OFF, SYSTEM, BUNDLED")
 
-include(CMakeDependentOption)
-cmake_dependent_option(WITH_SYSTEM_SQLITE
-                       "Use system SQLite3 library"
-                       OFF  # Default value if the dependent option is not enabled
-                       "ENABLE_SQLITE"  # Dependent option
-                       OFF  # Default value if the dependent option is disabled
-)
-
-if (ENABLE_SQLITE)
-	if (WITH_SYSTEM_SQLITE)
+if (NOT WITH_SQLITE STREQUAL "OFF")
+	if (WITH_SQLITE STREQUAL "SYSTEM")
 		find_package(SQLite3 REQUIRED)
 		message(STATUS "Found SQLite3: ${SQLite3_VERSION}")
 	else()

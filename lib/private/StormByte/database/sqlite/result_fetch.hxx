@@ -55,7 +55,9 @@ namespace StormByte::Database::SQLite {
 					}
 					case SQLITE_NULL:
 					default:
-						row.Add(std::string(colName ? colName : ""), nullptr);
+						// Use an explicit null Value instead of passing nullptr which
+						// would match the `const char*` constructor and cause UB.
+						row.Add(std::string(colName ? colName : ""), Value());
 						break;
 				}
 			}

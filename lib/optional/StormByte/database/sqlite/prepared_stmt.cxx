@@ -46,6 +46,14 @@ void PreparedSTMT::Bind(const int& column, const std::string& val) noexcept {
 	sqlite3_bind_text(m_stmt, column + 1, val.c_str(), -1, SQLITE_STATIC);
 }
 
+void PreparedSTMT::Bind(const int& column, const std::vector<std::byte>& val) noexcept {
+	if (val.empty()) {
+		sqlite3_bind_blob(m_stmt, column + 1, nullptr, 0, SQLITE_TRANSIENT);
+	} else {
+		sqlite3_bind_blob(m_stmt, column + 1, reinterpret_cast<const void*>(val.data()), static_cast<int>(val.size()), SQLITE_TRANSIENT);
+	}
+}
+
 void PreparedSTMT::Reset() noexcept {
 	sqlite3_clear_bindings(m_stmt);
 	sqlite3_reset(m_stmt);

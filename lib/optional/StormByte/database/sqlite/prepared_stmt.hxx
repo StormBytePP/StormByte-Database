@@ -128,7 +128,7 @@ namespace StormByte::Database::SQLite {
 			 * @param index parameter index
 			 * @param value Value to be bound
 			 */
-			void														Bind(const int& index, const std::vector<std::byte>& value) noexcept;
+			void														Bind(const int& index, const std::vector<std::byte>& value) noexcept override;
 
 			/**
 			 * Executes the prepared statement

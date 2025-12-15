@@ -32,6 +32,10 @@ class TestMemoryDatabase : public SQLite3 {
 			return ExecuteSTMT("select_join");
 		}
 
+		const ExpectedRows get_blob() {
+			return ExecuteSTMT("select_blob");
+		}
+
 	private:
 		void DoPostConnect() noexcept override {
 			// Enable foreign keys
@@ -41,7 +45,8 @@ class TestMemoryDatabase : public SQLite3 {
 			SilentQuery("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE);");
 			SilentQuery("CREATE TABLE products (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, price REAL NOT NULL);");
 			SilentQuery("CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, product_id INTEGER, quantity INTEGER NOT NULL, FOREIGN KEY (user_id) REFERENCES users(id), FOREIGN KEY (product_id) REFERENCES products(id));");
-	
+			SilentQuery("CREATE TABLE blobs (id INTEGER PRIMARY KEY AUTOINCREMENT, data BLOB);");
+
 			// Insert data
 			SilentQuery("INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com');");
 			SilentQuery("INSERT INTO users (name, email) VALUES ('Bob', 'bob@example.com');");
@@ -55,6 +60,10 @@ class TestMemoryDatabase : public SQLite3 {
 			PrepareSTMT("select_products", "SELECT name, price FROM products;");
 			PrepareSTMT("select_orders", "SELECT user_id, product_id, quantity FROM orders;");
 			PrepareSTMT("select_join", "SELECT users.name, products.name, orders.quantity FROM orders JOIN users ON orders.user_id = users.id JOIN products ON orders.product_id = products.id;");
+			
+			// Blob table for testing
+			PrepareSTMT("insert_blob", "INSERT INTO blobs (data) VALUES (?);");
+			PrepareSTMT("select_blob", "SELECT data FROM blobs WHERE id = 1;");
 		}
 };
 
@@ -198,6 +207,40 @@ int bool_test() {
 	RETURN_TEST(fn_name, 0);
 }
 
+int verify_blobs() {
+	const std::string fn_name = "verify_blobs";
+	TestMemoryDatabase db;
+	db.Connect();
+
+	// Insert a blob from a vector of bytes
+	std::vector<std::byte> data;
+	data.push_back(std::byte{0});
+	data.push_back(std::byte{1});
+	data.push_back(std::byte{2});
+	data.push_back(static_cast<std::byte>(0xFF));
+
+	auto insert_res = db.ExecuteSTMT("insert_blob", data);
+	// ExecuteSTMT for INSERT returns rows (or error), but we only care that no error occurred
+	ASSERT_TRUE(fn_name, insert_res.has_value());
+
+	// Retrieve the blob back
+	auto expected_rows = db.get_blob();
+	ASSERT_TRUE(fn_name, expected_rows.has_value());
+	const auto& rows = expected_rows.value();
+	ASSERT_EQUAL(fn_name, 1, rows.Count());
+	ASSERT_EQUAL(fn_name, 1, rows[0].Count());
+
+	const auto& blob = rows[0][0].Get<std::vector<std::byte>>();
+	ASSERT_EQUAL(fn_name, 4, static_cast<int>(blob.size()));
+	const unsigned char* bytes = reinterpret_cast<const unsigned char*>(blob.data());
+	ASSERT_EQUAL(fn_name, 0, static_cast<int>(bytes[0]));
+	ASSERT_EQUAL(fn_name, 1, static_cast<int>(bytes[1]));
+	ASSERT_EQUAL(fn_name, 2, static_cast<int>(bytes[2]));
+	ASSERT_EQUAL(fn_name, 255, static_cast<int>(bytes[3]));
+
+	RETURN_TEST(fn_name, 0);
+}
+
 int read_from_binary_database() {
 	const std::string fn_name = "read_from_binary_database";
 	// Create an in-memory database for testing
@@ -227,6 +270,7 @@ int main() {
 	result += verify_relationships();
 	result += query_test();
 	result += bool_test();
+	result += verify_blobs();
 	result += read_from_binary_database();
 
 	if (result == 0) {

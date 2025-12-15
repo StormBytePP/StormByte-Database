@@ -4,6 +4,14 @@
 
 /**
  * @namespace Database
+#pragma once
+
+#include <StormByte/database/rows.hxx>
+#include <vector>
+#include <cstddef>
+
+/**
+ * @namespace Database
  * @brief Contains classes and functions for database operations.
  */
 namespace StormByte::Database {
@@ -33,32 +41,32 @@ namespace StormByte::Database {
 			 * Default copy constructor (deleted)
 			 * @param other Other PreparedSTMT to copy from
 			 */
-			PreparedSTMT(const PreparedSTMT& other)						= delete;
+			PreparedSTMT(const PreparedSTMT& other)							= delete;
 
 			/**
 			 * Default move constructor
 			 * @param other Other PreparedSTMT to move from
 			 */
-			PreparedSTMT(PreparedSTMT&& other)							= default;
+			PreparedSTMT(PreparedSTMT&& other)								= default;
 
 			/**
 			 * Default destructor.
 			 */
-			virtual ~PreparedSTMT()										= default;
+			virtual ~PreparedSTMT()											= default;
 
 			/**
 			 * Default copy assignment operator (deleted)
 			 * @param other Other PreparedSTMT to copy from
 			 * @return Reference to this PreparedSTMT
 			 */
-			PreparedSTMT& operator=(const PreparedSTMT& other)			= delete;
+			PreparedSTMT& operator=(const PreparedSTMT& other)				= delete;
 
 			/**
 			 * Default move assignment operator
 			 * @param other Other PreparedSTMT to move from
 			 * @return Reference to this PreparedSTMT
 			 */
-			PreparedSTMT& operator=(PreparedSTMT&& other)				= default;
+			PreparedSTMT& operator=(PreparedSTMT&& other)					= default;
 
 			/**
 			 * Executes the prepared statement with the given arguments
@@ -67,9 +75,10 @@ namespace StormByte::Database {
 			 * @return Resulting rows
 			 */
 			template<typename... Args>
-			ExpectedRows 												Execute(Args&&... args) {
+			ExpectedRows													Execute(Args&&... args) {
 				Reset();
-				std::size_t idx = 1;
+				// Bind implementations expect a zero-based index and add +1 internally
+				std::size_t idx = 0;
 				(void)( ( Bind(static_cast<int>(idx++), std::forward<Args>(args)) ), ... );
 				ExpectedRows result = DoExecute();
 				Reset();
@@ -80,7 +89,7 @@ namespace StormByte::Database {
 			 * Gets the name of the prepared statement
 			 * @return name
 			 */
-			inline const std::string&									Name() const noexcept {
+			inline const std::string&										Name() const noexcept {
 				return m_name;
 			}
 
@@ -88,13 +97,13 @@ namespace StormByte::Database {
 			 * Gets the query of the prepared statement
 			 * @return query
 			 */
-			inline const std::string&									Query() const noexcept {
+			inline const std::string&										Query() const noexcept {
 				return m_query;
 			}
 
 		protected:
-			std::string m_name;											///< Name of the prepared statement
-			std::string m_query;										///< Query to prepare
+			std::string m_name;												///< Name of the prepared statement
+			std::string m_query;											///< Query to prepare
 
 		private:
 			/**
@@ -102,75 +111,80 @@ namespace StormByte::Database {
 			 * @param index parameter index
 			 * @param value Value to be bound
 			 */
-			virtual void												Bind(const int& index, const std::nullptr_t& value) noexcept = 0;
+			virtual void													Bind(const int& index, const std::nullptr_t& value) noexcept = 0;
 
 			/**
 			 * Binds a value to a prepared statement
 			 * @param index parameter index
 			 * @param value Value to be bound
 			 */
-			virtual void												Bind(const int& index, const int& value) noexcept = 0;
+			virtual void													Bind(const int& index, const int& value) noexcept = 0;
 
 			/**
 			 * Binds a value to a prepared statement
 			 * @param index parameter index
 			 * @param value Value to be bound
 			 */
-			virtual void												Bind(const int& index, const unsigned int& value) noexcept = 0;
+			virtual void													Bind(const int& index, const unsigned int& value) noexcept = 0;
 
 			/**
 			 * Binds a value to a prepared statement
 			 * @param index parameter index
 			 * @param value Value to be bound
 			 */
-			virtual void												Bind(const int& index, const int64_t& value) noexcept = 0;
+			virtual void													Bind(const int& index, const int64_t& value) noexcept = 0;
 
 			/**
 			 * Binds a value to a prepared statement
 			 * @param index parameter index
 			 * @param value Value to be bound
 			 */
-			virtual void												Bind(const int& index, const uint64_t& value) noexcept = 0;
+			virtual void													Bind(const int& index, const uint64_t& value) noexcept = 0;
 
 			/**
 			 * Binds a value to a prepared statement
 			 * @param index parameter index
 			 * @param value Value to be bound
 			 */
-			virtual void												Bind(const int& index, const double& value) noexcept = 0;
+			virtual void													Bind(const int& index, const double& value) noexcept = 0;
 
 			/**
 			 * Binds a value to a prepared statement
 			 * @param index parameter index
 			 * @param value Value to be bound
 			 */
-			virtual void												Bind(const int& index, bool value) noexcept = 0;
+			virtual void													Bind(const int& index, bool value) noexcept = 0;
 
 			/**
 			 * Binds a value to a prepared statement
 			 * @param index parameter index
 			 * @param value Value to be bound
 			 */
-			virtual void												Bind(const int& index, const std::string& value) noexcept = 0;
+			virtual void													Bind(const int& index, const std::string& value) noexcept = 0;
+
+			/**
+			 * Binds a blob value to a prepared statement
+			 */
+			virtual void													Bind(const int& index, const std::vector<std::byte>& value) noexcept = 0;
 
 			/**
 			 * Binds a value to a prepared statement
 			 * @param index parameter index
 			 * @param value Value to be bound
 			 */
-			inline void 												Bind(const int& index, const char* value) noexcept {
+			inline void														Bind(const int& index, const char* value) noexcept {
 				Bind(index, std::string(value));
 			}
 
 			/**
 			 * Resets the prepared statement
 			 */
-			virtual void 												Reset() noexcept = 0;
+			virtual void													Reset() noexcept = 0;
 
 			/**
 			 * Executes the prepared statement
 			 * @return Resulting rows
 			 */
-			virtual ExpectedRows										DoExecute() = 0;
+			virtual ExpectedRows											DoExecute() = 0;
 	};
 }

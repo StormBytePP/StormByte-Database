@@ -2,14 +2,6 @@
 
 #include <sqlite3.h>
 
-#ifdef MSVC
-/** WINDOWS NEEDS EXPLICIT INSTANTIATION TO AVOID LINKER ERRORS **/
-namespace StormByte::Database {
-	template class Database<SQLite::Query, SQLite::PreparedSTMT>;
-	template class Row<SQLite::Value>;
-}
-#endif
-
 using namespace StormByte::Database::SQLite;
 
 SQLite3::SQLite3(std::shared_ptr<Logger::Log> logger) noexcept:SQLite3(":memory:", logger) {}

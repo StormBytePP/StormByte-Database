@@ -159,7 +159,7 @@ jobs:
         shell: powershell
         run: |
             # Install PostgreSQL with known password and port so CI can connect reliably
-            choco install postgresql18 --params '/Password:test /Port:5433' --ia '--enable-components server,commandlinetools' -y
+            choco install postgresql18 --params '/Password:test /Port:5432 /AllowRemote' --ia '--enable-components server,commandlinetools' -y
             # Find installed PostgreSQL root (e.g. C:\Program Files\PostgreSQL\18)
             $pgroot = Get-ChildItem 'C:\Program Files\PostgreSQL' | Sort-Object Name -Descending | Select-Object -First 1
             if ($null -eq $pgroot) { Write-Host "Postgres not found under Program Files\PostgreSQL"; exit 0 }
@@ -168,7 +168,7 @@ jobs:
             $env:Path += ";$bindir"
 
             # Use the port and password we passed to choco
-            $port = 5433
+            $port = 5432
             $env:PGPASSWORD = 'test'
 
             # Rely on the service started by Chocolatey/installer. Wait until it's ready.

@@ -5,15 +5,7 @@ if(ENABLE_ASAN AND NOT STORMBYTE_AS_DEPENDENCY AND NOT WIN32)
 	set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
 
 	# GCC/Clang sanitizers
-	set(SANITIZER_FLAGS "-fsanitize=address,undefined -fno-omit-frame-pointer")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SANITIZER_FLAGS}" CACHE STRING "C++ flags" FORCE)
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SANITIZER_FLAGS}" CACHE STRING "C flags" FORCE)
-
-	# Improve ASan/UBSan diagnostics
-	add_compile_options(-g)
-	# Linker flags for sanitizers
-	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${SANITIZER_FLAGS}" CACHE STRING "Executable linker flags" FORCE)
-	set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${SANITIZER_FLAGS}" CACHE STRING "Shared linker flags" FORCE)
+	set(SANITIZER_FLAGS "-fsanitize=address,undefined")
 
 	# Set global environment for all ctest runs.
 	set_property(GLOBAL PROPERTY ENVIRONMENT 

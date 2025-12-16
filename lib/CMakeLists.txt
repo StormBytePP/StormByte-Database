@@ -13,7 +13,11 @@ file(GLOB_RECURSE STORMBYTE_DATABASE_POSTGRES_SOURCES_PRIVATE CONFIGURE_DEPENDS 
 # Library
 add_library(StormByte-Database SHARED ${STORMBYTE_DATABASE_SOURCES})
 add_library(StormByte::Database ALIAS StormByte-Database)
-target_link_libraries(StormByte-Database PUBLIC StormByte StormByte-Logger)
+
+if (NOT WIN32 AND ENABLE_ASAN)
+	target_compile_options(StormByte-Database PUBLIC ${SANITIZER_FLAGS} -g -fno-omit-frame-pointer)
+	target_link_options(StormByte-Database PUBLIC ${SANITIZER_FLAGS})
+endif()
 
 set_target_properties(StormByte-Database PROPERTIES
 	LINKER_LANGUAGE CXX

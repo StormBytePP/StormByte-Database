@@ -81,6 +81,25 @@ jobs:
         fi
         sudo -u postgres psql -c "ALTER ROLE testuser CREATEDB;" || true
 
+    - name: Install and start MariaDB server (Linux runners)
+      if: ${{ matrix.mariadb != 'OFF' }}
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y mariadb-server mariadb-client
+        # Start the service
+        sudo systemctl enable --now mariadb || true
+        sudo service mysql start || true
+        sleep 2
+        # Wait until mysqld is responsive
+        for i in 1 2 3 4 5; do
+          if sudo mysqladmin ping >/dev/null 2>&1; then break; fi
+          sleep 1
+        done
+        # Create test user and database (idempotent)
+        sudo mysql -e "CREATE USER IF NOT EXISTS 'testuser'@'localhost' IDENTIFIED BY 'testpass';"
+        sudo mysql -e "CREATE DATABASE IF NOT EXISTS stormbyte_test;"
+        sudo mysql -e "GRANT ALL PRIVILEGES ON stormbyte_test.* TO 'testuser'@'localhost'; FLUSH PRIVILEGES;"
+
     - name: Build with CMake
       uses: ashutoshvarma/action-cmake-build@master
       with:
@@ -189,6 +208,34 @@ jobs:
             if ($exists -notmatch '1') { & psql.exe -U postgres -h localhost -p $port -c "CREATE ROLE testuser WITH LOGIN PASSWORD 'testpass';" }
             $dbs = & psql.exe -U postgres -h localhost -p $port -lqt | Out-String
             if ($dbs -notmatch 'stormbyte_test') { & psql.exe -U postgres -h localhost -p $port -c "CREATE DATABASE stormbyte_test OWNER testuser;" }
+
+      - name: Install and start MariaDB (Windows)
+        shell: powershell
+        run: |
+            # Install MariaDB via Chocolatey and set root password
+            choco install mariadb --params '/RootPassword:test' -y
+            # Find installed MariaDB bin directory
+            $mdb = Get-ChildItem 'C:\Program Files' -Recurse -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'MariaDB' } | Sort-Object Name -Descending | Select-Object -First 1
+            if ($null -eq $mdb) { Write-Host "MariaDB not found; skipping MariaDB setup"; exit 0 }
+            $bindir = Join-Path $mdb.FullName 'bin'
+            $env:Path += ";$bindir"
+            # Use root password we installed with
+            $env:MYSQL_PWD = 'test'
+            # Wait for mysql to be ready
+            $ready = $false
+            for ($i = 0; $i -lt 60; $i++) {
+              try {
+                & mysql.exe -u root -e "SELECT 1;" > $null 2>&1
+                if ($LASTEXITCODE -eq 0) { $ready = $true; break }
+              } catch {
+              }
+              Start-Sleep -Seconds 1
+            }
+            if (-not $ready) { Write-Host "MariaDB did not become ready"; exit 1 }
+            # Create test user and database
+            & mysql.exe -u root -e "CREATE USER IF NOT EXISTS 'testuser'@'localhost' IDENTIFIED BY 'testpass';"
+            & mysql.exe -u root -e "CREATE DATABASE IF NOT EXISTS stormbyte_test;"
+            & mysql.exe -u root -e "GRANT ALL PRIVILEGES ON stormbyte_test.* TO 'testuser'@'localhost'; FLUSH PRIVILEGES;"
 
       - name: Run unit tests
         run: ctest --output-on-failure --test-dir ${{ github.workspace }}\build\test

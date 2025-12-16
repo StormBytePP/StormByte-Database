@@ -17,7 +17,9 @@ namespace StormByte::Database {
 	using ValuesVariant = std::variant<
 		std::monostate,
 		int,
+		unsigned int,
 		long int,
+		unsigned long int,
 		double,
 		std::string,
 		bool,

@@ -4,6 +4,9 @@
 #include <StormByte/database/typedefs.hxx>
 #include <StormByte/database/visibility.h>
 #include <StormByte/type_traits.hxx>
+#include <cmath>
+#include <limits>
+#include <type_traits>
 
 /**
  * @namespace Database
@@ -23,7 +26,9 @@ namespace StormByte::Database {
 			enum class Type: unsigned short {
 				Null		= 0,								///< Null type
 				Integer,										///< Integer type
+				UnsignedInteger,								///< Unsigned integer type
 				LongInteger,									///< Long Integer type
+				UnsignedLongInteger,							///< Unsigned long integer type
 				Double,											///< Double type
 				Text,											///< Text type
 				Blob,											///< Blob type
@@ -41,8 +46,14 @@ namespace StormByte::Database {
 			Value(int value) noexcept:
 			m_value(value), m_type(Type::Integer) {}
 
+			Value(unsigned int value) noexcept:
+			m_value(value), m_type(Type::UnsignedInteger) {}
+
 			Value(long int value) noexcept:
 			m_value(value), m_type(Type::LongInteger) {}
+
+			Value(unsigned long int value) noexcept:
+			m_value(value), m_type(Type::UnsignedLongInteger) {}
 
 			Value(double value) noexcept:
 			m_value(value), m_type(Type::Double) {}
@@ -93,23 +104,21 @@ namespace StormByte::Database {
 
 			template<typename T>
 			requires StormByte::Type::VariantHasType<ValuesVariant, std::decay_t<T>>
-			std::decay_t<T>& 									Get() & {
-				if (auto p = std::get_if<std::decay_t<T>>(&m_value)) return *p;
-				throw WrongValueType("Requested type does not match stored type.");
-			}
-
-			template<typename T>
-			requires StormByte::Type::VariantHasType<ValuesVariant, std::decay_t<T>>
-			const std::decay_t<T>& 								Get() const& {
-				if (auto p = std::get_if<std::decay_t<T>>(&m_value)) return *p;
-				throw WrongValueType("Requested type does not match stored type.");
-			}
-
-			template<typename T>
-			requires StormByte::Type::VariantHasType<ValuesVariant, std::decay_t<T>>
-			std::decay_t<T> 									Get() && {
-				if (auto p = std::get_if<std::decay_t<T>>(&m_value)) return std::move(*p);
-				throw WrongValueType("Requested type does not match stored type.");
+			std::decay_t<T>										Get() const {
+				using To = std::decay_t<T>;
+				// visitor handles all stored alternatives and performs safe numeric conversions
+				return std::visit([](auto&& val) -> To {
+					using From = std::decay_t<decltype(val)>;
+					if constexpr (std::is_same_v<From, std::monostate>) {
+						throw WrongValueType("Requested type does not match stored type (null).");
+					} else if constexpr (std::is_same_v<From, To>) {
+						return val;
+					} else if constexpr (std::is_arithmetic_v<From> && std::is_arithmetic_v<To>) {
+						return convert_numeric<To, From>(val);
+					} else {
+						throw WrongValueType("Requested type does not match stored type.");
+					}
+				}, m_value);
 			}
 
 			/**
@@ -129,6 +138,62 @@ namespace StormByte::Database {
 			}
 
 		private:
+			// Helper: safe numeric conversion; only instantiated for arithmetic To and From
+			template<typename To, typename From>
+			requires (std::is_arithmetic_v<To> && std::is_arithmetic_v<From>)
+			static To convert_numeric(const From& val) {
+				if constexpr (std::is_integral_v<From> && std::is_integral_v<To>) {
+					if constexpr (std::is_signed_v<From>) {
+						std::intmax_t from = static_cast<std::intmax_t>(val);
+						if constexpr (std::is_signed_v<To>) {
+							if (from < static_cast<std::intmax_t>(std::numeric_limits<To>::lowest()) || from > static_cast<std::intmax_t>(std::numeric_limits<To>::max()))
+								throw WrongValueType("Integer conversion would overflow/narrow.");
+							return static_cast<To>(from);
+						} else {
+							// From signed, To unsigned
+							if (from < 0) throw WrongValueType("Negative value cannot be converted to unsigned.");
+							if (static_cast<std::uintmax_t>(from) > static_cast<std::uintmax_t>(std::numeric_limits<To>::max()))
+								throw WrongValueType("Integer conversion would overflow/narrow.");
+							return static_cast<To>(from);
+						}
+					} else {
+						// From unsigned
+						std::uintmax_t from = static_cast<std::uintmax_t>(val);
+						if constexpr (std::is_signed_v<To>) {
+							if (from > static_cast<std::uintmax_t>(std::numeric_limits<To>::max()))
+								throw WrongValueType("Integer conversion would overflow/narrow.");
+							return static_cast<To>(from);
+						} else {
+							// both unsigned
+							if (from > static_cast<std::uintmax_t>(std::numeric_limits<To>::max()))
+								throw WrongValueType("Integer conversion would overflow/narrow.");
+							return static_cast<To>(from);
+						}
+					}
+				} else if constexpr (std::is_integral_v<From> && std::is_floating_point_v<To>) {
+					return static_cast<To>(val);
+				} else if constexpr (std::is_floating_point_v<From> && std::is_integral_v<To>) {
+					long double d = static_cast<long double>(val);
+					if (!std::isfinite(d)) throw WrongValueType("Non-finite floating conversion to integer.");
+					if (std::trunc(d) != d) throw WrongValueType("Floating value has fractional part; would lose data.");
+					std::intmax_t tmp = static_cast<std::intmax_t>(d);
+					if constexpr (std::is_signed_v<To>) {
+						if (tmp < static_cast<std::intmax_t>(std::numeric_limits<To>::lowest()) || tmp > static_cast<std::intmax_t>(std::numeric_limits<To>::max()))
+							throw WrongValueType("Floating to integer conversion would overflow/narrow.");
+						return static_cast<To>(tmp);
+					} else {
+						// To unsigned
+						if (tmp < 0) throw WrongValueType("Negative value cannot be converted to unsigned.");
+						if (static_cast<std::uintmax_t>(tmp) > static_cast<std::uintmax_t>(std::numeric_limits<To>::max()))
+							throw WrongValueType("Floating to integer conversion would overflow/narrow.");
+						return static_cast<To>(tmp);
+					}
+				} else if constexpr (std::is_floating_point_v<From> && std::is_floating_point_v<To>) {
+					return static_cast<To>(val);
+				} else {
+					throw WrongValueType("Unsupported numeric conversion.");
+				}
+			}
 			ValuesVariant m_value;								///< Internal value storage
 			enum Type m_type;									///< Type of the value
 	};

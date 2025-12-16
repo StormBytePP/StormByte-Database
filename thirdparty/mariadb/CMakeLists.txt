@@ -14,11 +14,6 @@ if (NOT WITH_MARIADB STREQUAL "OFF")
 			set(WITH_SSL SCHANNEL CACHE STRING "Enable SSL support in MariaDB Connector-C (options: OFF, OPENSSL, SCHANNEL)")
 		endif()
 
-		# Disable the replication plugin: it causes build/runtime issues
-		# when building the bundled connector in our environment.
-		# This overrides the connector's default plugin configuration.
-		set(PLUGIN_REPLICATION "OFF" CACHE STRING "Disable replication plugin (overrides connector default)")
-
 		add_subdirectory(mariadb-connector-c)
 		add_library(MariaDB::ConnectorC ALIAS libmariadb)
 	endif()

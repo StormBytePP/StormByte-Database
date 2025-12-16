@@ -19,5 +19,5 @@ jobs:
     with:
       doc_target: StormByteDatabaseDoc
       docs_source_dir: './docs'
-      extra-cmake-options: '-DWITH_SQLITE=SYSTEM -DWITH_POSTGRES=SYSTEM'
+      extra-cmake-options: '-DWITH_SQLITE=OFF -DWITH_POSTGRES=OFF -DWITH_MARIADB=OFF'
       extra-install: 'libsqlite3-dev libpq-dev'

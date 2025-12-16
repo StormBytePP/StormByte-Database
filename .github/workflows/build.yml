@@ -42,18 +42,6 @@ jobs:
       with:
         compiler: ${{ matrix.compiler }}
 
-    - name: Make apt cache readable
-      run: |
-        sudo chmod -R a+rX /var/cache/apt/archives || true
-
-    - name: Cache apt packages
-      uses: actions/cache@v3
-      with:
-        path: /var/cache/apt/archives
-        key: "Linux-apt-${{ runner.os }}-${{ matrix.compiler }}-${{ matrix.stdlib }}-sqlite-${{ matrix.sqlite }}-postgres-${{ matrix.postgres }}-mariadb-${{ matrix.mariadb }}"
-        restore-keys: |
-          Linux-apt-${{ runner.os }}-
-
     - name: Install system dependencies (sqlite)
       if: ${{ matrix.sqlite == 'SYSTEM' }}
       run: |

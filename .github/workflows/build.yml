@@ -52,15 +52,16 @@ jobs:
     - name: Install system dependencies (postgres)
       if: ${{ matrix.postgres != 'OFF' }}
       run: |
-        pkgs="meson bison flex"
+        pkgs="meson bison flex libssl3"
         if [ "${{ matrix.postgres }}" = "SYSTEM" ]; then pkgs="$pkgs libpq-dev"; fi
         if [ -n "$pkgs" ]; then sudo apt-get install -y $pkgs; fi
 
     - name: Install system dependencies (mariadb)
       if: ${{ matrix.mariadb != 'OFF' }}
       run: |
-        pkgs=""
-        if [ "${{ matrix.mariadb }}" = "BUNDLED" ]; then pkgs="$pkgs libssl-dev"; fi
+        sudo apt-get update
+        # Runtime libraries frequently required by libmariadb and its plugins
+        pkgs="openssl libssl-dev libssl3 zlib1g libzstd1 liblz4-1 libcurl4"
         if [ -n "$pkgs" ]; then sudo apt-get install -y $pkgs; fi
 
     - name: Install and start Postgres server (Linux runners)
@@ -68,8 +69,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y postgresql postgresql-contrib
-        # Try systemctl, fall back to service command
-        sudo systemctl enable --now postgresql || true
+        # Try service start (system packages start the service on install)
         sudo service postgresql start || true
         sleep 2
         # Create test role and database used by tests (idempotent)
@@ -85,16 +85,37 @@ jobs:
       if: ${{ matrix.mariadb != 'OFF' }}
       run: |
         sudo apt-get update
+        # Ensure runtime and TLS packages are present
+        sudo apt-get install -y openssl libssl-dev libssl3 ca-certificates zlib1g libzstd1 liblz4-1 libcurl4 || true
         sudo apt-get install -y mariadb-server mariadb-client
-        # Start the service
-        sudo systemctl enable --now mariadb || true
-        sudo service mysql start || true
+
+        # Generate self-signed certs for MariaDB so the server supports TLS in CI
+        sudo mkdir -p /etc/mysql/certs
+        sudo openssl req -newkey rsa:2048 -nodes -x509 -days 365 \
+          -subj "/CN=localhost" \
+          -keyout /tmp/server-key.pem -out /tmp/server-cert.pem
+        sudo mv /tmp/server-key.pem /etc/mysql/certs/server-key.pem
+        sudo mv /tmp/server-cert.pem /etc/mysql/certs/server-cert.pem
+        sudo chown -R mysql:mysql /etc/mysql/certs
+        sudo chmod 600 /etc/mysql/certs/server-key.pem
+        sudo chmod 644 /etc/mysql/certs/server-cert.pem
+
+        # Ensure MariaDB loads the certs by adding a small config file
+        sudo tee /etc/mysql/mariadb.conf.d/99-ci-ssl.cnf > /dev/null <<'EOF'
+        [mysqld]
+        ssl_cert=/etc/mysql/certs/server-cert.pem
+        ssl_key=/etc/mysql/certs/server-key.pem
+        ssl_ca=/etc/mysql/certs/server-cert.pem
+        EOF
+
+        # Start the service and wait until responsive
+        sudo service mysql restart || sudo service mysql start || true
         sleep 2
-        # Wait until mysqld is responsive
-        for i in 1 2 3 4 5; do
+        for i in 1 2 3 4 5 6 7 8 9 10; do
           if sudo mysqladmin ping >/dev/null 2>&1; then break; fi
           sleep 1
         done
+
         # Create test user and database (idempotent)
         sudo mysql -e "CREATE USER IF NOT EXISTS 'testuser'@'localhost' IDENTIFIED BY 'testpass';"
         sudo mysql -e "CREATE DATABASE IF NOT EXISTS stormbyte_test;"
@@ -170,72 +191,119 @@ jobs:
           Copy-Item -Path "${{ github.workspace }}\build\thirdparty\StormByte\base\lib\StormByte.dll" -Destination "${{ github.workspace }}\build\test" -Force
           Copy-Item -Path "${{ github.workspace }}\build\thirdparty\StormByte\logger\lib\StormByte-Logger.dll" -Destination "${{ github.workspace }}\build\test" -Force
           Copy-Item -Path "${{ github.workspace }}\build\thirdparty\sqlite3\sqlite3.dll" -Destination "${{ github.workspace }}\build\test" -Force
-          Copy-Item -Path "${{ github.workspace }}\build\thirdparty\postgres\build\src\interfaces\libpq\libpq.dll" -Destination "${{ github.workspace }}\build\test" -Force
           Copy-Item -Path "${{ github.workspace }}\build\thirdparty\mariadb\mariadb-connector-c\libmariadb\libmariadb.dll" -Destination "${{ github.workspace }}\build\test" -Force
+          Copy-Item -Path "${{ github.workspace }}\build\thirdparty\postgres\build\src\interfaces\libpq\libpq.dll" -Destination "${{ github.workspace }}\build\test" -Force
           Copy-Item -Path "${{ github.workspace }}\build\lib\StormByte-Database.dll" -Destination "${{ github.workspace }}\build\test" -Force
 
       - name: Install and start Postgres (Windows)
         shell: powershell
         run: |
-            # Install PostgreSQL with known password and port so CI can connect reliably
-            choco install postgresql18 --params '/Password:test /Port:5432 /AllowRemote' --ia '--enable-components server,commandlinetools' -y
-            # Find installed PostgreSQL root (e.g. C:\Program Files\PostgreSQL\18)
-            $pgroot = Get-ChildItem 'C:\Program Files\PostgreSQL' | Sort-Object Name -Descending | Select-Object -First 1
-            if ($null -eq $pgroot) { Write-Host "Postgres not found under Program Files\PostgreSQL"; exit 0 }
-            $pgroot = $pgroot.FullName
-            $bindir = Join-Path $pgroot 'bin'
-            $env:Path += ";$bindir"
+          # Install PostgreSQL with known password and port so CI can connect reliably
+          choco install postgresql18 --params '/Password:test /Port:5432 /AllowRemote' --ia '--enable-components server,commandlinetools' -y
+          # Find installed PostgreSQL root (e.g. C:\Program Files\PostgreSQL\18)
+          $pgroot = Get-ChildItem 'C:\Program Files\PostgreSQL' | Sort-Object Name -Descending | Select-Object -First 1
+          if ($null -eq $pgroot) { Write-Host "Postgres not found under Program Files\PostgreSQL"; exit 0 }
+          $pgroot = $pgroot.FullName
+          $bindir = Join-Path $pgroot 'bin'
+          $env:Path += ";$bindir"
 
-            # Use the port and password we passed to choco
-            $port = 5432
-            $env:PGPASSWORD = 'test'
+          # Use the port and password we passed to choco
+          $port = 5432
+          $env:PGPASSWORD = 'test'
 
-            # Rely on the service started by Chocolatey/installer. Wait until it's ready.
-            $maxWait = 60
-            $ready = $false
-            for ($i = 0; $i -lt $maxWait; $i++) {
-              try {
-                & psql.exe -U postgres -h localhost -p $port -c "SELECT 1;" > $null 2>&1
-                if ($LASTEXITCODE -eq 0) { $ready = $true; break }
-              } catch {
-              }
-              Start-Sleep -Seconds 1
+          # Rely on the service started by Chocolatey/installer. Wait until it's ready.
+          $maxWait = 60
+          $ready = $false
+          for ($i = 0; $i -lt $maxWait; $i++) {
+            try {
+              & psql.exe -U postgres -h localhost -p $port -c "SELECT 1;" > $null 2>&1
+              if ($LASTEXITCODE -eq 0) { $ready = $true; break }
+            } catch {
             }
-            if (-not $ready) { Write-Host "Postgres did not become ready on port $port"; exit 1 }
+            Start-Sleep -Seconds 1
+          }
+          if (-not $ready) { Write-Host "Postgres did not become ready on port $port"; exit 1 }
 
-            # Create test role and database (idempotent) using the running service
-            $exists = & psql.exe -U postgres -h localhost -p $port -t -c "SELECT 1 FROM pg_roles WHERE rolname='testuser';" | Out-String
-            if ($exists -notmatch '1') { & psql.exe -U postgres -h localhost -p $port -c "CREATE ROLE testuser WITH LOGIN PASSWORD 'testpass';" }
-            $dbs = & psql.exe -U postgres -h localhost -p $port -lqt | Out-String
-            if ($dbs -notmatch 'stormbyte_test') { & psql.exe -U postgres -h localhost -p $port -c "CREATE DATABASE stormbyte_test OWNER testuser;" }
+          # Create test role and database (idempotent) using the running service
+          $exists = & psql.exe -U postgres -h localhost -p $port -t -c "SELECT 1 FROM pg_roles WHERE rolname='testuser';" | Out-String
+          if ($exists -notmatch '1') { & psql.exe -U postgres -h localhost -p $port -c "CREATE ROLE testuser WITH LOGIN PASSWORD 'testpass';" }
+          $dbs = & psql.exe -U postgres -h localhost -p $port -lqt | Out-String
+          if ($dbs -notmatch 'stormbyte_test') { & psql.exe -U postgres -h localhost -p $port -c "CREATE DATABASE stormbyte_test OWNER testuser;" }
 
       - name: Install and start MariaDB (Windows)
         shell: powershell
         run: |
             # Install MariaDB via Chocolatey and set root password
-            choco install mariadb --params '/RootPassword:test' -y
-            # Find installed MariaDB bin directory
-            $mdb = Get-ChildItem 'C:\Program Files' -Recurse -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'MariaDB' } | Sort-Object Name -Descending | Select-Object -First 1
-            if ($null -eq $mdb) { Write-Host "MariaDB not found; skipping MariaDB setup"; exit 0 }
-            $bindir = Join-Path $mdb.FullName 'bin'
-            $env:Path += ";$bindir"
-            # Use root password we installed with
-            $env:MYSQL_PWD = 'test'
-            # Wait for mysql to be ready
-            $ready = $false
-            for ($i = 0; $i -lt 60; $i++) {
+              choco install mariadb --params '/RootPassword:test' -y
+              # Refresh environment variables so PATH updates from Chocolatey take effect
+              try { refreshenv } catch { Write-Host "refreshenv not available or failed; continuing" }
+
+              # Try to locate mysql.exe robustly
+              $mysqlCmd = Get-Command mysql.exe -ErrorAction SilentlyContinue
+              if ($null -eq $mysqlCmd) {
+                $mdb = Get-ChildItem 'C:\Program Files' -Directory -Filter 'MariaDB*' -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1
+                if ($null -ne $mdb) { $bindir = Join-Path $mdb.FullName 'bin'; $env:Path += ";$bindir" }
+                $mysqlCmd = Get-Command mysql.exe -ErrorAction SilentlyContinue
+              }
+              if ($null -eq $mysqlCmd) { Write-Host "mysql.exe not found; aborting MariaDB setup"; exit 1 }
+              $mysqlPath = $mysqlCmd.Source
+
+              # Try to connect as root with no password first
+              $connected = $false
               try {
-                & mysql.exe -u root -e "SELECT 1;" > $null 2>&1
-                if ($LASTEXITCODE -eq 0) { $ready = $true; break }
+                & $mysqlPath -u root -e "SELECT 1;" > $null 2>&1
+                if ($LASTEXITCODE -eq 0) { $connected = $true }
               } catch {
               }
-              Start-Sleep -Seconds 1
-            }
-            if (-not $ready) { Write-Host "MariaDB did not become ready"; exit 1 }
-            # Create test user and database
-            & mysql.exe -u root -e "CREATE USER IF NOT EXISTS 'testuser'@'localhost' IDENTIFIED BY 'testpass';"
-            & mysql.exe -u root -e "CREATE DATABASE IF NOT EXISTS stormbyte_test;"
-            & mysql.exe -u root -e "GRANT ALL PRIVILEGES ON stormbyte_test.* TO 'testuser'@'localhost'; FLUSH PRIVILEGES;"
+
+              # If not connected, try with environment password 'test'
+              if (-not $connected) {
+                $env:MYSQL_PWD = 'test'
+                try {
+                  & $mysqlPath -u root -e "SELECT 1;" > $null 2>&1
+                  if ($LASTEXITCODE -eq 0) { $connected = $true }
+                } catch {
+                }
+              }
+
+              # If still not connected, try to set root password to 'test' (assume blank current password)
+              if (-not $connected) {
+                $mysqlDir = Split-Path $mysqlPath
+                $mysqladminPath = Join-Path $mysqlDir 'mysqladmin.exe'
+                if (Test-Path $mysqladminPath) {
+                  try {
+                    & $mysqladminPath -u root password test > $null 2>&1
+                  } catch {
+                  }
+                  # give server a moment and then try with the new password
+                  Start-Sleep -Seconds 2
+                  $env:MYSQL_PWD = 'test'
+                  try {
+                    & $mysqlPath -u root -e "SELECT 1;" > $null 2>&1
+                    if ($LASTEXITCODE -eq 0) { $connected = $true }
+                  } catch {
+                  }
+                }
+              }
+
+              # If still not connected, perform the longer wait loop using whatever $env:MYSQL_PWD is set to
+              if (-not $connected) {
+                $ready = $false
+                for ($i = 0; $i -lt 120; $i++) {
+                  try {
+                    & $mysqlPath -u root -e "SELECT 1;" > $null 2>&1
+                    if ($LASTEXITCODE -eq 0) { $ready = $true; break }
+                  } catch {
+                  }
+                  Start-Sleep -Seconds 1
+                }
+                if (-not $ready) { Write-Host "MariaDB did not become ready"; exit 1 }
+              }
+
+              # Create test user and database; use env password if set
+              & $mysqlPath -u root -e "CREATE USER IF NOT EXISTS 'testuser'@'localhost' IDENTIFIED BY 'testpass';"
+              & $mysqlPath -u root -e "CREATE DATABASE IF NOT EXISTS stormbyte_test;"
+              & $mysqlPath -u root -e "GRANT ALL PRIVILEGES ON stormbyte_test.* TO 'testuser'@'localhost'; FLUSH PRIVILEGES;"
 
       - name: Run unit tests
         run: ctest --output-on-failure --test-dir ${{ github.workspace }}\build\test

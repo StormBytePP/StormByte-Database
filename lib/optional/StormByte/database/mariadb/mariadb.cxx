@@ -21,6 +21,13 @@ bool MariaDB::DoConnect() noexcept {
 
     MYSQL* conn = mysql_init(nullptr);
     if (!conn) return false;
+#if defined(MYSQL_OPT_SSL_MODE) && defined(SSL_MODE_PREFERRED)
+    /* Prefer SSL but do not require it. Some CI images have a MariaDB
+     * server without TLS configured; asking the client to prefer TLS
+     * allows TLS when available but falls back to plain TCP when not. */
+    int ssl_mode = SSL_MODE_PREFERRED;
+    mysql_options(conn, MYSQL_OPT_SSL_MODE, &ssl_mode);
+#endif
 
     unsigned int port = static_cast<unsigned int>(m_port);
     if (!mysql_real_connect(conn, m_host.empty() ? nullptr : m_host.c_str(), m_user.empty() ? nullptr : m_user.c_str(), m_password.empty() ? nullptr : m_password.c_str(), m_dbname.empty() ? nullptr : m_dbname.c_str(), port, nullptr, 0)) {

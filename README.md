@@ -39,6 +39,7 @@ Ensure you have the following installed:
 
   - SQLite3
   - PostgreSQL
+  - MariaDB
 
 ### Building
 
@@ -116,6 +117,38 @@ auto users = pg.ExecuteSTMT("get_users");
 
 pg.Disconnect();
 ```
+
+##### MariaDB example
+
+This example uses the optional MariaDB backend which delegates to MariaDB Connector/C (libmariadb). The API mirrors the other backends and uses secure server-side prepared statements internally; public headers do not expose `mysql.h`.
+
+```cpp
+#include <StormByte/database/mariadb/mariadb.hxx>
+#include <StormByte/logger/log.hxx>
+
+auto logger = std::make_shared<StormByte::Logger::Log>(std::cout, StormByte::Logger::Level::Info);
+
+// Connect to a MariaDB server (host, user, password, dbname)
+StormByte::Database::MariaDB::MariaDB db("localhost", "testuser", "testpass", "stormbyte_test", logger);
+if (!db.Connect()) {
+	// handle connection error (inspect logger for details)
+}
+
+// Run queries
+auto rows = db.Query("SELECT 1 as one;");
+if (rows.has_value()) {
+	// inspect rows.value()
+}
+
+// Use prepared statements (server-side prepared statements are used when available)
+db.PrepareSTMT("get_users", "SELECT name, email FROM users");
+auto users = db.ExecuteSTMT("get_users");
+
+db.Disconnect();
+```
+
+Build notes: enable the MariaDB optional backend with `-DWITH_MARIADB=BUNDLED` (bundled connector) or `-DWITH_MARIADB=SYSTEM` (requires `libmariadb-dev`/system connector).
+
 
 ## Contributing
 

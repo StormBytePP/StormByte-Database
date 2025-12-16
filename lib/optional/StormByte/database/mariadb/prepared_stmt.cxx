@@ -1,8 +1,9 @@
 #include <StormByte/database/mariadb/prepared_stmt.hxx>
 #include <StormByte/database/mariadb/result_fetch.hxx>
-#include <mysql.h>
+
 #include <cstdint>
-#include <iostream>
+#include <cstring>
+#include <mysql.h>
 
 
 using namespace StormByte::Database::MariaDB;

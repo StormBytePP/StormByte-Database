@@ -158,25 +158,37 @@ jobs:
       - name: Install and start Postgres (Windows)
         shell: powershell
         run: |
-          choco install postgresql -y
-          # Find installed PostgreSQL root (e.g. C:\Program Files\PostgreSQL\14)
-          $pgroot = Get-ChildItem 'C:\Program Files\PostgreSQL' | Sort-Object Name -Descending | Select-Object -First 1
-          if ($null -eq $pgroot) { Write-Host "Postgres not found under Program Files\PostgreSQL"; exit 0 }
-          $pgroot = $pgroot.FullName
-          $bindir = Join-Path $pgroot 'bin'
-          $env:Path += ";$bindir"
-          # Initialize data directory if missing
-          if (-Not (Test-Path (Join-Path $pgroot 'data'))) {
-            & initdb.exe -D (Join-Path $pgroot 'data') -U postgres -A trust
-          }
-          # Start PostgreSQL instance
-          & pg_ctl.exe -D (Join-Path $pgroot 'data') -l (Join-Path $pgroot 'data\logfile') start
-          Start-Sleep -Seconds 2
-          # Create test role and database (idempotent)
-          $exists = & psql.exe -U postgres -t -c "SELECT 1 FROM pg_roles WHERE rolname='testuser';" | Out-String
-          if ($exists -notmatch '1') { & psql.exe -U postgres -c "CREATE ROLE testuser WITH LOGIN PASSWORD 'testpass';" }
-          $dbs = & psql.exe -U postgres -lqt | Out-String
-          if ($dbs -notmatch 'stormbyte_test') { & psql.exe -U postgres -c "CREATE DATABASE stormbyte_test OWNER testuser;" }
+            # Install PostgreSQL with known password and port so CI can connect reliably
+            choco install postgresql18 --params '/Password:test /Port:5433' --ia '--enable-components server,commandlinetools' -y
+            # Find installed PostgreSQL root (e.g. C:\Program Files\PostgreSQL\18)
+            $pgroot = Get-ChildItem 'C:\Program Files\PostgreSQL' | Sort-Object Name -Descending | Select-Object -First 1
+            if ($null -eq $pgroot) { Write-Host "Postgres not found under Program Files\PostgreSQL"; exit 0 }
+            $pgroot = $pgroot.FullName
+            $bindir = Join-Path $pgroot 'bin'
+            $env:Path += ";$bindir"
+
+            # Use the port and password we passed to choco
+            $port = 5433
+            $env:PGPASSWORD = 'test'
+
+            # Rely on the service started by Chocolatey/installer. Wait until it's ready.
+            $maxWait = 60
+            $ready = $false
+            for ($i = 0; $i -lt $maxWait; $i++) {
+              try {
+                & psql.exe -U postgres -h localhost -p $port -c "SELECT 1;" > $null 2>&1
+                if ($LASTEXITCODE -eq 0) { $ready = $true; break }
+              } catch {
+              }
+              Start-Sleep -Seconds 1
+            }
+            if (-not $ready) { Write-Host "Postgres did not become ready on port $port"; exit 1 }
+
+            # Create test role and database (idempotent) using the running service
+            $exists = & psql.exe -U postgres -h localhost -p $port -t -c "SELECT 1 FROM pg_roles WHERE rolname='testuser';" | Out-String
+            if ($exists -notmatch '1') { & psql.exe -U postgres -h localhost -p $port -c "CREATE ROLE testuser WITH LOGIN PASSWORD 'testpass';" }
+            $dbs = & psql.exe -U postgres -h localhost -p $port -lqt | Out-String
+            if ($dbs -notmatch 'stormbyte_test') { & psql.exe -U postgres -h localhost -p $port -c "CREATE DATABASE stormbyte_test OWNER testuser;" }
 
       - name: Run unit tests
         run: ctest --output-on-failure --test-dir ${{ github.workspace }}\build\test

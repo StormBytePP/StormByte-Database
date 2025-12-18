@@ -21,7 +21,7 @@ namespace StormByte::Database::MariaDB {
                 const char* colName = field ? field->name : nullptr;
                 
                 if (!row[c]) {
-                    prow.Add(std::string(colName ? colName : ""), Value());
+                    prow.add(std::string(colName ? colName : ""), Value());
                     continue;
                 }
                 unsigned long len = lengths ? lengths[c] : 0;
@@ -33,22 +33,22 @@ namespace StormByte::Database::MariaDB {
                         long long v = 0;
                         try { v = std::stoll(std::string(row[c])); } catch(...) { v = 0; }
                         if (v > std::numeric_limits<int>::max() || v < std::numeric_limits<int>::min())
-                            prow.Add(std::string(colName ? colName : ""), static_cast<long int>(v));
+                            prow.add(std::string(colName ? colName : ""), static_cast<long int>(v));
                         else
-                            prow.Add(std::string(colName ? colName : ""), static_cast<int>(v));
+                            prow.add(std::string(colName ? colName : ""), static_cast<int>(v));
                         break;
                     }
                     case MYSQL_TYPE_LONGLONG: {
                         long long v = 0;
                         try { v = std::stoll(std::string(row[c])); } catch(...) { v = 0; }
-                        prow.Add(std::string(colName ? colName : ""), static_cast<long int>(v));
+                        prow.add(std::string(colName ? colName : ""), static_cast<long int>(v));
                         break;
                     }
                     case MYSQL_TYPE_FLOAT:
                     case MYSQL_TYPE_DOUBLE: {
                         double d = 0.0;
                         try { d = std::stod(std::string(row[c])); } catch(...) { d = 0.0; }
-                        prow.Add(std::string(colName ? colName : ""), d);
+                        prow.add(std::string(colName ? colName : ""), d);
                         break;
                     }
                     case MYSQL_TYPE_BLOB:
@@ -59,15 +59,15 @@ namespace StormByte::Database::MariaDB {
                             if (ftype == MYSQL_TYPE_BLOB && field && field->name && std::string(field->name) == "data") {
                                 std::vector<std::byte> blob;
                                 if (len > 0) blob.assign(reinterpret_cast<const std::byte*>(row[c]), reinterpret_cast<const std::byte*>(row[c]) + len);
-                                prow.Add(std::string(colName ? colName : ""), std::move(blob));
+                                prow.add(std::string(colName ? colName : ""), std::move(blob));
                             } else {
-                                prow.Add(std::string(colName ? colName : ""), std::string(row[c] ? row[c] : ""));
+                                prow.add(std::string(colName ? colName : ""), std::string(row[c] ? row[c] : ""));
                             }
                             break;
                         }
                 }
             }
-            rows.Add(std::move(prow));
+            rows.add(std::move(prow));
         }
 
         return rows;

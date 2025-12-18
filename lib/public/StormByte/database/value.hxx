@@ -100,7 +100,7 @@ namespace StormByte::Database {
 			/**
 			 * Destructor
 			 */
-			~Value() noexcept									= default;
+			virtual ~Value() noexcept							= default;
 
 			template<typename T>
 			requires StormByte::Type::VariantHasType<ValuesVariant, std::decay_t<T>>

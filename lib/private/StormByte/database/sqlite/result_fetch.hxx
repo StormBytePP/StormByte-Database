@@ -31,17 +31,17 @@ namespace StormByte::Database::SQLite {
 					case SQLITE_INTEGER: {
 						sqlite3_int64 v = sqlite3_column_int64(stmt, i);
 						if (v > std::numeric_limits<int>::max() || v < std::numeric_limits<int>::min())
-							row.Add(std::string(colName ? colName : ""), static_cast<long int>(v));
+							row.add(std::string(colName ? colName : ""), static_cast<long int>(v));
 						else
-							row.Add(std::string(colName ? colName : ""), static_cast<int>(v));
+							row.add(std::string(colName ? colName : ""), static_cast<int>(v));
 						break;
 					}
 					case SQLITE_FLOAT:
-						row.Add(std::string(colName ? colName : ""), sqlite3_column_double(stmt, i));
+						row.add(std::string(colName ? colName : ""), sqlite3_column_double(stmt, i));
 						break;
 					case SQLITE_TEXT: {
 						const unsigned char* text = sqlite3_column_text(stmt, i);
-						row.Add(std::string(colName ? colName : ""), std::string(reinterpret_cast<const char*>(text ? text : (const unsigned char*)"")));
+						row.add(std::string(colName ? colName : ""), std::string(reinterpret_cast<const char*>(text ? text : (const unsigned char*)"")));
 						break;
 					}
 					case SQLITE_BLOB: {
@@ -50,18 +50,18 @@ namespace StormByte::Database::SQLite {
 						std::vector<std::byte> blobVec;
 						if (blobData && blobSize > 0)
 							blobVec.assign(blobData, blobData + blobSize);
-						row.Add(std::string(colName ? colName : ""), std::move(blobVec));
+						row.add(std::string(colName ? colName : ""), std::move(blobVec));
 						break;
 					}
 					case SQLITE_NULL:
 					default:
 						// Use an explicit null Value instead of passing nullptr which
 						// would match the `const char*` constructor and cause UB.
-						row.Add(std::string(colName ? colName : ""), Value());
+						row.add(std::string(colName ? colName : ""), Value());
 						break;
 				}
 			}
-			rows.Add(std::move(row));
+			rows.add(std::move(row));
 		}
 
 		if (rc == SQLITE_DONE) {

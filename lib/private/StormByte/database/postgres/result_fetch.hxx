@@ -21,7 +21,7 @@ namespace StormByte::Database::Postgres {
 			for (int c = 0; c < nfields; ++c) {
 				const char* colName = PQfname(res, c);
 				if (PQgetisnull(res, r, c)) {
-					row.Add(std::string(colName ? colName : ""), Value());
+					row.add(std::string(colName ? colName : ""), Value());
 					continue;
 				}
 				Oid ftype = PQftype(res, c);
@@ -38,7 +38,7 @@ namespace StormByte::Database::Postgres {
 								if (s == "true") b = true;
 							}
 						}
-						row.Add(std::string(colName ? colName : ""), b);
+						row.add(std::string(colName ? colName : ""), b);
 						break;
 					}
 
@@ -48,16 +48,16 @@ namespace StormByte::Database::Postgres {
 						long long v = 0;
 						try { v = std::stoll(std::string(val)); } catch(...) { v = 0; }
 						if (v > std::numeric_limits<int>::max() || v < std::numeric_limits<int>::min())
-							row.Add(std::string(colName ? colName : ""), static_cast<long int>(v));
+							row.add(std::string(colName ? colName : ""), static_cast<long int>(v));
 						else
-							row.Add(std::string(colName ? colName : ""), static_cast<int>(v));
+							row.add(std::string(colName ? colName : ""), static_cast<int>(v));
 						break;
 					}
 					case 700: // float4
 					case 701: { // float8
 						double d = 0.0;
 						try { d = std::stod(std::string(val)); } catch(...) { d = 0.0; }
-						row.Add(std::string(colName ? colName : ""), d);
+						row.add(std::string(colName ? colName : ""), d);
 						break;
 					}
 					case 17: { // bytea
@@ -69,17 +69,17 @@ namespace StormByte::Database::Postgres {
 							blob.assign(reinterpret_cast<std::byte*>(out), reinterpret_cast<std::byte*>(out) + outlen);
 						}
 						if (out) PQfreemem(out);
-						row.Add(std::string(colName ? colName : ""), std::move(blob));
+						row.add(std::string(colName ? colName : ""), std::move(blob));
 						break;
 					}
 					default: {
 						// default to text
-						row.Add(std::string(colName ? colName : ""), std::string(val ? val : ""));
+						row.add(std::string(colName ? colName : ""), std::string(val ? val : ""));
 						break;
 					}
 				}
 			}
-			rows.Add(std::move(row));
+			rows.add(std::move(row));
 		}
 
 		return rows;

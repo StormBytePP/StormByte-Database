@@ -380,7 +380,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
         for (unsigned int i = 0; i < nfields; ++i) {
             if (out_is_null[i]) {
                 MYSQL_FIELD* f = mysql_fetch_field_direct(meta, i);
-                prow.Add(std::string(f && f->name ? f->name : ""), Value());
+                prow.add(std::string(f && f->name ? f->name : ""), Value());
                 continue;
             }
             MYSQL_FIELD* f = mysql_fetch_field_direct(meta, i);
@@ -391,16 +391,16 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
                 case MYSQL_TYPE_SHORT:
                 case MYSQL_TYPE_LONG:
                     
-                    prow.Add(std::string(colName ? colName : ""), static_cast<int>(out_int[i]));
+                    prow.add(std::string(colName ? colName : ""), static_cast<int>(out_int[i]));
                     break;
                 case MYSQL_TYPE_LONGLONG:
                     
-                    prow.Add(std::string(colName ? colName : ""), static_cast<long int>(out_ll[i]));
+                    prow.add(std::string(colName ? colName : ""), static_cast<long int>(out_ll[i]));
                     break;
                 case MYSQL_TYPE_FLOAT:
                 case MYSQL_TYPE_DOUBLE:
                     
-                    prow.Add(std::string(colName ? colName : ""), out_dbl[i]);
+                    prow.add(std::string(colName ? colName : ""), out_dbl[i]);
                     break;
                 case MYSQL_TYPE_BLOB: {
                     // Heuristic: treat BLOB as text unless the column is explicitly a data/blob column named "data"
@@ -408,7 +408,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
                         unsigned long llen = out_len[i];
                         std::string sval(out_str[i].data(), llen);
                         
-                        prow.Add(std::string(colName ? colName : ""), std::move(sval));
+                        prow.add(std::string(colName ? colName : ""), std::move(sval));
                     } else {
                         unsigned long llen = out_len[i];
                         std::vector<std::byte> blob;
@@ -416,7 +416,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
                             blob.resize(llen);
                             for (unsigned long bi = 0; bi < llen; ++bi) blob[bi] = static_cast<std::byte>(out_str[i][bi]);
                         }
-                        prow.Add(std::string(colName ? colName : ""), std::move(blob));
+                        prow.add(std::string(colName ? colName : ""), std::move(blob));
                     }
                     break;
                 }
@@ -425,12 +425,12 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
                 default: {
                     unsigned long llen = out_len[i];
                     std::string sval(out_str[i].data(), llen);
-                    prow.Add(std::string(colName ? colName : ""), std::move(sval));
+                    prow.add(std::string(colName ? colName : ""), std::move(sval));
                     break;
                 }
             }
         }
-        rows.Add(std::move(prow));
+        rows.add(std::move(prow));
     }
 
     mysql_free_result(meta);

@@ -10,30 +10,30 @@ elseif (NOT STORMBYTE_AS_DEPENDENCY)
 		LIBRARY 		DESTINATION "${CMAKE_INSTALL_LIBDIR}"
 		RUNTIME 		DESTINATION ${CMAKE_INSTALL_BINDIR}
 	)
-	install(DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/public/StormByte/"
+	install(DIRECTORY "${CMAKE_SOURCE_DIR}/lib/public/StormByte/"
 		DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/StormByte"
 		FILES_MATCHING
 		PATTERN "*.h"
 		PATTERN "*.hxx"
 	)
-	if (WITH_SQLITE STREQUAL "BUNDLED")
-		install(DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/optional/StormByte/database/sqlite"
+	if (NOT WITH_SQLITE STREQUAL "OFF")
+		install(DIRECTORY "${CMAKE_SOURCE_DIR}/lib/optional/StormByte/database/sqlite"
 			DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/StormByte/database"
 			FILES_MATCHING
 			PATTERN "*.h"
 			PATTERN "*.hxx"
 		)
 	endif()
-	if (WITH_POSTGRES STREQUAL "BUNDLED")
-		install(DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/optional/StormByte/database/postgres"
+	if (NOT WITH_POSTGRES STREQUAL "OFF")
+		install(DIRECTORY "${CMAKE_SOURCE_DIR}/lib/optional/StormByte/database/postgres"
 			DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/StormByte/database"
 			FILES_MATCHING
 			PATTERN "*.h"
 			PATTERN "*.hxx"
 		)
 	endif()
-	if (WITH_MARIADB STREQUAL "BUNDLED")
-		install(DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/optional/StormByte/database/mariadb"
+	if (NOT WITH_MARIADB STREQUAL "OFF")
+		install(DIRECTORY "${CMAKE_SOURCE_DIR}/lib/optional/StormByte/database/mariadb"
 			DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/StormByte/database"
 			FILES_MATCHING
 			PATTERN "*.h"

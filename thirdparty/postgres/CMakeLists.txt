@@ -1,5 +1,8 @@
-set(WITH_POSTGRES "BUNDLED" CACHE STRING "Postgres mode: OFF, SYSTEM, BUNDLED")
-
+IF(WIN32)
+	set(WITH_POSTGRES "BUNDLED" CACHE STRING "Postgres mode: OFF, SYSTEM, BUNDLED" FORCE)
+else()
+	set(WITH_POSTGRES "SYSTEM" CACHE STRING "Postgres mode: OFF, SYSTEM, BUNDLED")
+endif()
 if (NOT WITH_POSTGRES STREQUAL "OFF")
 	if (WITH_POSTGRES STREQUAL "SYSTEM")
 		find_package(PostgreSQL REQUIRED)
@@ -63,10 +66,15 @@ if (NOT WITH_POSTGRES STREQUAL "OFF")
 			add_custom_target(postgres_bundled
 				DEPENDS "${POSTGRES_LIBPQ}" "${POSTGRES_LIBPQ_LIB}"
 			)
-			add_library(PostgreSQL::PostgreSQL SHARED IMPORTED)
-			set_target_properties(PostgreSQL::PostgreSQL PROPERTIES
+			add_library(libpq SHARED IMPORTED)
+			set_target_properties(libpq PROPERTIES
 				IMPORTED_LOCATION "${POSTGRES_LIBPQ}"
 				IMPORTED_IMPLIB   "${POSTGRES_LIBPQ_LIB}"
+				IMPORTED_LOCATION_DEBUG "${POSTGRES_LIBPQ}"
+				IMPORTED_LOCATION_RELEASE "${POSTGRES_LIBPQ}"
+				IMPORTED_IMPLIB_DEBUG "${POSTGRES_LIBPQ_LIB}"
+				IMPORTED_IMPLIB_RELEASE "${POSTGRES_LIBPQ_LIB}"
+				IMPORTED_GLOBAL TRUE
 			)
 		else()
 			message(STATUS "Postgres build dir: ${POSTGRES_BUILD_DIR}")
@@ -80,20 +88,24 @@ if (NOT WITH_POSTGRES STREQUAL "OFF")
 			add_custom_target(postgres_bundled
 				DEPENDS "${POSTGRES_LIBPQ}"
 			)
-			add_library(PostgreSQL::PostgreSQL SHARED IMPORTED)
-			set_target_properties(PostgreSQL::PostgreSQL PROPERTIES
+			add_library(libpq SHARED IMPORTED GLOBAL)
+			set_target_properties(libpq PROPERTIES
 				IMPORTED_LOCATION "${POSTGRES_LIBPQ}"
+				IMPORTED_LOCATION_DEBUG "${POSTGRES_LIBPQ}"
+				IMPORTED_LOCATION_RELEASE "${POSTGRES_LIBPQ}"
+				IMPORTED_GLOBAL TRUE
 			)
 		endif()
 		
-		add_dependencies(PostgreSQL::PostgreSQL postgres_bundled)
+		add_dependencies(libpq postgres_bundled)
 		# Export include dirs from the Postgres source tree so libpq and common headers are found
-		target_include_directories(PostgreSQL::PostgreSQL
+		target_include_directories(libpq
 			SYSTEM INTERFACE
 			"${POSTGRES_SRC_DIR}/src/include"
 			"${POSTGRES_SRC_DIR}/src/interfaces/libpq"
 			"${POSTGRES_LIBPQ_DIR}"
 		)
+		add_library(PostgreSQL::PostgreSQL ALIAS libpq)
 
 		message(STATUS "Using PostgreSQL: bundled ${POSTGRES_VERSION}")
 	endif()

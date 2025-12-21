@@ -1,10 +1,11 @@
-name: CMake
+name: Compile & Test
 
 on:
   push:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
+  workflow_dispatch:
 
 env:
   BUILD_TYPE: Debug
@@ -12,111 +13,190 @@ env:
 jobs:
   build-linux:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=10
 
     strategy:
       matrix:
-        compiler: [gcc, clang]
-        stdlib: [libstdc++, libc++]
+        compiler: [gcc, clang, clang-libc++]
         sqlite: [BUNDLED, SYSTEM, OFF]
         postgres: [BUNDLED, SYSTEM, OFF]
-        mariadb: [BUNDLED, OFF]
+        mariadb: [BUNDLED, SYSTEM, OFF]
         exclude:
-        - compiler: gcc
-          stdlib: libc++
-        - stdlib: libc++
-          sqlite: SYSTEM
-        - stdlib: libc++
+        - compiler: clang-libc++
+          mariadb: SYSTEM
+        - compiler: clang-libc++
           postgres: SYSTEM
+        - compiler: clang-libc++
+          sqlite: SYSTEM
 
-    name: ${{ matrix.compiler }}-${{ matrix.stdlib }}-sqlite(${{ matrix.sqlite }})-postgres(${{ matrix.postgres }})-mariadb(${{ matrix.mariadb }})
+    name: ${{ matrix.compiler }}-mariadb(${{ matrix.mariadb }})-postgres(${{ matrix.postgres }})-sqlite(${{ matrix.sqlite }})
 
     steps:
     - name: Checkout repository and submodules
       uses: actions/checkout@v4
       with:
+        fetch-depth: 0
         submodules: true
 
     - name: Install toolchain
       id: install-toolchain
-      uses: stormbytepp/install-toolchain@v1
+      uses: stormbytepp/githubactions/.github/actions/install-toolchain@master
       with:
-        compiler: ${{ matrix.compiler }}
+        toolchain: ${{ matrix.compiler }}
 
     - name: Install system dependencies (sqlite)
       if: ${{ matrix.sqlite == 'SYSTEM' }}
-      run: |
-        pkgs=""
-        if [ "${{ matrix.sqlite }}" = "SYSTEM" ]; then pkgs="$pkgs libsqlite3-dev"; fi
-        if [ -n "$pkgs" ]; then sudo apt-get install -y $pkgs; fi
+      uses: stormbytepp/githubactions/.github/actions/install-cached@master
+      with:
+        cache-key: sqlite-system-deps
+        packages: 'libsqlite3-dev'
 
     - name: Install system dependencies (postgres)
-      if: ${{ matrix.postgres != 'OFF' }}
-      run: |
-        pkgs="meson bison flex libssl3"
-        if [ "${{ matrix.postgres }}" = "SYSTEM" ]; then pkgs="$pkgs libpq-dev"; fi
-        if [ -n "$pkgs" ]; then sudo apt-get install -y $pkgs; fi
+      if: ${{ matrix.postgres == 'SYSTEM' }}
+      uses: stormbytepp/githubactions/.github/actions/install-cached@master
+      with:
+        cache-key: postgres-system-deps
+        packages: 'libpq-dev'
 
-    - name: Install system dependencies (mariadb)
+    - name: Install system dependencies (mariadb common)
       if: ${{ matrix.mariadb != 'OFF' }}
-      run: |
-        sudo apt-get update
-        # Runtime libraries frequently required by libmariadb and its plugins
-        pkgs="openssl libssl-dev libssl3 zlib1g libzstd1 liblz4-1 libcurl4"
-        if [ -n "$pkgs" ]; then sudo apt-get install -y $pkgs; fi
+      uses: stormbytepp/githubactions/.github/actions/install-cached@master
+      with:
+        cache-key: mariadb-system-deps
+        packages: 'openssl libssl-dev libssl3 zlib1g libzstd1 liblz4-1 libcurl4 ca-certificates libgnutls30 mariadb-client'
 
-    - name: Install and start Postgres server (Linux runners)
-      if: ${{ matrix.postgres != 'OFF' }}
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y postgresql postgresql-contrib
-        # Try service start (system packages start the service on install)
-        sudo service postgresql start || true
-        sleep 2
-        # Create test role and database used by tests (idempotent)
-        if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='testuser'" | grep -q 1; then
-          sudo -u postgres psql -c "CREATE ROLE testuser WITH LOGIN PASSWORD 'testpass';"
-        fi
-        if ! sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw stormbyte_test; then
-          sudo -u postgres psql -c "CREATE DATABASE stormbyte_test OWNER testuser;"
-        fi
-        sudo -u postgres psql -c "ALTER ROLE testuser CREATEDB;" || true
+    - name: Install MariaDB development files
+      if: ${{ matrix.mariadb == 'SYSTEM' }}
+      uses: stormbytepp/githubactions/.github/actions/install-cached@master
+      with:
+        cache-key: mariadb-dev
+        packages: 'libmariadb-dev'
 
-    - name: Install and start MariaDB server (Linux runners)
+    - name: Install MariaDB server
       if: ${{ matrix.mariadb != 'OFF' }}
+      uses: stormbytepp/githubactions/.github/actions/install-cached@master
+      with:
+        cache-key: mariadb-server
+        packages: 'mariadb-server'
+
+    - name: Install Postgres client and deps
+      if: ${{ matrix.postgres != 'OFF' }}
+      uses: stormbytepp/githubactions/.github/actions/install-cached@master
+      with:
+        cache-key: postgres-client
+        packages: 'postgresql-client'
+
+    - name: Initialize and Run Postgres (service container)
+      if: ${{ matrix.postgres != 'OFF' }}
+      shell: bash
       run: |
-        sudo apt-get update
-        # Ensure runtime and TLS packages are present
-        sudo apt-get install -y openssl libssl-dev libssl3 ca-certificates zlib1g libzstd1 liblz4-1 libcurl4 || true
-        sudo apt-get install -y mariadb-server mariadb-client
-
-        # Generate self-signed certs for MariaDB so the server supports TLS in CI
-        sudo mkdir -p /etc/mysql/certs
-        sudo openssl req -newkey rsa:2048 -nodes -x509 -days 365 \
-          -subj "/CN=localhost" \
-          -keyout /tmp/server-key.pem -out /tmp/server-cert.pem
-        sudo mv /tmp/server-key.pem /etc/mysql/certs/server-key.pem
-        sudo mv /tmp/server-cert.pem /etc/mysql/certs/server-cert.pem
-        sudo chown -R mysql:mysql /etc/mysql/certs
-        sudo chmod 600 /etc/mysql/certs/server-key.pem
-        sudo chmod 644 /etc/mysql/certs/server-cert.pem
-
-        # Ensure MariaDB loads the certs by adding a small config file
-        sudo tee /etc/mysql/mariadb.conf.d/99-ci-ssl.cnf > /dev/null <<'EOF'
-        [mysqld]
-        ssl_cert=/etc/mysql/certs/server-cert.pem
-        ssl_key=/etc/mysql/certs/server-key.pem
-        ssl_ca=/etc/mysql/certs/server-cert.pem
-        EOF
-
-        # Start the service and wait until responsive
-        sudo service mysql restart || sudo service mysql start || true
-        sleep 2
-        for i in 1 2 3 4 5 6 7 8 9 10; do
-          if sudo mysqladmin ping >/dev/null 2>&1; then break; fi
+        # Wait for the service container to become ready
+        for i in {1..60}; do
+          if PGPASSWORD=test psql -h 127.0.0.1 -p 5432 -U postgres -c '\q' >/dev/null 2>&1; then break; fi
           sleep 1
         done
 
-        # Create test user and database (idempotent)
+        # Create test role and database (idempotent)
+        if ! PGPASSWORD=test psql -h 127.0.0.1 -p 5432 -U postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='testuser'" | grep -q 1; then
+          PGPASSWORD=test psql -h 127.0.0.1 -p 5432 -U postgres -c "CREATE ROLE testuser WITH LOGIN PASSWORD 'testpass';"
+        fi
+        if ! PGPASSWORD=test psql -h 127.0.0.1 -p 5432 -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname='stormbyte_test'" | grep -q 1; then
+          PGPASSWORD=test psql -h 127.0.0.1 -p 5432 -U postgres -c "CREATE DATABASE stormbyte_test OWNER testuser;"
+        fi
+        PGPASSWORD=test psql -h 127.0.0.1 -p 5432 -U postgres -c "ALTER ROLE testuser CREATEDB;" || true
+
+    - name: Initialize MariaDB (runner)
+      if: ${{ matrix.mariadb != 'OFF' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Stop service to avoid race during config
+        sudo systemctl stop mariadb || sudo service mariadb stop || true
+
+        # Generate CA and server certificates (self-signed CA -> server cert)
+        TMPDIR=$(mktemp -d)
+        pushd "$TMPDIR"
+        printf '%s\n' 'subjectAltName=DNS:localhost,IP:127.0.0.1' > san.cnf
+
+        openssl genrsa -out ca-key.pem 4096
+        openssl req -x509 -new -nodes -key ca-key.pem -sha256 -days 365 -subj "/CN=CI MariaDB CA" -out ca.pem
+
+        openssl genrsa -out server-key.pem 4096
+        openssl req -new -key server-key.pem -subj "/CN=localhost" -out server.csr
+        openssl x509 -req -in server.csr -CA ca.pem -CAkey ca-key.pem -CAcreateserial -out server-cert.pem -days 365 -sha256 -extfile san.cnf
+
+        sudo mkdir -p /etc/mysql/certs
+        sudo cp ca.pem server-cert.pem server-key.pem /etc/mysql/certs/
+        sudo chown -R mysql:mysql /etc/mysql/certs
+        sudo chmod 600 /etc/mysql/certs/server-key.pem
+        popd
+        sudo rm -rf "$TMPDIR"
+
+        # Configure MariaDB to use the generated certificates
+        sudo mkdir -p /etc/mysql/conf.d
+        printf '%s\n' '[mysqld]' \
+          'ssl-ca=/etc/mysql/certs/ca.pem' \
+          'ssl-cert=/etc/mysql/certs/server-cert.pem' \
+          'ssl-key=/etc/mysql/certs/server-key.pem' | sudo tee /etc/mysql/conf.d/ssl.cnf > /dev/null
+
+        # Remove unsupported mysqlx variable from any config under /etc/mysql
+        sudo find /etc/mysql -type f -exec grep -Il "mysqlx-bind-address" {} \; 2>/dev/null | while read -r f; do
+          echo "stripping mysqlx-bind-address from $f"
+          sudo sed -i '/mysqlx-bind-address/d' "$f" || true
+        done || true
+
+        # Delete any existing data directory to avoid stale files and recreate
+        sudo rm -rf /var/lib/mysql || true
+        sudo mkdir -p /var/lib/mysql
+        sudo chown mysql:mysql /var/lib/mysql
+        # Ensure data directory is initialized (creates ib_logfile0, mysql system tables)
+        echo "Initializing MariaDB data directory"
+        # Create a minimal defaults file to avoid reading distro configs that may contain unsupported options
+        TMPCNF=/tmp/ci-mariadb.cnf
+        printf '%s\n' '[mysqld]' 'datadir=/var/lib/mysql' 'socket=/var/run/mysqld/mysqld.sock' 'skip-log-bin' | sudo tee "$TMPCNF" > /dev/null
+
+        # Use the temp defaults file (created as root) so installer ignores external my.cnf with mysqlx options
+        if ! sudo mariadb-install-db --defaults-file="$TMPCNF" --user=mysql --datadir=/var/lib/mysql 2>&1 | sed -n '1,200p'; then
+          echo "mariadb-install-db failed, dumping $TMPCNF and /etc/mysql/*"
+          sudo sed -n '1,200p' "$TMPCNF" || true
+          sudo find /etc/mysql -type f -maxdepth 3 -print -exec sed -n '1,200p' {} \; 2>/dev/null || true
+          exit 1
+        fi
+        sudo rm -f "$TMPCNF" || true
+        sudo chown -R mysql:mysql /var/lib/mysql || true
+
+        # Start MariaDB and gather diagnostics if it fails
+        if ! (sudo systemctl start mariadb || sudo service mariadb start); then
+          echo "--- systemctl status mariadb ---"
+          sudo systemctl status mariadb.service --no-pager -l || true
+          echo "--- journalctl mariadb ---"
+          sudo journalctl -xeu mariadb.service --no-pager -n 200 || true
+          echo "--- mariadb error log ---"
+          sudo cat /var/log/mysql/error.log 2>/dev/null || sudo cat /var/log/mysql/mariadb.log 2>/dev/null || true
+          echo "--- /etc/mysql configs ---"
+          sudo find /etc/mysql -type f -maxdepth 3 -print -exec sed -n '1,200p' {} \; 2>/dev/null || true
+          exit 1
+        fi
+
+        # Wait for server to accept connections via socket
+        for i in {1..60}; do
+          if sudo mysql -e "SELECT 1;" >/dev/null 2>&1; then break; fi
+          sleep 1
+        done
+
+        # Create test user and database (idempotent) using the local mysql CLI
         sudo mysql -e "CREATE USER IF NOT EXISTS 'testuser'@'localhost' IDENTIFIED BY 'testpass';"
         sudo mysql -e "CREATE DATABASE IF NOT EXISTS stormbyte_test;"
         sudo mysql -e "GRANT ALL PRIVILEGES ON stormbyte_test.* TO 'testuser'@'localhost'; FLUSH PRIVILEGES;"
@@ -134,7 +214,9 @@ jobs:
           -DWITH_SQLITE=${{ matrix.sqlite }}
           -DWITH_POSTGRES=${{ matrix.postgres }}
           -DWITH_MARIADB=${{ matrix.mariadb }}
+          -DWITH_MARIADB_SSL_DISABLED=ON
           -DWITH_STORMBYTE=BUNDLED
+          ${{ matrix.compiler == 'clang-libc++' && format('-DCMAKE_CXX_FLAGS=-stdlib={0}', 'libc++') || '' }}
         build-type: ${{ env.BUILD_TYPE }}
         run-test: true
         ctest-options: --output-on-failure --test-dir ${{ github.workspace }}/build/test
@@ -154,10 +236,9 @@ jobs:
 
       - name: Install toolchain
         id: install-toolchain
-        uses: stormbytepp/install-toolchain@v1
+        uses: stormbytepp/githubactions/.github/actions/install-toolchain@master
         with:
-          compiler: msvc
-          arch: ${{ matrix.arch }}
+          toolchain: msvc
 
       - name: Setup Python for Meson
         uses: actions/setup-python@v4
@@ -183,6 +264,7 @@ jobs:
             -DWITH_SQLITE=BUNDLED
             -DWITH_POSTGRES=BUNDLED
             -DWITH_MARIADB=BUNDLED
+            -DWITH_MARIADB_SSL_DISABLED=ON
             -DWITH_STORMBYTE=BUNDLED
           build-type: ${{ env.BUILD_TYPE }}
 

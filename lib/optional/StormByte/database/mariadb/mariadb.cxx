@@ -3,6 +3,7 @@
 #include <StormByte/database/mariadb/prepared_stmt.hxx>
 #include <mysql.h>
 #include <iostream>
+#include <cstdlib>
 
 using namespace StormByte::Database::MariaDB;
 
@@ -21,14 +22,28 @@ bool MariaDB::DoConnect() noexcept {
 
     MYSQL* conn = mysql_init(nullptr);
     if (!conn) return false;
-#if defined(MYSQL_OPT_SSL_MODE) && defined(SSL_MODE_PREFERRED)
-    /* Prefer SSL but do not require it. Some CI images have a MariaDB
-     * server without TLS configured; asking the client to prefer TLS
-     * allows TLS when available but falls back to plain TCP when not. */
-    int ssl_mode = SSL_MODE_PREFERRED;
+    /* TLS control:
+     * If `WITH_MARIADB_SSL_DISABLED` is defined, attempt to disable TLS/SSL:
+     *  - If `SSL_MODE_DISABLED` is available, request it via
+     *    `mysql_options(conn, MYSQL_OPT_SSL_MODE, ...)`.
+     *  - Otherwise, clear the connector `use_ssl` flag with
+     *    `conn->options.use_ssl = 0` to request a non-TLS connection.
+     * If `WITH_MARIADB_SSL_DISABLED` is not defined, leave connector
+     * defaults unchanged (which may enforce TLS).
+     */
+#ifdef WITH_MARIADB_SSL_DISABLED
+#if defined(SSL_MODE_DISABLED)
+    int ssl_mode = SSL_MODE_DISABLED;
     mysql_options(conn, MYSQL_OPT_SSL_MODE, &ssl_mode);
+#else
+    /* Explicitly disable TLS/SSL when the build requests it via
+     * `WITH_MARIADB_SSL_DISABLED`. Use the connector option API so this
+     * works regardless of client header layouts.
+     */
+    my_bool disable = 0;
+    mysql_options(conn, MYSQL_OPT_SSL_ENFORCE, &disable);
 #endif
-
+#endif
     unsigned int port = static_cast<unsigned int>(m_port);
     if (!mysql_real_connect(conn, m_host.empty() ? nullptr : m_host.c_str(), m_user.empty() ? nullptr : m_user.c_str(), m_password.empty() ? nullptr : m_password.c_str(), m_dbname.empty() ? nullptr : m_dbname.c_str(), port, nullptr, 0)) {
         m_logger << Logger::Level::Error << "MariaDB connection error: " << (mysql_error(conn) ? mysql_error(conn) : "Unknown error") << std::endl;

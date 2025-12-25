@@ -1,5 +1,8 @@
 name: Compile & Test
 
+permissions:
+  actions: write
+
 on:
   push:
     branches: [ "master" ]
@@ -54,47 +57,50 @@ jobs:
       uses: stormbytepp/githubactions/.github/actions/install-toolchain@master
       with:
         toolchain: ${{ matrix.compiler }}
+        ccache-key: 'ccache-${{ matrix.compiler }}-mariadb(${{ matrix.mariadb }})-postgres(${{ matrix.postgres }})-sqlite(${{ matrix.sqlite }})'
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
 
     - name: Install system dependencies (sqlite)
       if: ${{ matrix.sqlite == 'SYSTEM' }}
       uses: stormbytepp/githubactions/.github/actions/install-cached@master
       with:
-        cache-key: sqlite-system-deps
+        cache-key: apt-sqlite-system-deps
         packages: 'libsqlite3-dev'
 
     - name: Install system dependencies (postgres)
       if: ${{ matrix.postgres == 'SYSTEM' }}
       uses: stormbytepp/githubactions/.github/actions/install-cached@master
       with:
-        cache-key: postgres-system-deps
+        cache-key: apt-postgres-system-deps
         packages: 'libpq-dev'
 
     - name: Install system dependencies (mariadb common)
       if: ${{ matrix.mariadb != 'OFF' }}
       uses: stormbytepp/githubactions/.github/actions/install-cached@master
       with:
-        cache-key: mariadb-system-deps
+        cache-key: apt-mariadb-system-deps
         packages: 'openssl libssl-dev libssl3 zlib1g libzstd1 liblz4-1 libcurl4 ca-certificates libgnutls30 mariadb-client'
 
     - name: Install MariaDB development files
       if: ${{ matrix.mariadb == 'SYSTEM' }}
       uses: stormbytepp/githubactions/.github/actions/install-cached@master
       with:
-        cache-key: mariadb-dev
+        cache-key: apt-mariadb-dev
         packages: 'libmariadb-dev'
 
     - name: Install MariaDB server
       if: ${{ matrix.mariadb != 'OFF' }}
       uses: stormbytepp/githubactions/.github/actions/install-cached@master
       with:
-        cache-key: mariadb-server
+        cache-key: apt-mariadb-server
         packages: 'mariadb-server'
 
     - name: Install Postgres client and deps
       if: ${{ matrix.postgres != 'OFF' }}
       uses: stormbytepp/githubactions/.github/actions/install-cached@master
       with:
-        cache-key: postgres-client
+        cache-key: apt-postgres-client
         packages: 'postgresql-client'
 
     - name: Initialize and Run Postgres (service container)

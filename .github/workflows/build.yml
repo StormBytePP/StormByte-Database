@@ -274,15 +274,6 @@ jobs:
             -DWITH_STORMBYTE=BUNDLED
           build-type: ${{ env.BUILD_TYPE }}
 
-      - name: Copy DLLs
-        run: |
-          Copy-Item -Path "${{ github.workspace }}\build\thirdparty\StormByte\base\lib\StormByte.dll" -Destination "${{ github.workspace }}\build\test" -Force
-          Copy-Item -Path "${{ github.workspace }}\build\thirdparty\StormByte\logger\lib\StormByte-Logger.dll" -Destination "${{ github.workspace }}\build\test" -Force
-          Copy-Item -Path "${{ github.workspace }}\build\thirdparty\sqlite3\sqlite3.dll" -Destination "${{ github.workspace }}\build\test" -Force
-          Copy-Item -Path "${{ github.workspace }}\build\thirdparty\mariadb\mariadb-connector-c\libmariadb\libmariadb.dll" -Destination "${{ github.workspace }}\build\test" -Force
-          Copy-Item -Path "${{ github.workspace }}\build\thirdparty\postgres\build\src\interfaces\libpq\libpq.dll" -Destination "${{ github.workspace }}\build\test" -Force
-          Copy-Item -Path "${{ github.workspace }}\build\lib\StormByte-Database.dll" -Destination "${{ github.workspace }}\build\test" -Force
-
       - name: Install and start Postgres (Windows)
         shell: powershell
         run: |
@@ -392,6 +383,15 @@ jobs:
               & $mysqlPath -u root -e "CREATE USER IF NOT EXISTS 'testuser'@'localhost' IDENTIFIED BY 'testpass';"
               & $mysqlPath -u root -e "CREATE DATABASE IF NOT EXISTS stormbyte_test;"
               & $mysqlPath -u root -e "GRANT ALL PRIVILEGES ON stormbyte_test.* TO 'testuser'@'localhost'; FLUSH PRIVILEGES;"
+
+      - name: Add DLL directory to PATH
+        run: |
+          echo "${{ github.workspace }}\build\lib" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "${{ github.workspace }}\build\thirdparty\StormByte\base\lib" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "${{ github.workspace }}\build\thirdparty\StormByte\logger\lib" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "${{ github.workspace }}\build\thirdparty\sqlite3" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "${{ github.workspace }}\build\thirdparty\mariadb\mariadb-connector-c\libmariadb" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "${{ github.workspace }}\build\thirdparty\postgres\build\src\interfaces\libpq" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Run unit tests
         run: ctest --output-on-failure --test-dir ${{ github.workspace }}\build\test

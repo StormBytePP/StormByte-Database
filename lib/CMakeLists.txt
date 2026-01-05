@@ -62,7 +62,7 @@ if(MSVC)
 	target_compile_options(StormByte-Database PRIVATE /EHsc)
 	target_compile_options(StormByte-Database PRIVATE $<$<CONFIG:Release>:/O2>)
 	target_compile_options(StormByte-Database PRIVATE $<$<CONFIG:Debug>:/Od>)
-	target_link_options(StormByte-Database PRIVATE $<$<CONFIG:Release>:/LTCG /GL>)
+	target_compile_definitions(StormByte-Database PUBLIC UNICODE NOMINMAX) # Create problems if disabled
 else()
 	set(CMAKE_CXX_FLAGS_DEBUG "-pipe -g -ggdb -Wall -Wextra -Wnon-virtual-dtor -pedantic -pedantic-errors -O0")
 endif()

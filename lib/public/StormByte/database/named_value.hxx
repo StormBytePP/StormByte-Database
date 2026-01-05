@@ -61,6 +61,24 @@ namespace StormByte::Database {
 			NamedValue& operator=(NamedValue&& other) noexcept		= default;
 
 			/**
+			 * @brief Equality operator
+			 * @param other Other NamedValue to compare with
+			 * @return True if the NamedValues are equal, false otherwise
+			 */
+			inline bool 											operator==(const NamedValue& other) const noexcept {
+				return m_name == other.m_name && Value::operator==(other);
+			}
+
+			/**
+			 * @brief Inequality operator
+			 * @param other Other NamedValue to compare with
+			 * @return True if the NamedValues are not equal, false otherwise
+			 */
+			inline bool 											operator!=(const NamedValue& other) const noexcept {
+				return !(*this == other);
+			}
+
+			/**
 			 * @brief Gets the name of the value
 			 * @return Name of the value
 			 */

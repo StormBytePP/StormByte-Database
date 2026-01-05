@@ -98,6 +98,24 @@ namespace StormByte::Database {
 			Value& operator=(Value&&) noexcept					= default;
 
 			/**
+			 * Equality operator
+			 * @param other Other Value to compare with
+			 * @return True if the values are equal, false otherwise
+			 */
+			inline bool 										operator==(const Value& other) const noexcept {
+				return m_value == other.m_value;
+			}
+
+			/**
+			 * Inequality operator
+			 * @param other Other Value to compare with
+			 * @return True if the values are not equal, false otherwise
+			 */
+			inline bool 										operator!=(const Value& other) const noexcept {
+				return !(*this == other);
+			}
+
+			/**
 			 * Destructor
 			 */
 			virtual ~Value() noexcept							= default;

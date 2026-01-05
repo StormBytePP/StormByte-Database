@@ -50,7 +50,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
-        submodules: true
+        submodules: recursive
 
     - name: Install toolchain
       id: install-toolchain
@@ -238,7 +238,8 @@ jobs:
       - name: Checkout repository and submodules
         uses: actions/checkout@v4
         with:
-          submodules: true
+          fetch-depth: 0
+          submodules: recursive
 
       - name: Install toolchain
         id: install-toolchain
@@ -258,6 +259,10 @@ jobs:
 
       - name: Install win_flex_bison
         run: choco install winflexbison -y
+        shell: powershell
+
+      - name: Install perl
+        run: choco install strawberryperl -y
         shell: powershell
 
       - name: Build with CMake
@@ -387,11 +392,7 @@ jobs:
       - name: Add DLL directory to PATH
         run: |
           echo "${{ github.workspace }}\build\lib" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          echo "${{ github.workspace }}\build\thirdparty\StormByte\base\lib" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          echo "${{ github.workspace }}\build\thirdparty\StormByte\logger\lib" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          echo "${{ github.workspace }}\build\thirdparty\sqlite3" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          echo "${{ github.workspace }}\build\thirdparty\mariadb\mariadb-connector-c\libmariadb" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          echo "${{ github.workspace }}\build\thirdparty\postgres\build\src\interfaces\libpq" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "${{ github.workspace }}\build\thirdparty\buildmaster\install\lib" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Run unit tests
         run: ctest --output-on-failure --test-dir ${{ github.workspace }}\build\test

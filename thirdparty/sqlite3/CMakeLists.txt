@@ -8,6 +8,7 @@ if (NOT WITH_SQLITE STREQUAL "OFF")
 		find_package(SQLite3 REQUIRED)
 		message(STATUS "Found SQLite3: ${SQLite3_VERSION}")
 	else()
+		message(STATUS "\tSetting up bundled SQLite3")
 		include(FetchContent)
 
 		#Lowercase "sqlite3" prefixes needed by CMake
@@ -20,22 +21,11 @@ if (NOT WITH_SQLITE STREQUAL "OFF")
 		)
 		
 		if(NOT sqlite3_POPULATED)
-			message(STATUS "Fetching SQLite3 ${sqlite3_VERSION}")
+			message(STATUS "\t\tFetching SQLite3 ${sqlite3_VERSION}")
 			FetchContent_MakeAvailable(sqlite3)
 		endif()
 		
-		if (WIN32)
-			set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
-			add_library(sqlite3 SHARED "${sqlite3_SOURCE_DIR}/sqlite3.c")
-			set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS FALSE)
-			install(TARGETS sqlite3
-				ARCHIVE 		DESTINATION ${CMAKE_INSTALL_LIBDIR}
-				LIBRARY 		DESTINATION ${CMAKE_INSTALL_LIBDIR}
-				RUNTIME 		DESTINATION ${CMAKE_INSTALL_BINDIR}
-			)
-		else()
-			add_library(sqlite3 STATIC "${sqlite3_SOURCE_DIR}/sqlite3.c")
-		endif()
+		add_library(sqlite3 STATIC "${sqlite3_SOURCE_DIR}/sqlite3.c")
 		set_target_properties(sqlite3 PROPERTIES
 			POSITION_INDEPENDENT_CODE        ON
 			CXX_VISIBILITY_PRESET            hidden
@@ -48,7 +38,6 @@ if (NOT WITH_SQLITE STREQUAL "OFF")
 			SOVERSION 	${sqlite3_VERSION}
 		)
 		add_library(SQLite::SQLite3 ALIAS sqlite3)
-		message(STATUS "Found SQLite3: bundled ${sqlite3_VERSION}")
 	endif()
 
 	cmake_policy(SET CMP0079 NEW)

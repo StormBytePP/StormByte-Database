@@ -57,6 +57,11 @@ if (NOT WITH_MARIADB STREQUAL "OFF")
 				ncrypt     # Windows CNG key storage: persisted keys, self-signed certs, key export/import
 				crypt32    # Windows CryptoAPI: certificate store, encoding, self-signing, PEM/DER conversion
 			)
+		else()
+			target_link_libraries(StormByte-Database PRIVATE
+				ssl
+				crypto
+			)
 		endif()
 	endif()
 

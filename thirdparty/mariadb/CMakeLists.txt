@@ -59,10 +59,7 @@ if (NOT WITH_MARIADB STREQUAL "OFF")
 				crypt32    # Windows CryptoAPI: certificate store, encoding, self-signing, PEM/DER conversion
 			)
 		else()
-			target_link_libraries(StormByte-Database PRIVATE
-				ssl
-				crypto
-			)
+			target_link_libraries(StormByte-Database PRIVATE ssl crypto)
 		endif()
 	endif()
 

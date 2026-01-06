@@ -101,7 +101,7 @@ jobs:
       uses: stormbytepp/githubactions/.github/actions/install-cached@master
       with:
         cache-key: apt-postgres-system-deps
-        packages: 'postgresql-client libssl-dev'
+        packages: 'postgresql-client'
 
     - name: Initialize and Run Postgres (service container)
       if: ${{ matrix.postgres != 'OFF' }}

@@ -115,6 +115,7 @@ if (NOT WITH_POSTGRES STREQUAL "OFF")
 		# Now compile
 		set(POSTGRES_OPTIONS
 			"-Ddocs=disabled"
+			"-Dssl=none"
 		)
 		create_meson_component(
 			POSTGRES_LIBRARY_CREATE_FILE
@@ -143,8 +144,6 @@ if (NOT WITH_POSTGRES STREQUAL "OFF")
 				COMMENT "Renaming PostgreSQL static libraries to .lib"
 			)
 			target_link_libraries(StormByte-Database PRIVATE shlwapi wldap32)
-		else()
-			target_link_libraries(StormByte-Database PRIVATE ssl crypto)
 		endif()
 	endif()
 

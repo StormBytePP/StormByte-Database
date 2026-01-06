@@ -40,6 +40,5 @@ if (NOT WITH_SQLITE STREQUAL "OFF")
 		add_library(SQLite::SQLite3 ALIAS sqlite3)
 	endif()
 
-	cmake_policy(SET CMP0079 NEW)
 	target_link_libraries(StormByte-Database PRIVATE SQLite::SQLite3)
 endif()

@@ -9,6 +9,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: write
 
 jobs:
   docs:
@@ -16,3 +17,4 @@ jobs:
     with:
       doc_target: StormByteDatabaseDoc
       extra-cmake-options: -DENABLE_DOC=ON -DWITH_STORMBYTE=BUNDLED -DWITH_MARIADB=OFF -DWITH_POSTGRES=OFF -DWITH_SQLITE=OFF
+      docs_output_dir: ./_site

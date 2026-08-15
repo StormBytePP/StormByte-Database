@@ -129,6 +129,7 @@ jobs:
             -DWITH_SQLITE=${{ matrix.sqlite }}
             -DWITH_POSTGRES=${{ matrix.postgres }}
             -DWITH_MARIADB=${{ matrix.mariadb }}
+            -DWITH_MARIADB_SSL_DISABLED=ON
             -DWITH_STORMBYTE=BUNDLED
             ${{ matrix.compiler == 'clang-libc++' && '-DCMAKE_CXX_FLAGS=-stdlib=libc++' || '' }}
           run-tests: true

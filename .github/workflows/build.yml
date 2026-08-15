@@ -17,7 +17,7 @@ env:
 
 jobs:
   ###########################################################################
-  # LINUX — full matrix (SYSTEM / BUNDLED / OFF)
+  # LINUX — full matrix (SYSTEM / BUNDLED / OFF) + MariaDB SSL certs
   ###########################################################################
   build-linux:
     runs-on: ubuntu-latest
@@ -68,54 +68,142 @@ jobs:
           packages: 'libsqlite3-dev'
           cache-key: apt-sqlite-system-deps
 
-      - name: Install system dependencies (postgres)
+      - name: Install system dependencies (postgres client)
         if: matrix.postgres == 'SYSTEM'
         uses: stormbytepp/githubactions/.github/actions/install-cached@master
         with:
           packages: 'libpq-dev'
           cache-key: apt-postgres-system-deps
 
-      - name: Install system dependencies (mariadb)
+      - name: Install Postgres client tools (when backend enabled)
+        if: matrix.postgres != 'OFF'
+        uses: stormbytepp/githubactions/.github/actions/install-cached@master
+        with:
+          packages: 'postgresql-client'
+          cache-key: apt-postgres-client
+
+      - name: Install MariaDB common deps
+        if: matrix.mariadb != 'OFF'
+        uses: stormbytepp/githubactions/.github/actions/install-cached@master
+        with:
+          packages: 'openssl libssl-dev libssl3 zlib1g ca-certificates mariadb-client'
+          cache-key: apt-mariadb-common
+
+      - name: Install MariaDB development files
         if: matrix.mariadb == 'SYSTEM'
         uses: stormbytepp/githubactions/.github/actions/install-cached@master
         with:
           packages: 'libmariadb-dev'
-          cache-key: apt-mariadb-system-deps
+          cache-key: apt-mariadb-dev
 
-      - name: Install MariaDB server (for tests when != OFF)
+      - name: Install MariaDB server
         if: matrix.mariadb != 'OFF'
         uses: stormbytepp/githubactions/.github/actions/install-cached@master
         with:
           packages: 'mariadb-server'
           cache-key: apt-mariadb-server
 
-      - name: Start MariaDB and create test DB
-        if: matrix.mariadb != 'OFF'
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo service mariadb start || sudo systemctl start mariadb
-          for i in $(seq 1 60); do
-            if sudo mysql -e "SELECT 1" >/dev/null 2>&1; then break; fi
-            sleep 1
-          done
-          sudo mysql -e "CREATE USER IF NOT EXISTS 'testuser'@'localhost' IDENTIFIED BY 'testpass';"
-          sudo mysql -e "CREATE DATABASE IF NOT EXISTS stormbyte_test;"
-          sudo mysql -e "GRANT ALL PRIVILEGES ON stormbyte_test.* TO 'testuser'@'localhost'; FLUSH PRIVILEGES;"
-
-      - name: Create Postgres test DB
+      - name: Create Postgres test role and database
         if: matrix.postgres != 'OFF'
         shell: bash
         env:
           PGPASSWORD: test
         run: |
           set -euo pipefail
-          for i in $(seq 1 30); do
-            if pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1; then break; fi
+          for i in $(seq 1 60); do
+            if psql -h 127.0.0.1 -p 5432 -U postgres -c '\q' >/dev/null 2>&1; then
+              break
+            fi
             sleep 1
           done
-          psql -h 127.0.0.1 -U postgres -c "CREATE USER testuser WITH PASSWORD 'testpass';" || true
-          psql -h 127.0.0.1 -U postgres -c "CREATE DATABASE stormbyte_test OWNER testuser;" || true
+          if ! psql -h 127.0.0.1 -p 5432 -U postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='testuser'" | grep -q 1; then
+            psql -h 127.0.0.1 -p 5432 -U postgres -c "CREATE ROLE testuser WITH LOGIN PASSWORD 'testpass';"
+          fi
+          if ! psql -h 127.0.0.1 -p 5432 -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname='stormbyte_test'" | grep -q 1; then
+            psql -h 127.0.0.1 -p 5432 -U postgres -c "CREATE DATABASE stormbyte_test OWNER testuser;"
+          fi
+          psql -h 127.0.0.1 -p 5432 -U postgres -c "ALTER ROLE testuser CREATEDB;" || true
+
+      - name: Initialize MariaDB with SSL certificates
+        if: matrix.mariadb != 'OFF'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sudo systemctl stop mariadb || sudo service mariadb stop || true
+
+          TMPDIR=$(mktemp -d)
+          pushd "$TMPDIR" >/dev/null
+          printf '%s\n' 'subjectAltName=DNS:localhost,IP:127.0.0.1' > san.cnf
+
+          openssl genrsa -out ca-key.pem 4096
+          openssl req -x509 -new -nodes -key ca-key.pem -sha256 -days 365 \
+            -subj "/CN=CI MariaDB CA" -out ca.pem
+
+          openssl genrsa -out server-key.pem 4096
+          openssl req -new -key server-key.pem -subj "/CN=localhost" -out server.csr
+          openssl x509 -req -in server.csr -CA ca.pem -CAkey ca-key.pem -CAcreateserial \
+            -out server-cert.pem -days 365 -sha256 -extfile san.cnf
+
+          sudo mkdir -p /etc/mysql/certs
+          sudo cp ca.pem server-cert.pem server-key.pem /etc/mysql/certs/
+          sudo chown -R mysql:mysql /etc/mysql/certs
+          sudo chmod 600 /etc/mysql/certs/server-key.pem
+          popd >/dev/null
+          rm -rf "$TMPDIR"
+
+          sudo mkdir -p /etc/mysql/conf.d
+          printf '%s\n' '[mysqld]' \
+            'ssl-ca=/etc/mysql/certs/ca.pem' \
+            'ssl-cert=/etc/mysql/certs/server-cert.pem' \
+            'ssl-key=/etc/mysql/certs/server-key.pem' \
+            | sudo tee /etc/mysql/conf.d/ssl.cnf > /dev/null
+
+          # Remove unsupported mysqlx options if present
+          sudo find /etc/mysql -type f -exec grep -Il "mysqlx-bind-address" {} \; 2>/dev/null \
+            | while read -r f; do
+                echo "stripping mysqlx-bind-address from $f"
+                sudo sed -i '/mysqlx-bind-address/d' "$f" || true
+              done || true
+
+          sudo rm -rf /var/lib/mysql || true
+          sudo mkdir -p /var/lib/mysql
+          sudo chown mysql:mysql /var/lib/mysql
+
+          TMPCNF=/tmp/ci-mariadb.cnf
+          printf '%s\n' '[mysqld]' 'datadir=/var/lib/mysql' \
+            'socket=/var/run/mysqld/mysqld.sock' 'skip-log-bin' \
+            | sudo tee "$TMPCNF" > /dev/null
+
+          if ! sudo mariadb-install-db --defaults-file="$TMPCNF" --user=mysql --datadir=/var/lib/mysql 2>&1 | sed -n '1,200p'; then
+            echo "mariadb-install-db failed"
+            sudo sed -n '1,200p' "$TMPCNF" || true
+            sudo find /etc/mysql -type f -maxdepth 3 -print -exec sed -n '1,200p' {} \; 2>/dev/null || true
+            exit 1
+          fi
+          sudo rm -f "$TMPCNF" || true
+          sudo chown -R mysql:mysql /var/lib/mysql || true
+
+          if ! (sudo systemctl start mariadb || sudo service mariadb start); then
+            echo "--- systemctl status mariadb ---"
+            sudo systemctl status mariadb.service --no-pager -l || true
+            echo "--- journalctl mariadb ---"
+            sudo journalctl -xeu mariadb.service --no-pager -n 200 || true
+            echo "--- mariadb error log ---"
+            sudo cat /var/log/mysql/error.log 2>/dev/null || sudo cat /var/log/mysql/mariadb.log 2>/dev/null || true
+            exit 1
+          fi
+
+          for i in $(seq 1 60); do
+            if sudo mysql -e "SELECT 1;" >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+
+          sudo mysql -e "CREATE USER IF NOT EXISTS 'testuser'@'localhost' IDENTIFIED BY 'testpass';"
+          sudo mysql -e "CREATE DATABASE IF NOT EXISTS stormbyte_test;"
+          sudo mysql -e "GRANT ALL PRIVILEGES ON stormbyte_test.* TO 'testuser'@'localhost'; FLUSH PRIVILEGES;"
 
       - name: Build with toolchain
         uses: stormbytepp/githubactions/.github/actions/build-with-toolchain@master
@@ -136,7 +224,7 @@ jobs:
           ctest-options: --output-on-failure --test-dir ${{ github.workspace }}/build/test
 
   ###########################################################################
-  # macOS — only BUNDLED / OFF (no SYSTEM → no Homebrew static client + OpenSSL)
+  # macOS — BUNDLED / OFF only + MariaDB SSL certs (brew)
   ###########################################################################
   build-macos:
     runs-on: macos-latest
@@ -160,7 +248,6 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      # Servers only when backend is enabled (BUNDLED still needs a live server for tests)
       - name: Install and start Postgres (brew)
         if: matrix.postgres != 'OFF'
         shell: bash
@@ -170,32 +257,61 @@ jobs:
           brew link --force --overwrite postgresql@15 || true
           brew services start postgresql@15
           for i in $(seq 1 60); do
-            if pg_isready >/dev/null 2>&1; then break; fi
+            if pg_isready >/dev/null 2>&1; then
+              break
+            fi
             sleep 1
           done
           createuser -s testuser 2>/dev/null || true
           psql -d postgres -c "ALTER USER testuser WITH PASSWORD 'testpass';" || true
           createdb -O testuser stormbyte_test 2>/dev/null || true
 
-      - name: Install and start MariaDB (brew)
+      - name: Install and start MariaDB with SSL (brew)
         if: matrix.mariadb != 'OFF'
         shell: bash
         run: |
           set -euo pipefail
-          brew install mariadb
+          brew install mariadb openssl@3
+          brew services stop mariadb || true
+
+          CERT_DIR="${HOME}/mariadb-certs"
+          mkdir -p "$CERT_DIR"
+          cd "$CERT_DIR"
+          printf '%s\n' 'subjectAltName=DNS:localhost,IP:127.0.0.1' > san.cnf
+
+          openssl genrsa -out ca-key.pem 4096
+          openssl req -x509 -new -nodes -key ca-key.pem -sha256 -days 365 \
+            -subj "/CN=CI MariaDB CA" -out ca.pem
+
+          openssl genrsa -out server-key.pem 4096
+          openssl req -new -key server-key.pem -subj "/CN=localhost" -out server.csr
+          openssl x509 -req -in server.csr -CA ca.pem -CAkey ca-key.pem -CAcreateserial \
+            -out server-cert.pem -days 365 -sha256 -extfile san.cnf
+          chmod 600 server-key.pem
+
+          CONF_DIR="$(brew --prefix)/etc/my.cnf.d"
+          mkdir -p "$CONF_DIR"
+          cat > "${CONF_DIR}/ssl.cnf" <<EOF
+          [mysqld]
+          ssl-ca=${CERT_DIR}/ca.pem
+          ssl-cert=${CERT_DIR}/server-cert.pem
+          ssl-key=${CERT_DIR}/server-key.pem
+          EOF
+
           brew services start mariadb
           for i in $(seq 1 90); do
-            if mysqladmin ping --silent 2>/dev/null; then break; fi
+            if mysqladmin ping --silent 2>/dev/null; then
+              break
+            fi
             sleep 1
           done
-          # Homebrew uses unix_socket auth as the current user (not root password)
+
           ADMIN_USER="$(whoami)"
           mysql -u "$ADMIN_USER" -e "CREATE USER IF NOT EXISTS 'testuser'@'localhost' IDENTIFIED BY 'testpass';"
           mysql -u "$ADMIN_USER" -e "CREATE DATABASE IF NOT EXISTS stormbyte_test;"
           mysql -u "$ADMIN_USER" -e "GRANT ALL PRIVILEGES ON stormbyte_test.* TO 'testuser'@'localhost'; FLUSH PRIVILEGES;"
 
-      # Optional: SSL disabled for BUNDLED connector build / runtime policy
-      - name: OpenSSL (optional, for BUNDLED MariaDB connector)
+      - name: OpenSSL for BUNDLED MariaDB connector link
         if: matrix.mariadb == 'BUNDLED'
         shell: bash
         run: |
@@ -228,7 +344,7 @@ jobs:
           ctest-options: --output-on-failure --test-dir ${{ github.workspace }}/build/test
 
   ###########################################################################
-  # WINDOWS — keep as you had (SYSTEM optional; BUNDLED typical)
+  # WINDOWS — BUNDLED backends (services after build, tests manual)
   ###########################################################################
   build-windows:
     runs-on: windows-latest
@@ -252,8 +368,84 @@ jobs:
             -DWITH_SQLITE=BUNDLED
             -DWITH_POSTGRES=BUNDLED
             -DWITH_MARIADB=BUNDLED
+            -DWITH_MARIADB_SSL_DISABLED=ON
             -DWITH_STORMBYTE=BUNDLED
           run-tests: false
+
+      - name: Install and start Postgres (Windows)
+        shell: pwsh
+        run: |
+          choco install postgresql18 --params '/Password:test /Port:5432 /AllowRemote' --ia '--enable-components server,commandlinetools' -y
+          $pgroot = Get-ChildItem 'C:\Program Files\PostgreSQL' | Sort-Object Name -Descending | Select-Object -First 1
+          if ($null -eq $pgroot) { Write-Host "Postgres not found"; exit 1 }
+          $bindir = Join-Path $pgroot.FullName 'bin'
+          $env:Path += ";$bindir"
+          $env:PGPASSWORD = 'test'
+          $port = 5432
+          $ready = $false
+          for ($i = 0; $i -lt 60; $i++) {
+            try {
+              & psql.exe -U postgres -h localhost -p $port -c "SELECT 1;" > $null 2>&1
+              if ($LASTEXITCODE -eq 0) { $ready = $true; break }
+            } catch {}
+            Start-Sleep -Seconds 1
+          }
+          if (-not $ready) { Write-Host "Postgres did not become ready"; exit 1 }
+          $exists = & psql.exe -U postgres -h localhost -p $port -t -c "SELECT 1 FROM pg_roles WHERE rolname='testuser';" | Out-String
+          if ($exists -notmatch '1') {
+            & psql.exe -U postgres -h localhost -p $port -c "CREATE ROLE testuser WITH LOGIN PASSWORD 'testpass';"
+          }
+          $dbs = & psql.exe -U postgres -h localhost -p $port -lqt | Out-String
+          if ($dbs -notmatch 'stormbyte_test') {
+            & psql.exe -U postgres -h localhost -p $port -c "CREATE DATABASE stormbyte_test OWNER testuser;"
+          }
+
+      - name: Install and start MariaDB (Windows)
+        shell: pwsh
+        run: |
+          choco install mariadb --params '/RootPassword:test' -y
+          try { refreshenv } catch { Write-Host "refreshenv not available; continuing" }
+
+          $mysqlCmd = Get-Command mysql.exe -ErrorAction SilentlyContinue
+          if ($null -eq $mysqlCmd) {
+            $mdb = Get-ChildItem 'C:\Program Files' -Directory -Filter 'MariaDB*' -ErrorAction SilentlyContinue |
+              Sort-Object Name -Descending | Select-Object -First 1
+            if ($null -ne $mdb) {
+              $bindir = Join-Path $mdb.FullName 'bin'
+              $env:Path += ";$bindir"
+            }
+            $mysqlCmd = Get-Command mysql.exe -ErrorAction SilentlyContinue
+          }
+          if ($null -eq $mysqlCmd) { Write-Host "mysql.exe not found"; exit 1 }
+          $mysqlPath = $mysqlCmd.Source
+
+          $connected = $false
+          try {
+            & $mysqlPath -u root -e "SELECT 1;" > $null 2>&1
+            if ($LASTEXITCODE -eq 0) { $connected = $true }
+          } catch {}
+          if (-not $connected) {
+            $env:MYSQL_PWD = 'test'
+            try {
+              & $mysqlPath -u root -e "SELECT 1;" > $null 2>&1
+              if ($LASTEXITCODE -eq 0) { $connected = $true }
+            } catch {}
+          }
+          if (-not $connected) {
+            $ready = $false
+            for ($i = 0; $i -lt 120; $i++) {
+              try {
+                & $mysqlPath -u root -e "SELECT 1;" > $null 2>&1
+                if ($LASTEXITCODE -eq 0) { $ready = $true; break }
+              } catch {}
+              Start-Sleep -Seconds 1
+            }
+            if (-not $ready) { Write-Host "MariaDB did not become ready"; exit 1 }
+          }
+
+          & $mysqlPath -u root -e "CREATE USER IF NOT EXISTS 'testuser'@'localhost' IDENTIFIED BY 'testpass';"
+          & $mysqlPath -u root -e "CREATE DATABASE IF NOT EXISTS stormbyte_test;"
+          & $mysqlPath -u root -e "GRANT ALL PRIVILEGES ON stormbyte_test.* TO 'testuser'@'localhost'; FLUSH PRIVILEGES;"
 
       - name: Add DLL directories to PATH
         shell: pwsh

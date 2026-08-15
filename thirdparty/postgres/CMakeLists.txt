@@ -113,10 +113,35 @@ if (NOT WITH_POSTGRES STREQUAL "OFF")
 		include(${POSTGRES_REL_18_STABLE_SWITCH})
 
 		# Now compile
-		set(POSTGRES_OPTIONS
-			"-Ddocs=disabled"
-			"-Dssl=none"
-		)
+        set(POSTGRES_OPTIONS
+            # Docs / languages / optional server features
+            "-Ddocs=disabled"
+            "-Ddocs_pdf=disabled"
+            "-Dllvm=disabled"
+            "-Dnls=disabled"
+            "-Dreadline=disabled"
+            "-Dlibxml=disabled"
+            "-Dlibxslt=disabled"
+            "-Dicu=disabled"
+            "-Dzlib=disabled"
+            "-Dlz4=disabled"
+            "-Dzstd=disabled"
+            "-Dbonjour=disabled"
+            "-Dpam=disabled"
+            "-Dgssapi=disabled"
+            "-Dbsd_auth=disabled"
+            "-Dselinux=disabled"
+            "-Dsystemd=disabled"
+            "-Dlibnuma=disabled"
+            "-Dliburing=disabled"
+            "-Dplperl=disabled"
+            "-Dplpython=disabled"
+            "-Dpltcl=disabled"
+            "-Duuid=none"
+            "-Dssl=none"
+            "-Dldap=disabled"
+            "-Dlibcurl=disabled"
+        )
 		create_meson_component(
 			POSTGRES_LIBRARY_CREATE_FILE
 			"PostgreSQL"

@@ -14,11 +14,7 @@ on:
 env:
   BUILD_TYPE: Debug
 
-
 jobs:
-  ###########################################################################
-  # LINUX — full matrix (SYSTEM / BUNDLED / OFF) + MariaDB SSL certs
-  ###########################################################################
   build-linux:
     runs-on: ubuntu-latest
     services:
@@ -159,7 +155,6 @@ jobs:
             'ssl-key=/etc/mysql/certs/server-key.pem' \
             | sudo tee /etc/mysql/conf.d/ssl.cnf > /dev/null
 
-          # Remove unsupported mysqlx options if present
           sudo find /etc/mysql -type f -exec grep -Il "mysqlx-bind-address" {} \; 2>/dev/null \
             | while read -r f; do
                 echo "stripping mysqlx-bind-address from $f"
@@ -223,20 +218,17 @@ jobs:
           run-tests: true
           ctest-options: --output-on-failure --test-dir ${{ github.workspace }}/build/test
 
-  ###########################################################################
-  # macOS — BUNDLED / OFF only + MariaDB SSL certs (brew)
-  ###########################################################################
   build-macos:
     runs-on: macos-latest
     strategy:
       fail-fast: false
       matrix:
-        compiler: [clang, clang-libc++, gcc]
+        compiler: [gcc, clang]
         sqlite: [BUNDLED, OFF]
         postgres: [BUNDLED, OFF]
         mariadb: [BUNDLED, OFF]
 
-    name: macos-${{ matrix.compiler }}-mariadb(${{ matrix.mariadb }})-postgres(${{ matrix.postgres }})-sqlite(${{ matrix.sqlite }})
+    name: macos-${{ matrix.compiler == 'clang' && 'clang-libc++' || matrix.compiler }}-mariadb(${{ matrix.mariadb }})-postgres(${{ matrix.postgres }})-sqlite(${{ matrix.sqlite }})
 
     env:
       DYLD_LIBRARY_PATH: ${{ github.workspace }}/build/thirdparty/buildmaster/install/lib:${{ github.workspace }}/build/lib
@@ -339,13 +331,9 @@ jobs:
             -DWITH_MARIADB_SSL_DISABLED=ON
             -DWITH_STORMBYTE=BUNDLED
             ${{ env.OPENSSL_ROOT_DIR != '' && format('-DOPENSSL_ROOT_DIR={0}', env.OPENSSL_ROOT_DIR) || '' }}
-            ${{ matrix.compiler == 'clang-libc++' && '-DCMAKE_CXX_FLAGS=-stdlib=libc++' || '' }}
           run-tests: true
           ctest-options: --output-on-failure --test-dir ${{ github.workspace }}/build/test
 
-  ###########################################################################
-  # WINDOWS — BUNDLED backends (services after build, tests manual)
-  ###########################################################################
   build-windows:
     runs-on: windows-latest
     name: windows-msvc
@@ -361,7 +349,6 @@ jobs:
         shell: pwsh
         run: |
           choco install winflexbison -y
-          # Ensure win_flex / win_bison are on PATH for this job
           $paths = @(
             'C:\ProgramData\chocolatey\bin',
             'C:\ProgramData\chocolatey\lib\winflexbison\tools'

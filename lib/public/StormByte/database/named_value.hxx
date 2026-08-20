@@ -9,84 +9,75 @@
 namespace StormByte::Database {
 	/**
 	 * @class NamedValue
-	 * @brief NamedValue class for databases
+	 * @brief Value with an associated column name.
 	 */
 	class STORMBYTE_DATABASE_PUBLIC NamedValue: public Value {
 		public:
 			/**
-			 * @brief Constructor
-			 * @param name Name of the value
-			 * @param value Value to store
+			 * @param name Column name.
+			 * @param value Value to store.
 			 */
 			NamedValue(const std::string& name, const Value& value) noexcept:
 			Value(value), m_name(name) {}
 
 			/**
-			 * @brief Constructor
-			 * @param name Name of the value
-			 * @param value Value to store
+			 * @param name Column name.
+			 * @param value Value to store.
 			 */
 			NamedValue(std::string&& name, Value&& value) noexcept:
 			Value(std::move(value)), m_name(std::move(name)) {}
 
 			/**
-			 * @brief Copy Constructor
-			 * @param other Other NamedValue to copy from
+			 * Copy constructor.
 			 */
-			NamedValue(const NamedValue& other)						= default;
+			NamedValue(const NamedValue& other) = default;
 
 			/**
-			 * @brief Move Constructor
-			 * @param other Other NamedValue to move from
+			 * Move constructor.
 			 */
-			NamedValue(NamedValue&& other) noexcept					= default;
+			NamedValue(NamedValue&& other) noexcept = default;
 
 			/**
-			 * @brief Destructor
+			 * Destructor.
 			 */
-			~NamedValue() noexcept override							= default;
+			~NamedValue() noexcept override = default;
 
 			/**
-			 * @brief Assignment operator
-			 * @param other Other NamedValue to copy from
-			 * @return Reference to this NamedValue
+			 * Copy assignment.
 			 */
-			NamedValue& operator=(const NamedValue& other)			= default;
+			NamedValue& operator=(const NamedValue& other) = default;
 
 			/**
-			 * @brief Move operator
-			 * @param other Other NamedValue to move from
-			 * @return Reference to this NamedValue
+			 * Move assignment.
 			 */
-			NamedValue& operator=(NamedValue&& other) noexcept		= default;
+			NamedValue& operator=(NamedValue&& other) noexcept = default;
 
 			/**
-			 * @brief Equality operator
-			 * @param other Other NamedValue to compare with
-			 * @return True if the NamedValues are equal, false otherwise
+			 * Equality (name and value).
+			 * @param other Other NamedValue.
+			 * @return true if equal.
 			 */
-			inline bool 											operator==(const NamedValue& other) const noexcept {
+			inline bool operator==(const NamedValue& other) const noexcept {
 				return m_name == other.m_name && Value::operator==(other);
 			}
 
 			/**
-			 * @brief Inequality operator
-			 * @param other Other NamedValue to compare with
-			 * @return True if the NamedValues are not equal, false otherwise
+			 * Inequality.
+			 * @param other Other NamedValue.
+			 * @return true if not equal.
 			 */
-			inline bool 											operator!=(const NamedValue& other) const noexcept {
+			inline bool operator!=(const NamedValue& other) const noexcept {
 				return !(*this == other);
 			}
 
 			/**
-			 * @brief Gets the name of the value
-			 * @return Name of the value
+			 * @return Column name.
 			 */
 			inline const std::string& Name() const noexcept {
 				return m_name;
 			}
 
 		private:
-			std::string m_name;										///< Name of the value
+			std::string m_name;	///< Column name
 	};
 }

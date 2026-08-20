@@ -12,94 +12,86 @@ struct st_mysql_stmt;
 
 /**
  * @namespace MariaDB
- * @brief All the classes for handling MariaDB databases
+ * @brief MariaDB backend for StormByte::Database.
  */
 namespace StormByte::Database::MariaDB {
 	class MariaDB;
 
 	/**
 	 * @class PreparedSTMT
-	 * @brief Prepared statement for MariaDB databases
+	 * @brief MariaDB prepared statement.
 	 */
 	class STORMBYTE_DATABASE_PUBLIC PreparedSTMT final : public StormByte::Database::PreparedSTMT {
 		friend class ::StormByte::Database::MariaDB::MariaDB;
 	public:
 		/**
-		 * Default copy constructor (deleted)
-		 * @param other Other PreparedSTMT to copy from
+		 * Copy constructor (deleted).
 		 */
 		PreparedSTMT(const PreparedSTMT& other) = delete;
 
 		/**
-		 * Default move constructor
-		 * @param other Other PreparedSTMT to move from
+		 * Move constructor.
 		 */
 		PreparedSTMT(PreparedSTMT&& other) noexcept = default;
 
 		/**
-		 * Destructor
+		 * Destructor.
 		 */
 		~PreparedSTMT() noexcept override;
 
 		/**
-		 * Default copy assignment operator (deleted)
-		 * @param other Other PreparedSTMT to copy from
-		 * @return Reference to this PreparedSTMT
+		 * Copy assignment (deleted).
 		 */
 		PreparedSTMT& operator=(const PreparedSTMT& other) = delete;
 
 		/**
-		 * Default move assignment operator
-		 * @param other Other PreparedSTMT to move from
-		 * @return Reference to this PreparedSTMT
+		 * Move assignment.
 		 */
 		PreparedSTMT& operator=(PreparedSTMT&& other) noexcept = default;
 
 	private:
-		struct st_mysql* m_conn;
-		struct st_mysql_stmt* m_stmt;
-		std::vector<StormByte::Database::Value> m_params;
+		struct st_mysql* m_conn;						///< Connection handle
+		struct st_mysql_stmt* m_stmt;					///< Statement handle
+		std::vector<StormByte::Database::Value> m_params;	///< Bound parameters
 
 		/**
-		 * Constructor
-		 * @param name The name of the prepared statement
-		 * @param query The query to prepare
-		 * @param conn MariaDB connection handle
-		 * @param logger Logger instance
+		 * @param name Statement name.
+		 * @param query SQL text.
+		 * @param conn Connection handle.
+		 * @param logger Logger instance.
 		 */
 		PreparedSTMT(const std::string& name, const std::string& query, struct st_mysql* conn, std::shared_ptr<Logger::Log> logger);
 
 		/**
-		 * Constructor moving strings
-		 * @param name The name of the prepared statement
-		 * @param query The query to prepare
-		 * @param conn MariaDB connection handle
-		 * @param logger Logger instance
+		 * @param name Statement name.
+		 * @param query SQL text.
+		 * @param conn Connection handle.
+		 * @param logger Logger instance.
 		 */
 		PreparedSTMT(std::string&& name, std::string&& query, struct st_mysql* conn, std::shared_ptr<Logger::Log> logger) noexcept;
 
 		/**
-		 * Ensures that the parameter vector has enough size
-		 * @param params Parameter vector
-		 * @param index Index to ensure
+		 * Grows @p params so that @p index is valid.
+		 * @param params Parameter vector.
+		 * @param index Index to ensure.
 		 */
 		static void EnsureParamSize(std::vector<StormByte::Database::Value>& params, int index) noexcept;
 
 		/**
-		 * Binds a value to a prepared statement
-		 * @param index parameter index
-		 * @param value Value to be bound
+		 * Stores a bound value at @p index.
+		 * @param index Parameter index.
+		 * @param value Value to bind.
 		 */
 		void Binder(const int& index, Value&& value) noexcept override;
 
 		/**
-		 * Executes the prepared statement
-		 * @return Resulting rows
+		 * Executes the statement and fetches result rows.
+		 * @return Result rows or an error.
 		 */
 		StormByte::Database::ExpectedRows DoExecute() override;
 
 		/**
-		 * Resets the prepared statement
+		 * Clears parameters and resets the statement.
 		 */
 		void Reset() noexcept override;
 	};

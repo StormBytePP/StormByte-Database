@@ -10,139 +10,130 @@ class sqlite3;
 
 /**
  * @namespace SQLite
- * @brief All the classes for handling SQLite databases
+ * @brief SQLite backend for StormByte::Database.
  */
 namespace StormByte::Database::SQLite {
 	/**
 	 * @class SQLite3
-	 * @brief SQLite3 database class
+	 * @brief SQLite3 database backend.
 	 *
-	 * @note Not thread-safe. Use one instance per thread for concurrent access.
+	 * @note Not thread-safe. One instance per thread.
+	 *
+	 * @note **Inheritance-oriented.** Constructors are protected. Derive your
+	 * own class, call the appropriate SQLite3 constructor from your constructor,
+	 * and optionally override lifecycle hooks or call PrepareSTMT / EnableForeignKeys
+	 * there. Not intended for direct generic construction.
 	 */
 	class STORMBYTE_DATABASE_PUBLIC SQLite3 : public Database {
 		public:
 			/**
-			 * Copy constructor (deleted)
-			 * @param db Other SQLite3 database to copy from
+			 * Copy constructor (deleted).
 			 */
 			SQLite3(const SQLite3& db) = delete;
 
 			/**
-			 * Move constructor
-			 * @param db Other SQLite3 database to move from
+			 * Move constructor.
 			 */
 			SQLite3(SQLite3&& db) noexcept = default;
 
 			/**
-			 * Copy assignment operator (deleted)
-			 * @param db Other SQLite3 database to copy from
-			 * @return Reference to this SQLite3 database
+			 * Copy assignment (deleted).
 			 */
 			SQLite3& operator=(const SQLite3& db) = delete;
 
 			/**
-			 * Move assignment operator
-			 * @param db Other SQLite3 database to move from
-			 * @return Reference to this SQLite3 database
+			 * Move assignment.
 			 */
 			SQLite3& operator=(SQLite3&& db) noexcept = default;
 
 			/**
-			 * Destructor
+			 * Destructor.
 			 */
 			~SQLite3() noexcept override;
 
 			/**
-			 * Executes a query
-			 * @param query The query to execute
-			 * @return ExpectedRows containing the result rows or an error
+			 * Executes a query and returns rows.
+			 * @param query SQL text.
+			 * @return Result rows or an error.
 			 */
 			ExpectedRows Query(const std::string& query) noexcept override;
 
 			/**
-			 * Executes a silent query (no results expected)
-			 * @param query The query to execute
-			 * @return True if the query was executed successfully
+			 * Executes a query that does not return rows.
+			 * @param query SQL text.
+			 * @return true on success.
 			 */
 			bool SilentQuery(const std::string& query) noexcept override;
 
 		protected:
 			/**
-			 * Constructor (in-memory database)
-			 * @param logger Logger instance
+			 * In-memory database.
+			 * @param logger Logger instance.
 			 */
 			SQLite3(std::shared_ptr<Logger::Log> logger) noexcept;
 
 			/**
-			 * Constructor
-			 * @param dbfile database file
-			 * @param logger Logger instance
+			 * File-backed database.
+			 * @param dbfile Path to the database file.
+			 * @param logger Logger instance.
 			 */
 			SQLite3(const std::filesystem::path& dbfile, std::shared_ptr<Logger::Log> logger);
 
 			/**
-			 * Constructor
-			 * @param dbfile database file
-			 * @param logger Logger instance
+			 * File-backed database (moved path and logger).
+			 * @param dbfile Path to the database file.
+			 * @param logger Logger instance.
 			 */
 			SQLite3(std::filesystem::path&& dbfile, std::shared_ptr<Logger::Log>&& logger);
 
 			/**
-			 * Enable the foreign keys for SQLite3 (default is disabled)
+			 * Enables foreign key enforcement (off by default in SQLite).
 			 */
 			void EnableForeignKeys();
 
 			/**
-			 * Internal silent query helper
-			 * @param query The query to execute
-			 * @return True if the query was executed successfully
+			 * Internal silent query.
+			 * @param query SQL text.
+			 * @return true on success.
 			 */
 			bool DoSilentQuery(const std::string& query) noexcept override;
 
 		private:
-			/**
-			 * Database file
-			 */
-			std::filesystem::path m_database_file;
+			std::filesystem::path m_database_file;	///< Database file path
+			sqlite3* m_database;					///< SQLite handle (incomplete type)
 
 			/**
-			 * SQLite3 database handle
-			 * (cannot use std::unique_ptr because sqlite3 is an incomplete type)
-			 */
-			sqlite3* m_database;
-
-			/**
-			 * Connects to the database
-			 * @return true if connection was successful, false otherwise
+			 * Opens the database and initializes SQLite if needed.
+			 * @return true on success.
 			 */
 			bool DoConnect() noexcept override;
 
 			/**
-			 * Pre-disconnect cleanup
+			 * Clears prepared statements before close.
 			 */
 			void DoPreDisconnect() noexcept override;
 
 			/**
-			 * Disconnects from the database
+			 * Closes the database handle.
 			 */
 			void DoDisconnect() noexcept override;
 
 			/**
-			 * Post-disconnect cleanup (global SQLite refcount)
+			 * Decrements global SQLite init refcount / shutdown.
 			 */
 			void DoPostDisconnect() noexcept override;
 
 			/**
-			 * Creates a prepared statement
-			 * @param name The name of the prepared statement
-			 * @param query The query to prepare
-			 * @return The created prepared statement
+			 * Creates a SQLite prepared statement.
+			 * @param name Statement name.
+			 * @param query SQL text.
+			 * @return Prepared statement or nullptr.
 			 */
 			std::unique_ptr<StormByte::Database::PreparedSTMT> CreatePreparedSTMT(std::string&& name, std::string&& query) noexcept override;
 
 			/**
-			 * Starts a transaction with the given isolation level
-			 * @param level Isolation level
+			 * Maps IsolationLevel to BEGIN DEFERRED/IMMEDIATE/EXCLUSIVE.
+			 * @param level Isolation level.
 			 */
 			void DoBeginTransaction(IsolationLevel level) override;
 	};

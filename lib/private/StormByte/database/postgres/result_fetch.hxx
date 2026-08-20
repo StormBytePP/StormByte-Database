@@ -8,6 +8,11 @@
 #include <cctype>
 
 namespace StormByte::Database::Postgres {
+	/**
+	 * Converts a PGresult into Rows.
+	 * @param res Result (must not be null).
+	 * @return Result rows or a QueryException.
+	 */
 	inline ExpectedRows StepResults(PGresult* res) noexcept {
 		if (!res)
 			return Unexpected<QueryException>(ExecuteError("Invalid PGresult provided."));

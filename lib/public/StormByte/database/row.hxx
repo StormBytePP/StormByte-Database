@@ -14,76 +14,73 @@
 namespace StormByte::Database {
 	/**
 	 * @class Row
-	 * @brief Row class for databases
+	 * @brief Single result row: ordered NamedValues with lookup by column name.
 	 */
 	class STORMBYTE_DATABASE_PUBLIC Row: public Iterable<std::vector<NamedValue>> {
 		public:
 			/**
-			 * @brief Default Constructor
+			 * Default constructor.
 			 */
 			Row() noexcept = default;
 
 			/**
-			 * @brief Copy Constructor
-			 * @param other Other Row to copy from
+			 * Copy constructor.
+			 * @param other Source row.
 			 */
 			Row(const Row& other);
 
 			/**
-			 * @brief Move Constructor
-			 * @param other Other Row to move from
+			 * Move constructor.
 			 */
 			Row(Row&& other) noexcept = default;
 
 			/**
-			 * @brief Destructor
+			 * Destructor.
 			 */
 			~Row() noexcept override = default;
 
 			/**
-			 * @brief Copy Assignment Operator
-			 * @param other Other Row to copy from
-			 * @return Reference to this Row
+			 * Copy assignment.
+			 * @param other Source row.
+			 * @return *this
 			 */
 			Row& operator=(const Row& other);
 
 			/**
-			 * @brief Move Assignment Operator
-			 * @param other Other Row to move from
-			 * @return Reference to this Row
+			 * Move assignment.
 			 */
 			Row& operator=(Row&& other) noexcept = default;
 
 			/**
-			 * @brief Gets the value for the specified column name
-			 * @param columnName Name of the column
-			 * @return Reference to the Value for the specified column name
-			 * @throw ColumnNotFound if the column name does not exist
+			 * Access by column name (const lvalue).
+			 * @param columnName Column name.
+			 * @return Reference to the value.
+			 * @throws ColumnNotFound if the name is absent.
 			 */
 			const Value& operator[](const std::string& columnName) const &;
 
 			/**
-			 * @brief Gets the value for the specified column name
-			 * @param columnName Name of the column
-			 * @return Reference to the Value for the specified column name
-			 * @throw ColumnNotFound if the column name does not exist
+			 * Access by column name (lvalue).
+			 * @param columnName Column name.
+			 * @return Reference to the value.
+			 * @throws ColumnNotFound if the name is absent.
 			 */
 			Value& operator[](const std::string& columnName) &;
 
 			/**
-			 * @brief Gets the value for the specified column name (rvalue)
-			 * @param columnName Name of the column
-			 * @return Value for the specified column name
-			 * @throw ColumnNotFound if the column name does not exist
+			 * Access by column name (rvalue).
+			 * @param columnName Column name.
+			 * @return Value (moved).
+			 * @throws ColumnNotFound if the name is absent.
 			 */
 			Value operator[](const std::string& columnName) &&;
 
 			using Iterable::operator[];
 
 			/**
-			 * @brief Adds a value to the Row
-			 * @param columnName Optional name of the column
-			 * @param value Value to add
+			 * Appends a named column.
+			 * @param columnName Column name.
+			 * @param value Value to store.
 			 */
 			inline void add(std::string&& columnName, Value&& value) {
 				m_data.emplace_back(std::move(columnName), std::move(value));
@@ -91,16 +88,18 @@ namespace StormByte::Database {
 			}
 
 			/**
-			 * @brief Gets number of columns in the Row
-			 * @return Number of columns in the Row
+			 * @return Number of columns.
 			 */
 			inline std::size_t Count() const noexcept {
 				return size();
 			}
 
 		private:
-			mutable std::optional<std::unordered_map<std::string, std::size_t>> m_name_index;
+			mutable std::optional<std::unordered_map<std::string, std::size_t>> m_name_index;	///< Lazy name → index map
 
+			/**
+			 * Builds m_name_index if not yet present.
+			 */
 			void BuildNameIndex() const;
 	};
 }

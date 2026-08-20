@@ -3,18 +3,20 @@
 #include <StormByte/database/rows.hxx>
 
 #include <sqlite3.h>
+#include <limits>
 
 /**
  * @namespace SQLite
- * @brief All the classes for handling SQLite databases
+ * @brief SQLite backend for StormByte::Database.
  */
 namespace StormByte::Database::SQLite {
 	/**
-	 * @brief Steps through the results of a SQLite statement and fills the provided Row and Rows objects.
-	 * @param stmt The SQLite statement to step through.
-	 * @return ExpectedRows containing the result rows or an error.
+	 * Steps through an SQLite statement and builds Rows.
+	 * @param stmt Prepared statement (must not be null).
+	 * @return Result rows or a QueryException.
+	 *
+	 * @note Inline and public-visible on Windows even though it lives under private/.
 	 */
-	// Windows needs this exported public even if it's private, this is why it is inline
 	inline ExpectedRows StepResults(sqlite3_stmt* stmt) noexcept {
 		if (!stmt) {
 			return Unexpected<QueryException>(ExecuteError("Invalid SQLite statement provided."));
@@ -55,8 +57,6 @@ namespace StormByte::Database::SQLite {
 					}
 					case SQLITE_NULL:
 					default:
-						// Use an explicit null Value instead of passing nullptr which
-						// would match the `const char*` constructor and cause UB.
 						row.add(std::string(colName ? colName : ""), Value());
 						break;
 				}

@@ -7,81 +7,73 @@ class sqlite3_stmt;
 
 /**
  * @namespace SQLite
- * @brief All the classes for handling SQLite databases
+ * @brief SQLite backend for StormByte::Database.
  */
 namespace StormByte::Database::SQLite {
 	/**
 	 * @class PreparedSTMT
-	 * @brief Prepared statement for SQLite
+	 * @brief SQLite prepared statement.
 	 */
 	class STORMBYTE_DATABASE_PUBLIC PreparedSTMT final : public StormByte::Database::PreparedSTMT {
 		friend class SQLite3;
 	public:
 		/**
-		 * Copy constructor (deleted)
-		 * @param other Other PreparedSTMT to copy from
+		 * Copy constructor (deleted).
 		 */
 		PreparedSTMT(const PreparedSTMT& other) = delete;
 
 		/**
-		 * Move constructor
-		 * @param other Other PreparedSTMT to move from
+		 * Move constructor.
 		 */
 		PreparedSTMT(PreparedSTMT&& other) noexcept = default;
 
 		/**
-		 * Destructor
+		 * Destructor.
 		 */
 		~PreparedSTMT() noexcept override;
 
 		/**
-		 * Copy assignment operator (deleted)
-		 * @param other Other PreparedSTMT to copy from
-		 * @return Reference to this PreparedSTMT
+		 * Copy assignment (deleted).
 		 */
 		PreparedSTMT& operator=(const PreparedSTMT& other) = delete;
 
 		/**
-		 * Move assignment operator
-		 * @param other Other PreparedSTMT to move from
-		 * @return Reference to this PreparedSTMT
+		 * Move assignment.
 		 */
 		PreparedSTMT& operator=(PreparedSTMT&& other) noexcept = default;
 
 	private:
-		sqlite3_stmt* m_stmt;
+		sqlite3_stmt* m_stmt;	///< SQLite statement handle
 
 		/**
-		 * Constructor
-		 * @param name name
-		 * @param query query
-		 * @param logger Logger instance
+		 * @param name Statement name.
+		 * @param query SQL text.
+		 * @param logger Logger instance.
 		 */
 		PreparedSTMT(const std::string& name, const std::string& query, std::shared_ptr<Logger::Log> logger);
 
 		/**
-		 * Constructor
-		 * @param name name
-		 * @param query query
-		 * @param logger Logger instance
+		 * @param name Statement name.
+		 * @param query SQL text.
+		 * @param logger Logger instance.
 		 */
 		PreparedSTMT(std::string&& name, std::string&& query, std::shared_ptr<Logger::Log> logger) noexcept;
 
 		/**
-		 * Binds a value to a prepared statement
-		 * @param index parameter index
-		 * @param value Value to be bound
+		 * Binds a value at @p index (0-based; SQLite uses 1-based internally).
+		 * @param index Parameter index.
+		 * @param value Value to bind.
 		 */
 		void Binder(const int& index, Value&& value) noexcept override;
 
 		/**
-		 * Executes the prepared statement
-		 * @return Resulting Rows
+		 * Steps the statement and builds Rows.
+		 * @return Result rows or an error.
 		 */
 		ExpectedRows DoExecute() override;
 
 		/**
-		 * Resets the prepared statement
+		 * Clears bindings and resets the statement.
 		 */
 		void Reset() noexcept override;
 	};

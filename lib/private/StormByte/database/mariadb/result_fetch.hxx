@@ -7,6 +7,11 @@
 #include <vector>
 
 namespace StormByte::Database::MariaDB {
+	/**
+	 * Converts a MYSQL_RES into Rows (all rows stored client-side).
+	 * @param res Result set (must not be null).
+	 * @return Result rows or a QueryException.
+	 */
 	inline ExpectedRows StepResults(MYSQL_RES* res) noexcept {
 		if (!res)
 			return Unexpected<QueryException>(ExecuteError("Invalid MYSQL_RES provided."));
@@ -81,7 +86,6 @@ namespace StormByte::Database::MariaDB {
 					case MYSQL_TYPE_MEDIUM_BLOB:
 					case MYSQL_TYPE_LONG_BLOB:
 					case MYSQL_TYPE_BLOB: {
-						// charsetnr 63 = binary; anything else is textual (TEXT/VARCHAR stored as blob type)
 						const bool is_binary = field && field->charsetnr == 63;
 						if (is_binary) {
 							std::vector<std::byte> blob;

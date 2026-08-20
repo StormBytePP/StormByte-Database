@@ -9,52 +9,44 @@
 namespace StormByte::Database {
 	/**
 	 * @class Rows
-	 * @brief Rows class for databases
+	 * @brief Ordered collection of result rows.
 	 */
 	class STORMBYTE_DATABASE_PUBLIC Rows: public Iterable<std::vector<Row>> {
 		public:
 			/**
-			 * @brief Adds a row to the Rows
-			 * @param row Row to add
+			 * Default constructor.
 			 */
-			Rows() noexcept										= default;
+			Rows() noexcept = default;
 
 			/**
-			 * @brief Copy Constructor
-			 * @param other Other Rows to copy from
+			 * Copy constructor.
 			 */
-			Rows(const Rows& other)								= default;
+			Rows(const Rows& other) = default;
 
 			/**
-			 * @brief Move Constructor
-			 * @param other Other Rows to move from
+			 * Move constructor.
 			 */
-			Rows(Rows&& other) noexcept							= default;
+			Rows(Rows&& other) noexcept = default;
 
 			/**
-			 * @brief Destructor
+			 * Destructor.
 			 */
-			~Rows() noexcept override							= default;
+			~Rows() noexcept override = default;
 
 			/**
-			 * @brief Copy Assignment Operator
-			 * @param other Other Rows to copy from
-			 * @return Reference to this Rows
+			 * Copy assignment.
 			 */
-			Rows& operator=(const Rows& other)					= default;
+			Rows& operator=(const Rows& other) = default;
 
 			/**
-			 * @brief Move Assignment Operator
-			 * @param other Other Rows to move from
-			 * @return Reference to this Rows
+			 * Move assignment.
 			 */
-			Rows& operator=(Rows&& other) noexcept				= default;
+			Rows& operator=(Rows&& other) noexcept = default;
 
 			/**
-			 * @brief Gets the number of rows
-			 * @return Number of rows
+			 * @return Number of rows.
 			 */
-			inline std::size_t									Count() const noexcept {
+			inline std::size_t Count() const noexcept {
 				return size();
 			}
 	};

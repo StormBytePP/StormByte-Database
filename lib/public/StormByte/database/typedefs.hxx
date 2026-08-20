@@ -17,7 +17,7 @@ namespace StormByte::Database {
 
 	/**
 	 * @typedef ValuesVariant
-	 * @brief Variant holding the supported column value types.
+	 * @brief Variant holding supported column value types.
 	 *
 	 * std::monostate represents SQL NULL.
 	 */
@@ -35,7 +35,7 @@ namespace StormByte::Database {
 
 	/**
 	 * @typedef ExpectedRows
-	 * @brief Result of a query: either a Rows object or a QueryException.
+	 * @brief Query result: Rows or QueryException.
 	 */
 	using ExpectedRows = Expected<Rows, QueryException>;
 
@@ -54,7 +54,7 @@ namespace StormByte::Database {
 
 	/**
 	 * @enum IsolationLevel
-	 * @brief Transaction isolation level requested via BeginTransaction().
+	 * @brief Transaction isolation level for BeginTransaction().
 	 *
 	 * Mapping is backend-specific (e.g. SQLite maps several levels to DEFERRED/IMMEDIATE/EXCLUSIVE).
 	 */

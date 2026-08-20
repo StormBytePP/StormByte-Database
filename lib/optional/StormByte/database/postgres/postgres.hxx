@@ -10,126 +10,123 @@ struct pg_conn;
 
 /**
  * @namespace Postgres
- * @brief All the classes for handling PostgreSQL databases
+ * @brief PostgreSQL backend for StormByte::Database.
  */
 namespace StormByte::Database::Postgres {
 	/**
 	 * @class Postgres
-	 * @brief PostgreSQL database implementation
+	 * @brief PostgreSQL database backend.
 	 *
-	 * @note Not thread-safe. Use one instance per thread for concurrent access.
+	 * @note Not thread-safe. One instance per thread.
+	 *
+	 * @note **Inheritance-oriented.** Constructors are protected. Derive your
+	 * own class and call the Postgres constructor from your constructor. Optional
+	 * SetSslMode() before Connect(). Not intended for direct generic construction.
 	 */
 	class STORMBYTE_DATABASE_PUBLIC Postgres : public Database {
 		public:
 			/**
-			 * Default copy constructor (deleted)
-			 * @param db Other Postgres database to copy from
+			 * Copy constructor (deleted).
 			 */
 			Postgres(const Postgres& db) = delete;
 
 			/**
-			 * Default move constructor
-			 * @param db Other Postgres database to move from
+			 * Move constructor.
 			 */
 			Postgres(Postgres&& db) noexcept = default;
 
 			/**
-			 * Default copy assignment operator (deleted)
-			 * @param db Other Postgres database to copy from
-			 * @return Reference to this Postgres database
+			 * Copy assignment (deleted).
 			 */
 			Postgres& operator=(const Postgres& db) = delete;
 
 			/**
-			 * Default move assignment operator
-			 * @param db Other Postgres database to move from
-			 * @return Reference to this Postgres database
+			 * Move assignment.
 			 */
 			Postgres& operator=(Postgres&& db) noexcept = default;
 
 			/**
-			 * Destructor
+			 * Destructor.
 			 */
 			~Postgres() noexcept override;
 
 			/**
-			 * Executes a query on the database
-			 * @param query The query to execute
-			 * @return The resulting rows or an error
+			 * Executes a query and returns rows.
+			 * @param query SQL text.
+			 * @return Result rows or an error.
 			 */
 			ExpectedRows Query(const std::string& query) noexcept override;
 
 			/**
-			 * Executes a query on the database without returning results
-			 * @param query The query to execute
-			 * @return true on success, false on failure
+			 * Executes a query that does not return rows.
+			 * @param query SQL text.
+			 * @return true on success.
 			 */
 			bool SilentQuery(const std::string& query) noexcept override;
 
 		protected:
 			/**
-			 * Constructor
-			 * @param host The database host
-			 * @param user The database user
-			 * @param password The database password
-			 * @param db_name The database name
-			 * @param logger Logger instance
+			 * @param host Host name or address.
+			 * @param user User name.
+			 * @param password Password.
+			 * @param db_name Database name.
+			 * @param logger Logger instance.
 			 */
 			Postgres(const std::string& host, const std::string& user, const std::string& password,
 					const std::string& db_name, std::shared_ptr<Logger::Log> logger);
 
 			/**
-			 * Constructor moving strings
-			 * @param host The database host
-			 * @param user The database user
-			 * @param password The database password
-			 * @param db_name The database name
-			 * @param logger Logger instance
+			 * Move-string overload.
+			 * @param host Host name or address.
+			 * @param user User name.
+			 * @param password Password.
+			 * @param db_name Database name.
+			 * @param logger Logger instance.
 			 */
 			Postgres(std::string&& host, std::string&& user, std::string&& password,
 					std::string&& db_name, std::shared_ptr<Logger::Log> logger);
 
 			/**
-			 * Internal silent query helper
-			 * @param query The query to execute
-			 * @return true on success, false on failure
+			 * Internal silent query.
+			 * @param query SQL text.
+			 * @return true on success.
 			 */
 			bool DoSilentQuery(const std::string& query) noexcept override;
 
 		private:
-			std::string m_host;				///< host
-			std::string m_user;				///< user
-			std::string m_password;			///< password
-			std::string m_dbname;			///< database name
-			struct pg_conn* m_conn;			///< Pointer to the Postgres connection
+			std::string m_host;			///< Host
+			std::string m_user;			///< User
+			std::string m_password;		///< Password
+			std::string m_dbname;		///< Database name
+			struct pg_conn* m_conn;		///< Connection handle
 
 			/**
-			 * Connects to the database
-			 * @return true on success, false on failure
+			 * Connects via PQconnectdb.
+			 * @return true on success.
 			 */
 			bool DoConnect() noexcept override;
 
 			/**
-			 * Pre-disconnect operations
+			 * Clears prepared statements.
 			 */
 			void DoPreDisconnect() noexcept override;
 
 			/**
-			 * Disconnects from the database
+			 * Closes the connection.
 			 */
 			void DoDisconnect() noexcept override;
 
 			/**
-			 * Creates a prepared statement
-			 * @param name The name of the prepared statement
-			 * @param query The query to prepare
-			 * @return Unique pointer to the prepared statement
+			 * Creates a PostgreSQL prepared statement (PQprepare).
+			 * @param name Statement name.
+			 * @param query SQL text.
+			 * @return Prepared statement or nullptr.
 			 */
 			std::unique_ptr<StormByte::Database::PreparedSTMT> CreatePreparedSTMT(std::string&& name, std::string&& query) noexcept override;
 
 			/**
-			 * Starts a transaction with the given isolation level
-			 * @param level Isolation level
+			 * BEGIN with isolation level.
+			 * @param level Isolation level.
 			 */
 			void DoBeginTransaction(IsolationLevel level) override;
 	};

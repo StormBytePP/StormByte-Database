@@ -15,64 +15,56 @@
 namespace StormByte::Database {
 	/**
 	 * @class PreparedSTMT
-	 * @brief Prepared statement for databases
+	 * @brief Abstract prepared statement (backend-specific subclasses).
 	 */
 	class STORMBYTE_DATABASE_PUBLIC PreparedSTMT {
 		public:
 			/**
-			 * Default constructor
-			 * @param name The name of the prepared statement
-			 * @param query The query to prepare
-			 * @param logger Logger instance
+			 * @param name Statement name.
+			 * @param query SQL text.
+			 * @param logger Logger instance.
 			 */
 			PreparedSTMT(const std::string& name, const std::string& query, std::shared_ptr<Logger::Log> logger) noexcept
 				: m_name(name), m_query(query), m_logger(std::move(logger)) {}
 
 			/**
-			 * Constructor moving string
-			 * @param name The name of the prepared statement
-			 * @param query The query to prepare
-			 * @param logger Logger instance
+			 * @param name Statement name.
+			 * @param query SQL text.
+			 * @param logger Logger instance.
 			 */
 			PreparedSTMT(std::string&& name, std::string&& query, std::shared_ptr<Logger::Log> logger) noexcept
 				: m_name(std::move(name)), m_query(std::move(query)), m_logger(std::move(logger)) {}
 
 			/**
-			 * Default copy constructor (deleted)
-			 * @param other Other PreparedSTMT to copy from
+			 * Copy constructor (deleted).
 			 */
 			PreparedSTMT(const PreparedSTMT& other) = delete;
 
 			/**
-			 * Default move constructor
-			 * @param other Other PreparedSTMT to move from
+			 * Move constructor.
 			 */
 			PreparedSTMT(PreparedSTMT&& other) = default;
 
 			/**
-			 * Default destructor.
+			 * Destructor.
 			 */
 			virtual ~PreparedSTMT() = default;
 
 			/**
-			 * Default copy assignment operator (deleted)
-			 * @param other Other PreparedSTMT to copy from
-			 * @return Reference to this PreparedSTMT
+			 * Copy assignment (deleted).
 			 */
 			PreparedSTMT& operator=(const PreparedSTMT& other) = delete;
 
 			/**
-			 * Default move assignment operator
-			 * @param other Other PreparedSTMT to move from
-			 * @return Reference to this PreparedSTMT
+			 * Move assignment.
 			 */
 			PreparedSTMT& operator=(PreparedSTMT&& other) = default;
 
 			/**
-			 * Executes the prepared statement with the given arguments
-			 * @tparam Args Types of the arguments
-			 * @param args Arguments to bind and execute
-			 * @return Resulting rows
+			 * Binds arguments and executes the statement.
+			 * @tparam Args Argument types.
+			 * @param args Positional bind values (0-based).
+			 * @return Result rows or an error.
 			 */
 			template<typename... Args>
 			ExpectedRows Execute(Args&&... args) {
@@ -85,31 +77,29 @@ namespace StormByte::Database {
 			}
 
 			/**
-			 * Gets the name of the prepared statement
-			 * @return name
+			 * @return Statement name.
 			 */
 			inline const std::string& Name() const noexcept {
 				return m_name;
 			}
 
 			/**
-			 * Gets the query of the prepared statement
-			 * @return query
+			 * @return SQL text.
 			 */
 			inline const std::string& Query() const noexcept {
 				return m_query;
 			}
 
 		protected:
-			std::string m_name;												///< Name of the prepared statement
-			std::string m_query;											///< Query to prepare
-			std::shared_ptr<Logger::Log> m_logger;							///< Logger instance
+			std::string m_name;							///< Statement name
+			std::string m_query;						///< SQL text
+			std::shared_ptr<Logger::Log> m_logger;		///< Logger instance
 
 			/**
-			 * Binds a value to a prepared statement (template entry point)
-			 * @tparam T Type of the value
-			 * @param index parameter index
-			 * @param value Value to be bound
+			 * Binds a value at @p index.
+			 * @tparam T Value type.
+			 * @param index Parameter index (0-based).
+			 * @param value Value to bind.
 			 */
 			template<typename T>
 			void Bind(const int& index, T&& value) noexcept {
@@ -117,7 +107,8 @@ namespace StormByte::Database {
 			}
 
 			/**
-			 * Specialization for nullptr_t
+			 * Binds SQL NULL at @p index.
+			 * @param index Parameter index (0-based).
 			 */
 			void Bind(const int& index, std::nullptr_t) noexcept {
 				Binder(index, Value());
@@ -125,20 +116,20 @@ namespace StormByte::Database {
 
 		private:
 			/**
-			 * Implementation of bind (to be overridden by backends)
-			 * @param index parameter index
-			 * @param value Value to be bound
+			 * Backend bind implementation.
+			 * @param index Parameter index (0-based).
+			 * @param value Value to bind.
 			 */
 			virtual void Binder(const int& index, Value&& value) noexcept = 0;
 
 			/**
-			 * Resets the prepared statement
+			 * Resets bindings / statement state.
 			 */
 			virtual void Reset() noexcept = 0;
 
 			/**
-			 * Executes the prepared statement
-			 * @return Resulting rows
+			 * Executes the prepared statement.
+			 * @return Result rows or an error.
 			 */
 			virtual ExpectedRows DoExecute() = 0;
 	};

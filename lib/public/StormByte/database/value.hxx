@@ -15,29 +15,28 @@
 namespace StormByte::Database {
 	/**
 	 * @class Value
-	 * @brief Value class for databases
+	 * @brief Type-erased SQL value (NULL, integers, double, text, blob, bool).
 	 */
 	class STORMBYTE_DATABASE_PUBLIC Value {
 		public:
 			/**
 			 * @enum Type
-			 * @brief Type of a value
+			 * @brief Discriminator for the stored alternative.
 			 */
 			enum class Type: unsigned short {
-				Null		= 0,								///< Null type
-				Integer,										///< Integer type
-				UnsignedInteger,								///< Unsigned integer type
-				LongInteger,									///< Long Integer type
-				UnsignedLongInteger,							///< Unsigned long integer type
-				Double,											///< Double type
-				Text,											///< Text type
-				Blob,											///< Blob type
-				Boolean											///< Boolean type
+				Null = 0,				///< SQL NULL
+				Integer,				///< int
+				UnsignedInteger,		///< unsigned int
+				LongInteger,			///< long int
+				UnsignedLongInteger,	///< unsigned long int
+				Double,					///< double
+				Text,					///< std::string
+				Blob,					///< std::vector<std::byte>
+				Boolean					///< bool
 			};
 
 			/**
-			 * Constructors to different types
-			 * @param value Value to store
+			 * @name Constructors
 			 * @{
 			 */
 			Value() noexcept:
@@ -78,53 +77,58 @@ namespace StormByte::Database {
 			/** @} */
 
 			/**
-			 * Copy Constructor
+			 * Copy constructor.
 			 */
-			Value(const Value&)									= default;
+			Value(const Value&) = default;
 
 			/**
-			 * Move Constructor
+			 * Move constructor.
 			 */
-			Value(Value&&) noexcept								= default;
+			Value(Value&&) noexcept = default;
 
 			/**
-			 * Assignment operator
+			 * Copy assignment.
 			 */
-			Value& operator=(const Value&)						= default;
+			Value& operator=(const Value&) = default;
 
 			/**
-			 * Move operator
+			 * Move assignment.
 			 */
-			Value& operator=(Value&&) noexcept					= default;
+			Value& operator=(Value&&) noexcept = default;
 
 			/**
-			 * Equality operator
-			 * @param other Other Value to compare with
-			 * @return True if the values are equal, false otherwise
+			 * Equality comparison (stored values).
+			 * @param other Other value.
+			 * @return true if equal.
 			 */
-			inline bool 										operator==(const Value& other) const noexcept {
+			inline bool operator==(const Value& other) const noexcept {
 				return m_value == other.m_value;
 			}
 
 			/**
-			 * Inequality operator
-			 * @param other Other Value to compare with
-			 * @return True if the values are not equal, false otherwise
+			 * Inequality comparison.
+			 * @param other Other value.
+			 * @return true if not equal.
 			 */
-			inline bool 										operator!=(const Value& other) const noexcept {
+			inline bool operator!=(const Value& other) const noexcept {
 				return !(*this == other);
 			}
 
 			/**
-			 * Destructor
+			 * Destructor.
 			 */
-			virtual ~Value() noexcept							= default;
+			virtual ~Value() noexcept = default;
 
+			/**
+			 * Retrieves the stored value as type @p T, with safe numeric conversions.
+			 * @tparam T Requested type (must be one of ValuesVariant alternatives).
+			 * @return Converted value.
+			 * @throws WrongValueType on type mismatch or unsafe conversion.
+			 */
 			template<typename T>
 			requires StormByte::Type::VariantHasType<ValuesVariant, std::decay_t<T>>
-			std::decay_t<T>										Get() const {
+			std::decay_t<T> Get() const {
 				using To = std::decay_t<T>;
-				// visitor handles all stored alternatives and performs safe numeric conversions
 				return std::visit([](auto&& val) -> To {
 					using From = std::decay_t<decltype(val)>;
 					if constexpr (std::is_same_v<From, std::monostate>) {
@@ -140,23 +144,28 @@ namespace StormByte::Database {
 			}
 
 			/**
-			 * Gets the type of the value
-			 * @return Type
+			 * @return Discriminator of the stored alternative.
 			 */
-			inline Type 										Type() const noexcept {
+			inline Type Type() const noexcept {
 				return m_type;
 			}
 
 			/**
-			 * Checks if the value is null
-			 * @return true if the value is null, false otherwise
+			 * @return true if the value is SQL NULL.
 			 */
-			inline bool 										IsNull() const noexcept {
+			inline bool IsNull() const noexcept {
 				return m_type == Type::Null;
 			}
 
 		private:
-			// Helper: safe numeric conversion; only instantiated for arithmetic To and From
+			/**
+			 * Safe numeric conversion between arithmetic types.
+			 * @tparam To Destination type.
+			 * @tparam From Source type.
+			 * @param val Source value.
+			 * @return Converted value.
+			 * @throws WrongValueType on overflow, sign loss or non-integral float.
+			 */
 			template<typename To, typename From>
 			requires (std::is_arithmetic_v<To> && std::is_arithmetic_v<From>)
 			static To convert_numeric(const From& val) {
@@ -168,21 +177,18 @@ namespace StormByte::Database {
 								throw WrongValueType("Integer conversion would overflow/narrow.");
 							return static_cast<To>(from);
 						} else {
-							// From signed, To unsigned
 							if (from < 0) throw WrongValueType("Negative value cannot be converted to unsigned.");
 							if (static_cast<std::uintmax_t>(from) > static_cast<std::uintmax_t>(std::numeric_limits<To>::max()))
 								throw WrongValueType("Integer conversion would overflow/narrow.");
 							return static_cast<To>(from);
 						}
 					} else {
-						// From unsigned
 						std::uintmax_t from = static_cast<std::uintmax_t>(val);
 						if constexpr (std::is_signed_v<To>) {
 							if (from > static_cast<std::uintmax_t>(std::numeric_limits<To>::max()))
 								throw WrongValueType("Integer conversion would overflow/narrow.");
 							return static_cast<To>(from);
 						} else {
-							// both unsigned
 							if (from > static_cast<std::uintmax_t>(std::numeric_limits<To>::max()))
 								throw WrongValueType("Integer conversion would overflow/narrow.");
 							return static_cast<To>(from);
@@ -200,7 +206,6 @@ namespace StormByte::Database {
 							throw WrongValueType("Floating to integer conversion would overflow/narrow.");
 						return static_cast<To>(tmp);
 					} else {
-						// To unsigned
 						if (tmp < 0) throw WrongValueType("Negative value cannot be converted to unsigned.");
 						if (static_cast<std::uintmax_t>(tmp) > static_cast<std::uintmax_t>(std::numeric_limits<To>::max()))
 							throw WrongValueType("Floating to integer conversion would overflow/narrow.");
@@ -212,7 +217,8 @@ namespace StormByte::Database {
 					throw WrongValueType("Unsupported numeric conversion.");
 				}
 			}
-			ValuesVariant m_value;								///< Internal value storage
-			enum Type m_type;									///< Type of the value
+
+			ValuesVariant m_value;	///< Internal storage
+			enum Type m_type;		///< Discriminator
 	};
 }

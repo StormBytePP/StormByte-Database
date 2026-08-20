@@ -6,7 +6,7 @@
 ![C++23](https://img.shields.io/badge/C%2B%2B-23-00599C?logo=c%2B%2B&logoColor=white)
 ![CMake](https://img.shields.io/badge/CMake-3.12+-064F8C?logo=cmake&logoColor=white)
 ![License: LGPL v3](https://img.shields.io/badge/License-LGPL_v3-blue.svg)
-[![Compile & Test](https://github.com/StormBytePP/StormByte-Database/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/StormBytePP/StormByte-Database/actions/workflows/build.yml)
+[![CI](https://github.com/StormBytePP/StormByte-Database/actions/workflows/ci.yml/badge.svg)](https://github.com/StormBytePP/StormByte-Database/actions/workflows/ci.yml)
 
 Cross-platform C++23 database abstraction for **SQLite**, **PostgreSQL** and **MariaDB**, with a single API for connections, queries, prepared statements and RAII transactions.
 

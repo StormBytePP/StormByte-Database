@@ -3,7 +3,9 @@
 #include <StormByte/database/named_value.hxx>
 #include <StormByte/iterable.hxx>
 
+#include <unordered_map>
 #include <vector>
+#include <optional>
 
 /**
  * @namespace Database
@@ -19,38 +21,38 @@ namespace StormByte::Database {
 			/**
 			 * @brief Default Constructor
 			 */
-			Row() noexcept											= default;
+			Row() noexcept = default;
 
 			/**
 			 * @brief Copy Constructor
 			 * @param other Other Row to copy from
 			 */
-			Row(const Row& other)									= default;
+			Row(const Row& other);
 
 			/**
 			 * @brief Move Constructor
 			 * @param other Other Row to move from
 			 */
-			Row(Row&& other) noexcept								= default;
+			Row(Row&& other) noexcept = default;
 
 			/**
 			 * @brief Destructor
 			 */
-			~Row() noexcept override								= default;
+			~Row() noexcept override = default;
 
 			/**
 			 * @brief Copy Assignment Operator
 			 * @param other Other Row to copy from
 			 * @return Reference to this Row
 			 */
-			Row& operator=(const Row& other)						= default;
+			Row& operator=(const Row& other);
 
 			/**
 			 * @brief Move Assignment Operator
 			 * @param other Other Row to move from
 			 * @return Reference to this Row
 			 */
-			Row& operator=(Row&& other) noexcept					= default;
+			Row& operator=(Row&& other) noexcept = default;
 
 			/**
 			 * @brief Gets the value for the specified column name
@@ -58,7 +60,7 @@ namespace StormByte::Database {
 			 * @return Reference to the Value for the specified column name
 			 * @throw ColumnNotFound if the column name does not exist
 			 */
-			const Value&											operator[](const std::string& columnName) const &;
+			const Value& operator[](const std::string& columnName) const &;
 
 			/**
 			 * @brief Gets the value for the specified column name
@@ -66,7 +68,7 @@ namespace StormByte::Database {
 			 * @return Reference to the Value for the specified column name
 			 * @throw ColumnNotFound if the column name does not exist
 			 */
-			Value&													operator[](const std::string& columnName) &;
+			Value& operator[](const std::string& columnName) &;
 
 			/**
 			 * @brief Gets the value for the specified column name (rvalue)
@@ -74,9 +76,8 @@ namespace StormByte::Database {
 			 * @return Value for the specified column name
 			 * @throw ColumnNotFound if the column name does not exist
 			 */
-			Value													operator[](const std::string& columnName) &&;
+			Value operator[](const std::string& columnName) &&;
 
-			// Inherit operator[] from Iterable
 			using Iterable::operator[];
 
 			/**
@@ -84,16 +85,22 @@ namespace StormByte::Database {
 			 * @param columnName Optional name of the column
 			 * @param value Value to add
 			 */
-			inline void												add(std::string&& columnName, Value&& value) {
+			inline void add(std::string&& columnName, Value&& value) {
 				m_data.emplace_back(std::move(columnName), std::move(value));
+				m_name_index.reset();
 			}
 
 			/**
 			 * @brief Gets number of columns in the Row
 			 * @return Number of columns in the Row
 			 */
-			inline std::size_t										Count() const noexcept {
+			inline std::size_t Count() const noexcept {
 				return size();
 			}
+
+		private:
+			mutable std::optional<std::unordered_map<std::string, std::size_t>> m_name_index;
+
+			void BuildNameIndex() const;
 	};
 }

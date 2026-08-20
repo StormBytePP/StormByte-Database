@@ -3,13 +3,34 @@
 
 using namespace StormByte::Database;
 
-// Name-based access: search optional name in storage and return the value
-const Value& Row::operator[](const std::string& columnName) const & {
-	for (const auto& p : m_data) {
-		if (p.Name() == columnName)
-			return p;
+Row::Row(const Row& other)
+	: Iterable(other), m_name_index(other.m_name_index) {}
+
+Row& Row::operator=(const Row& other) {
+	if (this != &other) {
+		Iterable::operator=(other);
+		m_name_index = other.m_name_index;
 	}
-	throw ColumnNotFound(columnName);
+	return *this;
+}
+
+void Row::BuildNameIndex() const {
+	if (m_name_index) return;
+
+	std::unordered_map<std::string, std::size_t> index;
+	index.reserve(m_data.size());
+	for (std::size_t i = 0; i < m_data.size(); ++i) {
+		index.emplace(m_data[i].Name(), i);
+	}
+	m_name_index = std::move(index);
+}
+
+const Value& Row::operator[](const std::string& columnName) const & {
+	BuildNameIndex();
+	auto it = m_name_index->find(columnName);
+	if (it == m_name_index->end())
+		throw ColumnNotFound(columnName);
+	return m_data[it->second];
 }
 
 Value& Row::operator[](const std::string& columnName) & {
@@ -17,11 +38,9 @@ Value& Row::operator[](const std::string& columnName) & {
 }
 
 Value Row::operator[](const std::string& columnName) && {
-	for (auto& p : m_data) {
-		if (p.Name() == columnName)
-			return std::move(p);
-	}
-	throw ColumnNotFound(columnName);
+	BuildNameIndex();
+	auto it = m_name_index->find(columnName);
+	if (it == m_name_index->end())
+		throw ColumnNotFound(columnName);
+	return std::move(m_data[it->second]);
 }
-
-

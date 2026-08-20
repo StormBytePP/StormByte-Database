@@ -62,6 +62,8 @@ bool SQLite3::DoConnect() noexcept {
 		return false;
 	}
 
+	sqlite3_busy_timeout(m_database, 30000);
+
 	if (m_logger)
 		*m_logger << Logger::Level::LowLevel << "SQLite3::DoConnect leave (ok)" << std::endl;
 	return true;

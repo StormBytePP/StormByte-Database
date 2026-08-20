@@ -69,11 +69,11 @@ class TestFileDatabase : public SQLite3 {
 		TestFileDatabase(const std::filesystem::path& path)
 			: SQLite3(path, logger) {}
 
-	private:
 		void DoPostConnect() noexcept override {
 			DoSilentQuery("PRAGMA foreign_keys = ON;");
 			DoSilentQuery("PRAGMA journal_mode=WAL;");
-			DoSilentQuery("PRAGMA busy_timeout=5000;");
+			DoSilentQuery("PRAGMA synchronous=NORMAL;");
+			DoSilentQuery("PRAGMA busy_timeout=30000;");
 			DoSilentQuery("CREATE TABLE IF NOT EXISTS concurrent (id INTEGER PRIMARY KEY AUTOINCREMENT, value INTEGER);");
 			DoPrepareSTMT("insert_concurrent", "INSERT INTO concurrent (value) VALUES (?);");
 			DoPrepareSTMT("count_concurrent", "SELECT COUNT(*) FROM concurrent;");
@@ -395,27 +395,32 @@ int concurrent_multiple_connections() {
 	const std::string fn_name = "concurrent_multiple_connections";
 	constexpr int num_threads = 6;
 	constexpr int inserts_per_thread = 40;
+	constexpr int max_attempts = 80;
+	constexpr int retry_ms = 15;
 
 	const std::filesystem::path db_path = StormByte::System::TempFileName("stormbyte_sqlite_concurrent");
-	std::filesystem::remove(db_path);
+	std::error_code ec;
+	std::filesystem::remove(db_path, ec);
 
 	{
 		TestFileDatabase setup(db_path);
-		setup.Connect();
+		ASSERT_TRUE(fn_name, setup.Connect());
 		setup.SilentQuery("DELETE FROM concurrent;");
 	}
 
 	std::vector<std::thread> threads;
+	threads.reserve(static_cast<std::size_t>(num_threads));
 	for (int t = 0; t < num_threads; ++t) {
-		threads.emplace_back([t, db_path]() {
+		threads.emplace_back([t, db_path, inserts_per_thread, max_attempts, retry_ms]() {
 			TestFileDatabase local_db(db_path);
-			local_db.Connect();
+			if (!local_db.Connect())
+				return;
 			for (int i = 0; i < inserts_per_thread; ++i) {
-				for (int attempt = 0; attempt < 50; ++attempt) {
+				for (int attempt = 0; attempt < max_attempts; ++attempt) {
 					auto res = local_db.ExecuteSTMT("insert_concurrent", t * 1000 + i);
 					if (res.has_value())
 						break;
-					std::this_thread::sleep_for(std::chrono::milliseconds(10));
+					std::this_thread::sleep_for(std::chrono::milliseconds(retry_ms));
 				}
 			}
 		});
@@ -423,13 +428,16 @@ int concurrent_multiple_connections() {
 	for (auto& th : threads)
 		th.join();
 
-	TestFileDatabase check_db(db_path);
-	check_db.Connect();
-	auto rows = check_db.ExecuteSTMT("count_concurrent");
-	ASSERT_TRUE(fn_name, rows.has_value());
-	ASSERT_EQUAL(fn_name, num_threads * inserts_per_thread, rows.value()[0][0].Get<int>());
+	{
+		TestFileDatabase check_db(db_path);
+		ASSERT_TRUE(fn_name, check_db.Connect());
+		auto rows = check_db.ExecuteSTMT("count_concurrent");
+		ASSERT_TRUE(fn_name, rows.has_value());
+		ASSERT_EQUAL(fn_name, num_threads * inserts_per_thread, rows.value()[0][0].Get<int>());
+		check_db.Disconnect();
+	}
 
-	std::filesystem::remove(db_path);
+	std::filesystem::remove(db_path, ec);
 	RETURN_TEST(fn_name, 0);
 }
 

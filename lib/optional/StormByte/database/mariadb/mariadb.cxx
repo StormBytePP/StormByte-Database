@@ -32,6 +32,47 @@ namespace {
 		}
 		mysql_free_result(res);
 	}
+
+	void ApplySslMode(MYSQL* conn, StormByte::Database::SslMode mode) {
+		if (!conn)
+			return;
+#if defined(MYSQL_OPT_SSL_MODE)
+		int ssl_mode = 0;
+		switch (mode) {
+			case StormByte::Database::SslMode::Disable:
+#if defined(SSL_MODE_DISABLED)
+				ssl_mode = SSL_MODE_DISABLED;
+				mysql_options(conn, MYSQL_OPT_SSL_MODE, &ssl_mode);
+#endif
+				break;
+			case StormByte::Database::SslMode::Require:
+#if defined(SSL_MODE_REQUIRED)
+				ssl_mode = SSL_MODE_REQUIRED;
+				mysql_options(conn, MYSQL_OPT_SSL_MODE, &ssl_mode);
+#endif
+				break;
+			case StormByte::Database::SslMode::Prefer:
+#if defined(SSL_MODE_PREFERRED)
+				ssl_mode = SSL_MODE_PREFERRED;
+				mysql_options(conn, MYSQL_OPT_SSL_MODE, &ssl_mode);
+#endif
+				break;
+			case StormByte::Database::SslMode::Default:
+			default:
+				break;
+		}
+#elif defined(MYSQL_OPT_SSL_ENFORCE)
+		if (mode == StormByte::Database::SslMode::Disable) {
+			my_bool enforce = 0;
+			mysql_options(conn, MYSQL_OPT_SSL_ENFORCE, &enforce);
+		} else if (mode == StormByte::Database::SslMode::Require) {
+			my_bool enforce = 1;
+			mysql_options(conn, MYSQL_OPT_SSL_ENFORCE, &enforce);
+		}
+#else
+		(void)mode;
+#endif
+	}
 }
 
 MariaDB::~MariaDB() noexcept {
@@ -65,15 +106,7 @@ bool MariaDB::DoConnect() noexcept {
 		return false;
 	}
 
-#ifdef WITH_MARIADB_SSL_DISABLED
-#if defined(SSL_MODE_DISABLED)
-	int ssl_mode = SSL_MODE_DISABLED;
-	mysql_options(conn, MYSQL_OPT_SSL_MODE, &ssl_mode);
-#else
-	my_bool disable = 0;
-	mysql_options(conn, MYSQL_OPT_SSL_ENFORCE, &disable);
-#endif
-#endif
+	ApplySslMode(conn, m_ssl_mode);
 
 	unsigned int port = static_cast<unsigned int>(m_port);
 	if (!mysql_real_connect(conn,

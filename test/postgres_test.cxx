@@ -16,6 +16,7 @@ using namespace StormByte::Database::Postgres;
 using StormByte::Database::IsolationLevel;
 using StormByte::Database::Transaction;
 using StormByte::Database::ColumnNotFound;
+using StormByte::Database::SslMode;
 
 std::shared_ptr<StormByte::Logger::Log> logger =
 	std::make_shared<StormByte::Logger::ThreadedLog>(std::cout, StormByte::Logger::Level::Info);
@@ -23,7 +24,9 @@ std::shared_ptr<StormByte::Logger::Log> logger =
 class TestDatabase : public Postgres {
 	public:
 		TestDatabase()
-			: Postgres("localhost", "testuser", "testpass", "stormbyte_test", logger) {}
+			: Postgres("localhost", "testuser", "testpass", "stormbyte_test", logger) {
+			SetSslMode(SslMode::Disable);
+		}
 
 		const ExpectedRows get_users() { return ExecuteSTMT("select_users"); }
 		const ExpectedRows get_products() { return ExecuteSTMT("select_products"); }
@@ -66,7 +69,9 @@ class TestDatabase : public Postgres {
 class ConcurrentDatabase : public Postgres {
 	public:
 		ConcurrentDatabase()
-			: Postgres("localhost", "testuser", "testpass", "stormbyte_test", logger) {}
+			: Postgres("localhost", "testuser", "testpass", "stormbyte_test", logger) {
+			SetSslMode(SslMode::Disable);
+		}
 
 	private:
 		void DoPostConnect() noexcept override {

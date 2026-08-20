@@ -227,7 +227,6 @@ jobs:
             -DWITH_SQLITE=${{ matrix.sqlite }}
             -DWITH_POSTGRES=${{ matrix.postgres }}
             -DWITH_MARIADB=${{ matrix.mariadb }}
-            -DWITH_MARIADB_SSL_DISABLED=ON
             -DWITH_STORMBYTE=BUNDLED
             ${{ matrix.compiler == 'clang-libc++' && '-DCMAKE_CXX_FLAGS=-stdlib=libc++' || '' }}
           run-tests: true
@@ -346,7 +345,6 @@ jobs:
             -DWITH_SQLITE=${{ matrix.sqlite }}
             -DWITH_POSTGRES=${{ matrix.postgres }}
             -DWITH_MARIADB=${{ matrix.mariadb }}
-            -DWITH_MARIADB_SSL_DISABLED=ON
             -DWITH_STORMBYTE=BUNDLED
             ${{ env.OPENSSL_ROOT_DIR != '' && format('-DOPENSSL_ROOT_DIR={0}', env.OPENSSL_ROOT_DIR) || '' }}
           run-tests: true
@@ -483,7 +481,6 @@ jobs:
             -DWITH_SQLITE=BUNDLED
             -DWITH_POSTGRES=BUNDLED
             -DWITH_MARIADB=BUNDLED
-            -DWITH_MARIADB_SSL_DISABLED=ON
             -DWITH_STORMBYTE=BUNDLED
           run-tests: true
           ctest-options: --output-on-failure --test-dir ${{ github.workspace }}\build\test

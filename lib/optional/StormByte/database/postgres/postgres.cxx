@@ -50,6 +50,21 @@ bool Postgres::DoConnect() noexcept {
 	if (!m_password.empty()) conninfo += "password='" + m_password + "' ";
 	if (!m_dbname.empty())   conninfo += "dbname='" + m_dbname + "' ";
 
+	switch (m_ssl_mode) {
+		case SslMode::Disable:
+			conninfo += "sslmode=disable ";
+			break;
+		case SslMode::Prefer:
+			conninfo += "sslmode=prefer ";
+			break;
+		case SslMode::Require:
+			conninfo += "sslmode=require ";
+			break;
+		case SslMode::Default:
+		default:
+			break;
+	}
+
 	PGconn* conn = PQconnectdb(conninfo.c_str());
 	if (!conn) {
 		if (m_logger)

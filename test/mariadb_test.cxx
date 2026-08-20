@@ -16,6 +16,7 @@ using namespace StormByte::Database::MariaDB;
 using StormByte::Database::IsolationLevel;
 using StormByte::Database::Transaction;
 using StormByte::Database::ColumnNotFound;
+using StormByte::Database::SslMode;
 
 std::shared_ptr<StormByte::Logger::Log> logger =
 	std::make_shared<StormByte::Logger::ThreadedLog>(std::cout, StormByte::Logger::Level::Info);
@@ -23,7 +24,9 @@ std::shared_ptr<StormByte::Logger::Log> logger =
 class TestDatabase : public MariaDB {
 	public:
 		TestDatabase()
-			: MariaDB("127.0.0.1", "testuser", "testpass", "stormbyte_test", 3306, logger) {}
+			: MariaDB("127.0.0.1", "testuser", "testpass", "stormbyte_test", 3306, logger) {
+			SetSslMode(SslMode::Disable);
+		}
 
 		const ExpectedRows get_users() { return ExecuteSTMT("select_users"); }
 		const ExpectedRows get_products() { return ExecuteSTMT("select_products"); }
@@ -77,7 +80,9 @@ class TestDatabase : public MariaDB {
 class ConcurrentDatabase : public MariaDB {
 	public:
 		ConcurrentDatabase()
-			: MariaDB("127.0.0.1", "testuser", "testpass", "stormbyte_test", 3306, logger) {}
+			: MariaDB("127.0.0.1", "testuser", "testpass", "stormbyte_test", 3306, logger) {
+			SetSslMode(SslMode::Disable);
+		}
 
 	private:
 		void DoPostConnect() noexcept override {

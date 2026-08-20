@@ -3,6 +3,7 @@
 #include <StormByte/database/prepared_stmt.hxx>
 #include <StormByte/database/rows.hxx>
 #include <StormByte/database/transaction.hxx>
+#include <StormByte/database/typedefs.hxx>
 #include <StormByte/logger/log.hxx>
 
 #include <memory>
@@ -13,46 +14,6 @@
  * @brief Contains classes and functions for database operations.
  */
 namespace StormByte::Database {
-	/**
-	 * @enum IsolationLevel
-	 * @brief Transaction isolation levels
-	 */
-	enum class IsolationLevel {
-		/**
-		 * Use the database default isolation level.
-		 * Usually equivalent to ReadCommitted on most engines.
-		 */
-		Default,
-
-		/**
-		 * Dirty reads, non-repeatable reads and phantom reads are possible.
-		 * Lowest isolation, highest concurrency.
-		 * Not supported by all engines (SQLite maps it to Deferred).
-		 */
-		ReadUncommitted,
-
-		/**
-		 * Dirty reads are prevented.
-		 * Non-repeatable reads and phantom reads are still possible.
-		 * This is the default on PostgreSQL and MariaDB/MySQL.
-		 */
-		ReadCommitted,
-
-		/**
-		 * Dirty reads and non-repeatable reads are prevented.
-		 * Phantom reads are still possible.
-		 * Supported by PostgreSQL and MariaDB. SQLite maps it to Immediate.
-		 */
-		RepeatableRead,
-
-		/**
-		 * Full isolation: dirty reads, non-repeatable reads and phantom reads are prevented.
-		 * Highest isolation, lowest concurrency.
-		 * Supported by all three backends (SQLite maps it to Exclusive).
-		 */
-		Serializable
-	};
-
 	/**
 	 * @class Database
 	 * @brief Abstract database class for database handling.
@@ -69,7 +30,7 @@ namespace StormByte::Database {
 			 * @param logger Logger instance
 			 */
 			Database(std::shared_ptr<Logger::Log> logger) noexcept
-				: m_logger(std::move(logger)), m_connected(false) {}
+				: m_logger(std::move(logger)), m_connected(false), m_ssl_mode(SslMode::Default) {}
 
 			/**
 			 * Copy constructor (deleted)
@@ -112,6 +73,18 @@ namespace StormByte::Database {
 			 * @return true if connected, false otherwise
 			 */
 			bool IsConnected() const noexcept { return m_connected; }
+
+			/**
+			 * Sets the TLS policy applied on the next Connect().
+			 * Ignored by SQLite.
+			 * @param mode Desired SSL mode
+			 */
+			void SetSslMode(SslMode mode) noexcept { m_ssl_mode = mode; }
+
+			/**
+			 * @return Current TLS policy
+			 */
+			SslMode GetSslMode() const noexcept { return m_ssl_mode; }
 
 			/**
 			 * Executes a prepared statement
@@ -165,6 +138,7 @@ namespace StormByte::Database {
 			std::shared_ptr<Logger::Log> m_logger;													///< Logger instance
 			std::unordered_map<std::string, std::unique_ptr<PreparedSTMT>> m_prepared_stmts;			///< Prepared statements
 			bool m_connected;																		///< Connection state
+			SslMode m_ssl_mode;																		///< TLS policy for network backends
 
 			/**
 			 * @name Hooks

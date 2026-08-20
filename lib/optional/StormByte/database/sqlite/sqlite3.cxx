@@ -23,7 +23,7 @@ bool SQLite3::DoConnect() noexcept {
 		sqlite3_close(m_database);
 		m_database = nullptr;
 		return false;
-    }
+	}
 	return true;
 }
 
@@ -82,11 +82,10 @@ void SQLite3::EnableForeignKeys() {
 }
 
 std::unique_ptr<StormByte::Database::PreparedSTMT> SQLite3::CreatePreparedSTMT(std::string&& name, std::string&& query) noexcept {
-	std::unique_ptr<PreparedSTMT> stmt = std::make_unique<PreparedSTMT>(PreparedSTMT(std::move(name), std::move(query)));
-	sqlite3_prepare_v2( m_database, stmt->Query().c_str(), static_cast<int>(stmt->Query().length()), &(stmt->m_stmt), nullptr);
+	std::unique_ptr<PreparedSTMT> stmt = std::make_unique<PreparedSTMT>(PreparedSTMT(std::move(name), std::move(query), m_logger));
+	sqlite3_prepare_v2(m_database, stmt->Query().c_str(), static_cast<int>(stmt->Query().length()), &(stmt->m_stmt), nullptr);
 	if (!stmt->m_stmt)
 		return nullptr;
 
 	return stmt;
 }
-

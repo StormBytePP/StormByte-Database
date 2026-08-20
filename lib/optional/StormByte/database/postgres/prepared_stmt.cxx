@@ -4,94 +4,86 @@
 
 using namespace StormByte::Database::Postgres;
 
-PreparedSTMT::PreparedSTMT(const std::string& name, const std::string& query):Database::PreparedSTMT(name, query), m_conn(nullptr), m_stmt_name(name) {}
+PreparedSTMT::PreparedSTMT(const std::string& name, const std::string& query, std::shared_ptr<Logger::Log> logger)
+	: Database::PreparedSTMT(name, query, std::move(logger)), m_conn(nullptr), m_stmt_name(name) {}
 
-PreparedSTMT::PreparedSTMT(std::string&& name, std::string&& query) noexcept:Database::PreparedSTMT(std::move(name), std::move(query)), m_conn(nullptr), m_stmt_name(Database::PreparedSTMT::m_name) {}
+PreparedSTMT::PreparedSTMT(std::string&& name, std::string&& query, std::shared_ptr<Logger::Log> logger) noexcept
+	: Database::PreparedSTMT(std::move(name), std::move(query), std::move(logger)), m_conn(nullptr), m_stmt_name(Database::PreparedSTMT::m_name) {}
 
-void PreparedSTMT::Bind(const int& index, const std::nullptr_t&) noexcept {
+void PreparedSTMT::Binder(const int& index, Value&& value) noexcept {
 	if (static_cast<std::size_t>(index) >= m_param_values.size()) {
 		m_param_values.resize(index + 1, nullptr);
 		m_param_lengths.resize(index + 1, 0);
 		m_param_formats.resize(index + 1, 0);
 	}
-	m_param_values[index] = nullptr;
-	m_param_lengths[index] = 0;
-	m_param_formats[index] = 0;
-}
 
-void PreparedSTMT::Bind(const int& index, const int& val) noexcept {
-	if (static_cast<std::size_t>(index) >= m_param_values.size()) {
-		m_param_values.resize(index + 1, nullptr);
-		m_param_lengths.resize(index + 1, 0);
-		m_param_formats.resize(index + 1, 0);
+	if (value.IsNull()) {
+		m_param_values[index] = nullptr;
+		m_param_lengths[index] = 0;
+		m_param_formats[index] = 0;
+		return;
 	}
-	m_string_storage.emplace_back(std::to_string(val));
-	m_param_values[index] = m_string_storage.back().c_str();
-	m_param_lengths[index] = 0;
-	m_param_formats[index] = 0;
-}
 
-void PreparedSTMT::Bind(const int& index, const unsigned int& val) noexcept {
-	Bind(index, static_cast<int>(val));
-}
-
-void PreparedSTMT::Bind(const int& index, const int64_t& val) noexcept {
-	if (static_cast<std::size_t>(index) >= m_param_values.size()) {
-		m_param_values.resize(index + 1, nullptr);
-		m_param_lengths.resize(index + 1, 0);
-		m_param_formats.resize(index + 1, 0);
+	switch (value.Type()) {
+		case Value::Type::Integer:
+			m_string_storage.emplace_back(std::to_string(value.Get<int>()));
+			m_param_values[index] = m_string_storage.back().c_str();
+			m_param_lengths[index] = 0;
+			m_param_formats[index] = 0;
+			break;
+		case Value::Type::UnsignedInteger:
+			m_string_storage.emplace_back(std::to_string(value.Get<unsigned int>()));
+			m_param_values[index] = m_string_storage.back().c_str();
+			m_param_lengths[index] = 0;
+			m_param_formats[index] = 0;
+			break;
+		case Value::Type::LongInteger:
+			m_string_storage.emplace_back(std::to_string(value.Get<long int>()));
+			m_param_values[index] = m_string_storage.back().c_str();
+			m_param_lengths[index] = 0;
+			m_param_formats[index] = 0;
+			break;
+		case Value::Type::UnsignedLongInteger:
+			m_string_storage.emplace_back(std::to_string(value.Get<unsigned long int>()));
+			m_param_values[index] = m_string_storage.back().c_str();
+			m_param_lengths[index] = 0;
+			m_param_formats[index] = 0;
+			break;
+		case Value::Type::Double:
+			m_string_storage.emplace_back(std::to_string(value.Get<double>()));
+			m_param_values[index] = m_string_storage.back().c_str();
+			m_param_lengths[index] = 0;
+			m_param_formats[index] = 0;
+			break;
+		case Value::Type::Boolean:
+			m_string_storage.emplace_back(value.Get<bool>() ? "true" : "false");
+			m_param_values[index] = m_string_storage.back().c_str();
+			m_param_lengths[index] = 0;
+			m_param_formats[index] = 0;
+			break;
+		case Value::Type::Text:
+			m_string_storage.emplace_back(value.Get<std::string>());
+			m_param_values[index] = m_string_storage.back().c_str();
+			m_param_lengths[index] = 0;
+			m_param_formats[index] = 0;
+			break;
+		case Value::Type::Blob: {
+			auto bv = value.Get<std::vector<std::byte>>();
+			m_blob_storage.emplace_back();
+			m_blob_storage.back().resize(bv.size());
+			for (std::size_t i = 0; i < bv.size(); ++i)
+				m_blob_storage.back()[i] = static_cast<char>(bv[i]);
+			m_param_values[index] = m_blob_storage.back().data();
+			m_param_lengths[index] = static_cast<int>(m_blob_storage.back().size());
+			m_param_formats[index] = 1;
+			break;
+		}
+		default:
+			m_param_values[index] = nullptr;
+			m_param_lengths[index] = 0;
+			m_param_formats[index] = 0;
+			break;
 	}
-	m_string_storage.emplace_back(std::to_string(val));
-	m_param_values[index] = m_string_storage.back().c_str();
-	m_param_lengths[index] = 0;
-	m_param_formats[index] = 0;
-}
-
-void PreparedSTMT::Bind(const int& index, const uint64_t& val) noexcept {
-	Bind(index, static_cast<int64_t>(val));
-}
-
-void PreparedSTMT::Bind(const int& index, const double& val) noexcept {
-	if (static_cast<std::size_t>(index) >= m_param_values.size()) {
-		m_param_values.resize(index + 1, nullptr);
-		m_param_lengths.resize(index + 1, 0);
-		m_param_formats.resize(index + 1, 0);
-	}
-	m_string_storage.emplace_back(std::to_string(val));
-	m_param_values[index] = m_string_storage.back().c_str();
-	m_param_lengths[index] = 0;
-	m_param_formats[index] = 0;
-}
-
-void PreparedSTMT::Bind(const int& index, bool val) noexcept {
-	Bind(index, static_cast<int>(val));
-}
-
-void PreparedSTMT::Bind(const int& index, const std::string& val) noexcept {
-	if (static_cast<std::size_t>(index) >= m_param_values.size()) {
-		m_param_values.resize(index + 1, nullptr);
-		m_param_lengths.resize(index + 1, 0);
-		m_param_formats.resize(index + 1, 0);
-	}
-	m_string_storage.emplace_back(val);
-	m_param_values[index] = m_string_storage.back().c_str();
-	m_param_lengths[index] = 0;
-	m_param_formats[index] = 0;
-}
-
-void PreparedSTMT::Bind(const int& index, const std::vector<std::byte>& val) noexcept {
-	if (static_cast<std::size_t>(index) >= m_param_values.size()) {
-		m_param_values.resize(index + 1, nullptr);
-		m_param_lengths.resize(index + 1, 0);
-		m_param_formats.resize(index + 1, 0);
-	}
-	m_blob_storage.emplace_back();
-	m_blob_storage.back().resize(val.size());
-	for (std::size_t i = 0; i < val.size(); ++i)
-		m_blob_storage.back()[i] = static_cast<char>(val[i]);
-	m_param_values[index] = m_blob_storage.back().data();
-	m_param_lengths[index] = static_cast<int>(m_blob_storage.back().size());
-	m_param_formats[index] = 1; // binary
 }
 
 void PreparedSTMT::Reset() noexcept {

@@ -96,24 +96,28 @@ std::unique_ptr<StormByte::Database::PreparedSTMT> Postgres::CreatePreparedSTMT(
 		return nullptr;
 
 	PGconn* conn = static_cast<PGconn*>(m_conn);
-	// strip trailing semicolons/whitespace to avoid PQprepare errors
 	std::string qcopy = query;
 	while (!qcopy.empty() && (qcopy.back() == ';' || isspace(static_cast<unsigned char>(qcopy.back())))) qcopy.pop_back();
 	PGresult* res = PQprepare(conn, name.c_str(), qcopy.c_str(), 0, nullptr);
 	if (!res) {
-		m_logger << Logger::Level::Error << "PQprepare returned null for statement '" << name << "'" << std::endl;
+		if (m_logger) {
+			*m_logger << Logger::Level::Error << "PQprepare returned null for statement '" << name << "'" << std::endl;
+		}
 		return nullptr;
 	}
 
 	ExecStatusType st = PQresultStatus(res);
 	if (st != PGRES_COMMAND_OK && st != PGRES_TUPLES_OK) {
-		m_logger << Logger::Level::Error << "PQprepare error for statement '" << name << "': " << (PQresultErrorMessage(res) ? PQresultErrorMessage(res) : "Unknown") << std::endl;
+		if (m_logger) {
+			*m_logger << Logger::Level::Error << "PQprepare error for statement '" << name << "': "
+					<< (PQresultErrorMessage(res) ? PQresultErrorMessage(res) : "Unknown") << std::endl;
+		}
 		PQclear(res);
 		return nullptr;
 	}
 	PQclear(res);
 
-	std::unique_ptr<PreparedSTMT> stmt = std::make_unique<PreparedSTMT>(PreparedSTMT(std::move(name), std::move(query)));
+	std::unique_ptr<PreparedSTMT> stmt = std::make_unique<PreparedSTMT>(PreparedSTMT(std::move(name), std::move(query), m_logger));
 	stmt->m_conn = m_conn;
 	return stmt;
 }

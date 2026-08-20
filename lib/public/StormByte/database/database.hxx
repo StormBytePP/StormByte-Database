@@ -2,8 +2,10 @@
 
 #include <StormByte/database/prepared_stmt.hxx>
 #include <StormByte/database/rows.hxx>
+#include <StormByte/database/transaction.hxx>
 #include <StormByte/logger/log.hxx>
 
+#include <memory>
 #include <unordered_map>
 
 /**
@@ -12,65 +14,104 @@
  */
 namespace StormByte::Database {
 	/**
+	 * @enum IsolationLevel
+	 * @brief Transaction isolation levels
+	 */
+	enum class IsolationLevel {
+		/**
+		 * Use the database default isolation level.
+		 * Usually equivalent to ReadCommitted on most engines.
+		 */
+		Default,
+
+		/**
+		 * Dirty reads, non-repeatable reads and phantom reads are possible.
+		 * Lowest isolation, highest concurrency.
+		 * Not supported by all engines (SQLite maps it to Deferred).
+		 */
+		ReadUncommitted,
+
+		/**
+		 * Dirty reads are prevented.
+		 * Non-repeatable reads and phantom reads are still possible.
+		 * This is the default on PostgreSQL and MariaDB/MySQL.
+		 */
+		ReadCommitted,
+
+		/**
+		 * Dirty reads and non-repeatable reads are prevented.
+		 * Phantom reads are still possible.
+		 * Supported by PostgreSQL and MariaDB. SQLite maps it to Immediate.
+		 */
+		RepeatableRead,
+
+		/**
+		 * Full isolation: dirty reads, non-repeatable reads and phantom reads are prevented.
+		 * Highest isolation, lowest concurrency.
+		 * Supported by all three backends (SQLite maps it to Exclusive).
+		 */
+		Serializable
+	};
+
+	/**
 	 * @class Database
-	 * @brief Abstract database class for database handling
+	 * @brief Abstract database class for database handling.
+	 *
+	 * @note This class is **not thread-safe**. Concurrent access from multiple
+	 * threads on the same instance is undefined behaviour. For concurrent
+	 * workloads create one Database (connection) instance per thread and let
+	 * the underlying engine handle concurrency.
 	 */
 	class STORMBYTE_DATABASE_PUBLIC Database {
 		public:
 			/**
-			 * @brief Default constructor.
+			 * Constructor
+			 * @param logger Logger instance
 			 */
-			Database(std::shared_ptr<Logger::Log> logger) noexcept:
-			m_logger(logger), m_connected(false) {};
+			Database(std::shared_ptr<Logger::Log> logger) noexcept
+				: m_logger(std::move(logger)), m_connected(false) {}
 
 			/**
-			 * @brief Default copy constructor (deleted)
-			 * @param other Other Database to copy from
+			 * Copy constructor (deleted)
 			 */
-			Database(const Database& other)								= delete;
+			Database(const Database&) = delete;
 
 			/**
-			 * @brief Default move constructor
-			 * @param other Other Database to move from
+			 * Move constructor
 			 */
-			Database(Database&& other)									= default;
+			Database(Database&&) noexcept = default;
 
 			/**
-			 * @brief Default copy assignment operator (deleted)
-			 * @param other Other Database to copy from
-			 * @return Reference to this Database
+			 * Copy assignment (deleted)
 			 */
-			Database& operator=(const Database& other)					= delete;
+			Database& operator=(const Database&) = delete;
 
 			/**
-			 * @brief Default move assignment operator
-			 * @param other Other Database to move from
-			 * @return Reference to this Database
+			 * Move assignment
 			 */
-			Database& operator=(Database&& other)						= default;
+			Database& operator=(Database&&) noexcept = default;
 
 			/**
-			 * @brief Default destructor.
+			 * Destructor
 			 */
-			virtual ~Database()											= default;
+			virtual ~Database() = default;
 
 			/**
-			 * @brief Connects to the database.
+			 * Connects to the database
+			 * @return true on success, false otherwise
 			 */
-			bool 														Connect() noexcept;
+			bool Connect() noexcept;
 
 			/**
-			 * @brief Disconnects from the database.
+			 * Disconnects from the database
 			 */
-			virtual void 												Disconnect() noexcept;
+			void Disconnect() noexcept;
 
 			/**
-			 * @brief Checks if the database is connected.
+			 * Checks if the database is connected
 			 * @return true if connected, false otherwise
 			 */
-			inline bool 												IsConnected() const noexcept {
-				return m_connected;
-			}
+			bool IsConnected() const noexcept { return m_connected; }
 
 			/**
 			 * Executes a prepared statement
@@ -80,7 +121,7 @@ namespace StormByte::Database {
 			 * @return Resulting rows
 			 */
 			template<typename... Args>
-			inline ExpectedRows 										ExecuteSTMT(const std::string& name, Args&&... args) {
+			ExpectedRows ExecuteSTMT(const std::string& name, Args&&... args) {
 				auto it = m_prepared_stmts.find(name);
 				if (it == m_prepared_stmts.end())
 					return Unexpected<UnknownSTMT>(name);
@@ -89,103 +130,120 @@ namespace StormByte::Database {
 
 			/**
 			 * Executes a query
-			 * @param query The query to execute.
-			 * @return The created query
+			 * @param query The query to execute
+			 * @return Resulting rows or an error
 			 */
-			virtual ExpectedRows										Query(const std::string& query) = 0;
+			virtual ExpectedRows Query(const std::string& query) = 0;
 
 			/**
 			 * Executes a query without returning any result
-			 * @param query The query to execute.
-			 * @return True if the query was executed successfully
+			 * @param query The query to execute
+			 * @return true on success, false on failure
 			 */
-			virtual bool 												SilentQuery(const std::string& query) noexcept = 0;
+			virtual bool SilentQuery(const std::string& query) noexcept = 0;
 
 			/**
-			 * Begins a transaction
+			 * Begins a transaction with the specified isolation level
+			 * @param level Isolation level to use
+			 * @return RAII Transaction object
 			 */
-			inline virtual void 										BeginTransaction() {
-				SilentQuery("BEGIN TRANSACTION;");
-			}
+			Transaction BeginTransaction(IsolationLevel level = IsolationLevel::Default);
 
 			/**
-			 * Begins an exclusive transaction
+			 * Commits the current transaction
 			 */
-			inline virtual void 										BeginExclusiveTransaction() {
-				SilentQuery("BEGIN EXCLUSIVE TRANSACTION;");
-			}
+			void CommitTransaction();
 
 			/**
-			 * Commits the transaction
+			 * Rolls back the current transaction
 			 */
-			inline virtual void 										CommitTransaction() {
-				SilentQuery("COMMIT;");
-			}
-
-			/**
-			 * Rolls back the transaction
-			 */
-			inline virtual void 										RollbackTransaction() {
-				SilentQuery("ROLLBACK;");
-			}
+			void RollbackTransaction();
 
 		protected:
-			std::shared_ptr<Logger::Log> m_logger;						///< Logger instance
-			std::unordered_map<
-				std::string,
-				std::unique_ptr<PreparedSTMT>
-			> m_prepared_stmts;											///< Prepared statements
-			bool m_connected;											///< Connection state
+			friend class Transaction;
+
+			std::shared_ptr<Logger::Log> m_logger;													///< Logger instance
+			std::unordered_map<std::string, std::unique_ptr<PreparedSTMT>> m_prepared_stmts;			///< Prepared statements
+			bool m_connected;																		///< Connection state
 
 			/**
-			 * @brief Pre-connect action
-			 * Default is a noop
+			 * @name Hooks
+			 * @brief Lifecycle hooks called by Connect() / Disconnect().
+			 *
+			 * When overriding these methods prefer the internal helpers
+			 * DoSilentQuery() and DoPrepareSTMT() so that logging and error
+			 * handling stay consistent. Using the public SilentQuery() /
+			 * PrepareSTMT() from a hook is also safe (there is no mutex).
+			 *
+			 * @{
 			 */
-			virtual void 												DoPreConnect() noexcept {}
 
 			/**
-			 * @brief Connects to the database
-			 * @return true if connection was successful, false otherwise
+			 * Pre-connect action. Default is a no-op.
 			 */
-			virtual bool 												DoConnect() noexcept = 0;
+			virtual void DoPreConnect() noexcept {}
 
 			/**
-			 * @brief Post-connect action
-			 * Default is a noop
+			 * Connects to the database (backend-specific)
+			 * @return true on success, false otherwise
 			 */
-			virtual void 												DoPostConnect() noexcept {}
+			virtual bool DoConnect() noexcept = 0;
 
 			/**
-			 * @brief Pre-disconnect action
-			 * Default is a noop
+			 * Post-connect action. Default is a no-op.
 			 */
-			virtual void 												DoPreDisconnect() noexcept {}
+			virtual void DoPostConnect() noexcept {}
 
 			/**
-			 * @brief Disconnects from the database
+			 * Pre-disconnect action. Default is a no-op.
 			 */
-			virtual void 												DoDisconnect() noexcept = 0;
+			virtual void DoPreDisconnect() noexcept {}
 
 			/**
-			 * @brief Post-disconnect action
-			 * Default is a noop
+			 * Disconnects from the database (backend-specific)
 			 */
-			virtual void 												DoPostDisconnect() noexcept {}
+			virtual void DoDisconnect() noexcept = 0;
 
 			/**
-			 * @brief Creates a prepared statement
+			 * Post-disconnect action. Default is a no-op.
+			 */
+			virtual void DoPostDisconnect() noexcept {}
+
+			/** @} */
+
+			/**
+			 * Creates a prepared statement (backend-specific)
 			 * @param name The name of the prepared statement
 			 * @param query The query to prepare
-			 * @return The created prepared statement
+			 * @return The created prepared statement or nullptr on failure
 			 */
-			virtual std::unique_ptr<PreparedSTMT>						CreatePreparedSTMT(std::string&& name, std::string&& query) noexcept = 0;
+			virtual std::unique_ptr<PreparedSTMT> CreatePreparedSTMT(std::string&& name, std::string&& query) noexcept = 0;
 
 			/**
 			 * Prepares a statement
 			 * @param name The name of the prepared statement
 			 * @param query The query to prepare
-			 * @return The created prepared statement
 			 */
-			void 														PrepareSTMT(std::string&& name, std::string&& query) noexcept;
+			void PrepareSTMT(std::string&& name, std::string&& query) noexcept;
+
+			/**
+			 * Internal prepare helper (same as PrepareSTMT; kept for symmetry with hooks).
+			 * @param name The name of the prepared statement
+			 * @param query The query to prepare
+			 */
+			void DoPrepareSTMT(std::string&& name, std::string&& query) noexcept;
+
+			/**
+			 * Internal method to start a transaction with the given isolation level.
+			 * @param level Isolation level
+			 */
+			virtual void DoBeginTransaction(IsolationLevel level) = 0;
+
+			/**
+			 * Internal silent query helper.
+			 * @param query The query to execute
+			 * @return true on success, false on failure
+			 */
+			virtual bool DoSilentQuery(const std::string& query) noexcept = 0;
 	};
 }

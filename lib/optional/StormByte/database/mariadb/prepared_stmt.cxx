@@ -378,13 +378,20 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 
 				case MYSQL_TYPE_BLOB: {
 					unsigned long llen = out_len[i];
-					std::vector<std::byte> blob;
-					if (llen > 0) {
-						blob.resize(llen);
-						for (unsigned long bi = 0; bi < llen; ++bi)
-							blob[bi] = static_cast<std::byte>(out_str[i][bi]);
+					// 63 = binary charset; otherwise treat as text (TEXT/VARCHAR)
+					const bool is_binary = f && f->charsetnr == 63;
+					if (is_binary) {
+						std::vector<std::byte> blob;
+						if (llen > 0) {
+							blob.resize(llen);
+							for (unsigned long bi = 0; bi < llen; ++bi)
+								blob[bi] = static_cast<std::byte>(out_str[i][bi]);
+						}
+						prow.add(std::string(colName ? colName : ""), std::move(blob));
+					} else {
+						std::string sval(out_str[i].data(), llen);
+						prow.add(std::string(colName ? colName : ""), std::move(sval));
 					}
-					prow.add(std::string(colName ? colName : ""), std::move(blob));
 					break;
 				}
 

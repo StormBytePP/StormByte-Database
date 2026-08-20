@@ -37,8 +37,8 @@ if (NOT WITH_SQLITE STREQUAL "OFF")
 			VERSION 	${sqlite3_VERSION}
 			SOVERSION 	${sqlite3_VERSION}
 		)
-		add_library(SQLite::SQLite3 ALIAS sqlite3)
+		add_library(SQLite3::SQLite3 ALIAS sqlite3)
 	endif()
 
-	target_link_libraries(StormByte-Database PRIVATE SQLite::SQLite3)
+	target_link_libraries(StormByte-Database PRIVATE SQLite3::SQLite3)
 endif()

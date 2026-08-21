@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Port SQLite amalgamation to StormByte-BuildMaster (cached download + static PIC build via `create_cmake_component`)
 - Bump bundled SQLite to 3.53.4
+- Use pinned Git submodule commit for bundled PostgreSQL (remove configure-time fetch / `REL_18_STABLE` switch)
+- Tidy bundled PostgreSQL and MariaDB Connector C CMake (status messages, target alias guards)
 - Minor indentation adjustments in configure status messages
 
 ## [1.0.0] - 2026-08-20

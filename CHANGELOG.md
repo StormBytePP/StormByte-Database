@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0] - 2026-08-20
 
-Initial public release of **StormByte-Database**: a C++23 abstraction over SQLite, PostgreSQL and MariaDB with a shared API for connections, queries, prepared statements and transactions.
+Initial public release of **StormByte-Database**: a C++26 abstraction over SQLite, PostgreSQL and MariaDB with a shared API for connections, queries, prepared statements and transactions.
 
 ### Added
 

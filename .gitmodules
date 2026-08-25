@@ -8,6 +8,7 @@
 [submodule "StormByte - Build Master"]
 	path = thirdparty/buildmaster
 	url = https://github.com/StormBytePP/StormByte-BuildMaster.git
+	branch = master
 [submodule "PostgreSQL"]
 	path = thirdparty/postgres/src
 	url = https://github.com/postgres/postgres.git

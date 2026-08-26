@@ -45,17 +45,37 @@ if(NOT WITH_POSTGRES STREQUAL "OFF")
 			"-Dcassert=false"
 		)
 
-		create_meson_component(
-			POSTGRES_LIBRARY_CREATE_FILE
-			"PostgreSQL"
-			"${POSTGRES_COMPONENT}"
-			"${POSTGRES_SRCDIR}"
-			"${POSTGRES_BUILDDIR}"
-			"${POSTGRES_OPTIONS}"
-			"static"
-			"pq;pgport;pgport_shlib;pgcommon;pgcommon_shlib"
-			1
-		)
+		# On Windows, force TOOLCHAIN msvc for this component only.
+		# Postgres Meson runs a C99 probe that includes <complex.h> / <tgmath.h>.
+		# Under clang-cl those headers mix Clang _Complex with UCRT _Fcomplex/_Dcomplex
+		# and the probe fails (C compiler does not support C99). Real MSVC (cl) passes.
+		# Parent may still use clang-cl; only PostgreSQL configure/build/install use msvc.
+		if(WIN32)
+			create_meson_component(
+				POSTGRES_LIBRARY_CREATE_FILE
+				"PostgreSQL"
+				"${POSTGRES_COMPONENT}"
+				"${POSTGRES_SRCDIR}"
+				"${POSTGRES_BUILDDIR}"
+				"${POSTGRES_OPTIONS}"
+				"static"
+				"pq;pgport;pgport_shlib;pgcommon;pgcommon_shlib"
+				1
+				"msvc"
+			)
+		else()
+			create_meson_component(
+				POSTGRES_LIBRARY_CREATE_FILE
+				"PostgreSQL"
+				"${POSTGRES_COMPONENT}"
+				"${POSTGRES_SRCDIR}"
+				"${POSTGRES_BUILDDIR}"
+				"${POSTGRES_OPTIONS}"
+				"static"
+				"pq;pgport;pgport_shlib;pgcommon;pgcommon_shlib"
+				1
+			)
+		endif()
 		include("${POSTGRES_LIBRARY_CREATE_FILE}")
 
 		if(NOT TARGET PostgreSQL::PostgreSQL)

@@ -3,10 +3,11 @@ if(WIN32)
 else()
 	set(WITH_STORMBYTE "BUNDLED" CACHE STRING "Use StormByte components (SYSTEM/BUNDLED)")
 endif()
+
 if(WITH_STORMBYTE STREQUAL "SYSTEM")
 	find_package(StormByte REQUIRED Logger)
 else()
 	add_subdirectory(logger)
 endif()
 
-target_link_libraries(StormByte-Database PUBLIC StormByte::Logger)
+buildmaster_link(StormByte-Database StormByte-Logger)

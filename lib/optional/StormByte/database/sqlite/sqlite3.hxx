@@ -1,21 +1,21 @@
 /*
- * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
- *
- * This file is part of StormByte-Database.
- *
- * StormByte-Database is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
- *
- * StormByte-Database is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Database. If not, see
- * <https://www.gnu.org/licenses/lgpl-3.0.html>.
- */
+* Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+*
+* This file is part of StormByte-Database.
+*
+* StormByte-Database is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Lesser General Public License version 3
+* or later, as published by the Free Software Foundation.
+*
+* StormByte-Database is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public License
+* along with StormByte-Database. If not, see
+* <https://www.gnu.org/licenses/lgpl-3.0.html>.
+*/
 
 #pragma once
 
@@ -28,57 +28,52 @@
 class sqlite3;
 
 /**
- * @namespace SQLite
- * @brief SQLite backend for StormByte::Database.
+ * @brief SQLite backend of the Database module.
  */
 namespace StormByte::Database::SQLite {
 	/**
 	 * @class SQLite3
-	 * @brief SQLite3 database backend.
+	 * @brief SQLite3 backend.
 	 *
 	 * @note Not thread-safe. One instance per thread.
-	 *
-	 * @note **Inheritance-oriented.** Constructors are protected. Derive your
-	 * own class, call the appropriate SQLite3 constructor from your constructor,
-	 * and optionally override lifecycle hooks or call PrepareSTMT / EnableForeignKeys
-	 * there. Not intended for direct generic construction.
+	 * @note Inheritance-oriented. Constructors are protected. Derive and call them from your constructor.
 	 */
 	class STORMBYTE_DATABASE_PUBLIC SQLite3 : public Database {
 		public:
 			/**
-			 * Copy constructor (deleted).
+			 * @brief Copy constructor (deleted).
 			 */
 			SQLite3(const SQLite3& db) = delete;
 
 			/**
-			 * Move constructor.
+			 * @brief Move constructor.
 			 */
 			SQLite3(SQLite3&& db) noexcept = default;
 
 			/**
-			 * Copy assignment (deleted).
+			 * @brief Copy assignment (deleted).
 			 */
 			SQLite3& operator=(const SQLite3& db) = delete;
 
 			/**
-			 * Move assignment.
+			 * @brief Move assignment.
 			 */
 			SQLite3& operator=(SQLite3&& db) noexcept = default;
 
 			/**
-			 * Destructor.
+			 * @brief Destructor.
 			 */
 			~SQLite3() noexcept override;
 
 			/**
-			 * Executes a query and returns rows.
+			 * @brief Execute a query that returns rows.
 			 * @param query SQL text.
 			 * @return Result rows or an error.
 			 */
 			ExpectedRows Query(const std::string& query) noexcept override;
 
 			/**
-			 * Executes a query that does not return rows.
+			 * @brief Execute a query that does not return rows.
 			 * @param query SQL text.
 			 * @return true on success.
 			 */
@@ -86,32 +81,32 @@ namespace StormByte::Database::SQLite {
 
 		protected:
 			/**
-			 * In-memory database.
+			 * @brief In-memory database.
 			 * @param logger Logger instance.
 			 */
 			SQLite3(std::shared_ptr<Logger::Log> logger) noexcept;
 
 			/**
-			 * File-backed database.
+			 * @brief File-backed database.
 			 * @param dbfile Path to the database file.
 			 * @param logger Logger instance.
 			 */
 			SQLite3(const std::filesystem::path& dbfile, std::shared_ptr<Logger::Log> logger);
 
 			/**
-			 * File-backed database (moved path and logger).
+			 * @brief File-backed database (moved path and logger).
 			 * @param dbfile Path to the database file.
 			 * @param logger Logger instance.
 			 */
 			SQLite3(std::filesystem::path&& dbfile, std::shared_ptr<Logger::Log>&& logger);
 
 			/**
-			 * Enables foreign key enforcement (off by default in SQLite).
+			 * @brief Enable foreign keys (off by default in SQLite).
 			 */
 			void EnableForeignKeys();
 
 			/**
-			 * Internal silent query.
+			 * @brief Internal silent query.
 			 * @param query SQL text.
 			 * @return true on success.
 			 */
@@ -122,28 +117,28 @@ namespace StormByte::Database::SQLite {
 			sqlite3* m_database;					///< SQLite handle (incomplete type)
 
 			/**
-			 * Opens the database and initializes SQLite if needed.
+			 * @brief Open the database and initialize SQLite if needed.
 			 * @return true on success.
 			 */
 			bool DoConnect() noexcept override;
 
 			/**
-			 * Clears prepared statements before close.
+			 * @brief Clear prepared statements before close.
 			 */
 			void DoPreDisconnect() noexcept override;
 
 			/**
-			 * Closes the database handle.
+			 * @brief Close the database handle.
 			 */
 			void DoDisconnect() noexcept override;
 
 			/**
-			 * Decrements global SQLite init refcount / shutdown.
+			 * @brief Decrement global SQLite init refcount / shutdown.
 			 */
 			void DoPostDisconnect() noexcept override;
 
 			/**
-			 * Creates a SQLite prepared statement.
+			 * @brief Create a SQLite prepared statement.
 			 * @param name Statement name.
 			 * @param query SQL text.
 			 * @return Prepared statement or nullptr.
@@ -151,7 +146,7 @@ namespace StormByte::Database::SQLite {
 			std::unique_ptr<StormByte::Database::PreparedSTMT> CreatePreparedSTMT(std::string&& name, std::string&& query) noexcept override;
 
 			/**
-			 * Maps IsolationLevel to BEGIN DEFERRED/IMMEDIATE/EXCLUSIVE.
+			 * @brief Map IsolationLevel to BEGIN DEFERRED/IMMEDIATE/EXCLUSIVE.
 			 * @param level Isolation level.
 			 */
 			void DoBeginTransaction(IsolationLevel level) override;

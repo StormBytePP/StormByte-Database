@@ -1,21 +1,21 @@
 /*
- * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
- *
- * This file is part of StormByte-Database.
- *
- * StormByte-Database is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
- *
- * StormByte-Database is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Database. If not, see
- * <https://www.gnu.org/licenses/lgpl-3.0.html>.
- */
+* Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+*
+* This file is part of StormByte-Database.
+*
+* StormByte-Database is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Lesser General Public License version 3
+* or later, as published by the Free Software Foundation.
+*
+* StormByte-Database is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public License
+* along with StormByte-Database. If not, see
+* <https://www.gnu.org/licenses/lgpl-3.0.html>.
+*/
 
 #pragma once
 
@@ -28,56 +28,52 @@
 struct st_mysql;
 
 /**
- * @namespace MariaDB
- * @brief MariaDB / MySQL backend for StormByte::Database.
+ * @brief MariaDB backend of the Database module.
  */
 namespace StormByte::Database::MariaDB {
 	/**
 	 * @class MariaDB
-	 * @brief MariaDB database backend.
+	 * @brief MariaDB / MySQL backend.
 	 *
 	 * @note Not thread-safe. One instance per thread.
-	 *
-	 * @note **Inheritance-oriented.** Constructors are protected. Derive your
-	 * own class and call the MariaDB constructor from your constructor. Optional
-	 * SetSslMode() before Connect(). Not intended for direct generic construction.
+	 * @note Inheritance-oriented. Constructors are protected. SetSslMode() before Connect() if needed.
 	 */
 	class STORMBYTE_DATABASE_PUBLIC MariaDB : public Database {
 		public:
 			/**
-			 * Copy constructor (deleted).
+			 * @brief Copy constructor (deleted).
 			 */
 			MariaDB(const MariaDB& db) = delete;
 
 			/**
-			 * Move constructor.
+			 * @brief Move constructor.
 			 */
 			MariaDB(MariaDB&& db) noexcept = default;
 
 			/**
-			 * Copy assignment (deleted).
+			 * @brief Copy assignment (deleted).
 			 */
 			MariaDB& operator=(const MariaDB& db) = delete;
 
 			/**
-			 * Move assignment.
+			 * @brief Move assignment.
 			 */
 			MariaDB& operator=(MariaDB&& db) noexcept = default;
 
 			/**
-			 * Destructor.
+			 * @brief Destructor.
 			 */
 			~MariaDB() noexcept override;
 
 			/**
-			 * Executes a query and returns rows.
+			 * @brief Execute a query that returns rows.
 			 * @param query SQL text.
 			 * @return Result rows or an error.
 			 */
 			ExpectedRows Query(const std::string& query) noexcept override;
 
 			/**
-			 * Executes a query that does not return rows.
+			 * @brief Execute a query that does not return rows.
 			 * @param query SQL text.
 			 * @return true on success.
 			 */
@@ -85,6 +81,7 @@ namespace StormByte::Database::MariaDB {
 
 		protected:
 			/**
+			 * @brief Connect parameters (copies).
 			 * @param host Host name or address.
 			 * @param user User name.
 			 * @param password Password.
@@ -96,7 +93,7 @@ namespace StormByte::Database::MariaDB {
 					const std::string& db_name, int port, std::shared_ptr<Logger::Log> logger);
 
 			/**
-			 * Move-string overload.
+			 * @brief Connect parameters (moved strings).
 			 * @param host Host name or address.
 			 * @param user User name.
 			 * @param password Password.
@@ -108,7 +105,7 @@ namespace StormByte::Database::MariaDB {
 					std::string&& db_name, int port, std::shared_ptr<Logger::Log> logger);
 
 			/**
-			 * Internal silent query.
+			 * @brief Internal silent query.
 			 * @param query SQL text.
 			 * @return true on success.
 			 */
@@ -123,23 +120,23 @@ namespace StormByte::Database::MariaDB {
 			struct st_mysql* m_conn;	///< Connection handle
 
 			/**
-			 * Connects via mysql_real_connect.
+			 * @brief Connect via mysql_real_connect.
 			 * @return true on success.
 			 */
 			bool DoConnect() noexcept override;
 
 			/**
-			 * Clears prepared statements.
+			 * @brief Clear prepared statements.
 			 */
 			void DoPreDisconnect() noexcept override;
 
 			/**
-			 * Closes the connection.
+			 * @brief Close the connection.
 			 */
 			void DoDisconnect() noexcept override;
 
 			/**
-			 * Creates a MariaDB prepared statement.
+			 * @brief Create a MariaDB prepared statement.
 			 * @param name Statement name.
 			 * @param query SQL text.
 			 * @return Prepared statement or nullptr.
@@ -147,7 +144,7 @@ namespace StormByte::Database::MariaDB {
 			std::unique_ptr<StormByte::Database::PreparedSTMT> CreatePreparedSTMT(std::string&& name, std::string&& query) noexcept override;
 
 			/**
-			 * Sets isolation level and BEGIN.
+			 * @brief Set isolation and BEGIN.
 			 * @param level Isolation level.
 			 */
 			void DoBeginTransaction(IsolationLevel level) override;

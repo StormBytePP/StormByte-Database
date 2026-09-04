@@ -1,21 +1,21 @@
 /*
- * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
- *
- * This file is part of StormByte-Database.
- *
- * StormByte-Database is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
- *
- * StormByte-Database is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Database. If not, see
- * <https://www.gnu.org/licenses/lgpl-3.0.html>.
- */
+* Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+*
+* This file is part of StormByte-Database.
+*
+* StormByte-Database is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Lesser General Public License version 3
+* or later, as published by the Free Software Foundation.
+*
+* StormByte-Database is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public License
+* along with StormByte-Database. If not, see
+* <https://www.gnu.org/licenses/lgpl-3.0.html>.
+*/
 
 #pragma once
 
@@ -28,56 +28,52 @@
 struct pg_conn;
 
 /**
- * @namespace Postgres
- * @brief PostgreSQL backend for StormByte::Database.
+ * @brief PostgreSQL backend of the Database module.
  */
 namespace StormByte::Database::Postgres {
 	/**
 	 * @class Postgres
-	 * @brief PostgreSQL database backend.
+	 * @brief PostgreSQL backend.
 	 *
 	 * @note Not thread-safe. One instance per thread.
-	 *
-	 * @note **Inheritance-oriented.** Constructors are protected. Derive your
-	 * own class and call the Postgres constructor from your constructor. Optional
-	 * SetSslMode() before Connect(). Not intended for direct generic construction.
+	 * @note Inheritance-oriented. Constructors are protected. SetSslMode() before Connect() if needed.
 	 */
 	class STORMBYTE_DATABASE_PUBLIC Postgres : public Database {
 		public:
 			/**
-			 * Copy constructor (deleted).
+			 * @brief Copy constructor (deleted).
 			 */
 			Postgres(const Postgres& db) = delete;
 
 			/**
-			 * Move constructor.
+			 * @brief Move constructor.
 			 */
 			Postgres(Postgres&& db) noexcept = default;
 
 			/**
-			 * Copy assignment (deleted).
+			 * @brief Copy assignment (deleted).
 			 */
 			Postgres& operator=(const Postgres& db) = delete;
 
 			/**
-			 * Move assignment.
+			 * @brief Move assignment.
 			 */
 			Postgres& operator=(Postgres&& db) noexcept = default;
 
 			/**
-			 * Destructor.
+			 * @brief Destructor.
 			 */
 			~Postgres() noexcept override;
 
 			/**
-			 * Executes a query and returns rows.
+			 * @brief Execute a query that returns rows.
 			 * @param query SQL text.
 			 * @return Result rows or an error.
 			 */
 			ExpectedRows Query(const std::string& query) noexcept override;
 
 			/**
-			 * Executes a query that does not return rows.
+			 * @brief Execute a query that does not return rows.
 			 * @param query SQL text.
 			 * @return true on success.
 			 */
@@ -85,6 +81,7 @@ namespace StormByte::Database::Postgres {
 
 		protected:
 			/**
+			 * @brief Connect parameters (copies).
 			 * @param host Host name or address.
 			 * @param user User name.
 			 * @param password Password.
@@ -95,7 +92,7 @@ namespace StormByte::Database::Postgres {
 					const std::string& db_name, std::shared_ptr<Logger::Log> logger);
 
 			/**
-			 * Move-string overload.
+			 * @brief Connect parameters (moved strings).
 			 * @param host Host name or address.
 			 * @param user User name.
 			 * @param password Password.
@@ -106,7 +103,7 @@ namespace StormByte::Database::Postgres {
 					std::string&& db_name, std::shared_ptr<Logger::Log> logger);
 
 			/**
-			 * Internal silent query.
+			 * @brief Internal silent query.
 			 * @param query SQL text.
 			 * @return true on success.
 			 */
@@ -120,23 +117,23 @@ namespace StormByte::Database::Postgres {
 			struct pg_conn* m_conn;		///< Connection handle
 
 			/**
-			 * Connects via PQconnectdb.
+			 * @brief Connect via PQconnectdb.
 			 * @return true on success.
 			 */
 			bool DoConnect() noexcept override;
 
 			/**
-			 * Clears prepared statements.
+			 * @brief Clear prepared statements.
 			 */
 			void DoPreDisconnect() noexcept override;
 
 			/**
-			 * Closes the connection.
+			 * @brief Close the connection.
 			 */
 			void DoDisconnect() noexcept override;
 
 			/**
-			 * Creates a PostgreSQL prepared statement (PQprepare).
+			 * @brief Create a PostgreSQL prepared statement (PQprepare).
 			 * @param name Statement name.
 			 * @param query SQL text.
 			 * @return Prepared statement or nullptr.
@@ -144,7 +141,7 @@ namespace StormByte::Database::Postgres {
 			std::unique_ptr<StormByte::Database::PreparedSTMT> CreatePreparedSTMT(std::string&& name, std::string&& query) noexcept override;
 
 			/**
-			 * BEGIN with isolation level.
+			 * @brief BEGIN with isolation.
 			 * @param level Isolation level.
 			 */
 			void DoBeginTransaction(IsolationLevel level) override;

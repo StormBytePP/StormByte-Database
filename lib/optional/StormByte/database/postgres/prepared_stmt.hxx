@@ -1,36 +1,35 @@
 /*
- * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
- *
- * This file is part of StormByte-Database.
- *
- * StormByte-Database is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
- *
- * StormByte-Database is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Database. If not, see
- * <https://www.gnu.org/licenses/lgpl-3.0.html>.
- */
+* Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+*
+* This file is part of StormByte-Database.
+*
+* StormByte-Database is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Lesser General Public License version 3
+* or later, as published by the Free Software Foundation.
+*
+* StormByte-Database is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public License
+* along with StormByte-Database. If not, see
+* <https://www.gnu.org/licenses/lgpl-3.0.html>.
+*/
 
 #pragma once
 
 #include <StormByte/database/prepared_stmt.hxx>
 #include <StormByte/database/value.hxx>
 
-#include <vector>
-#include <string>
 #include <memory>
+#include <string>
+#include <vector>
 
 struct pg_conn;
 
 /**
- * @namespace Postgres
- * @brief PostgreSQL backend for StormByte::Database.
+ * @brief PostgreSQL backend of the Database module.
  */
 namespace StormByte::Database::Postgres {
 	/**
@@ -41,27 +40,27 @@ namespace StormByte::Database::Postgres {
 		friend class Postgres;
 	public:
 		/**
-		 * Copy constructor (deleted).
+		 * @brief Copy constructor (deleted).
 		 */
 		PreparedSTMT(const PreparedSTMT& other) = delete;
 
 		/**
-		 * Move constructor.
+		 * @brief Move constructor.
 		 */
 		PreparedSTMT(PreparedSTMT&& other) noexcept = default;
 
 		/**
-		 * Destructor.
+		 * @brief Destructor.
 		 */
 		~PreparedSTMT() noexcept override = default;
 
 		/**
-		 * Copy assignment (deleted).
+		 * @brief Copy assignment (deleted).
 		 */
 		PreparedSTMT& operator=(const PreparedSTMT& other) = delete;
 
 		/**
-		 * Move assignment.
+		 * @brief Move assignment.
 		 */
 		PreparedSTMT& operator=(PreparedSTMT&& other) noexcept = default;
 
@@ -76,6 +75,7 @@ namespace StormByte::Database::Postgres {
 		std::vector<std::vector<char>> m_blob_storage;	///< Owns blob params
 
 		/**
+		 * @brief Construct from copies.
 		 * @param name Statement name.
 		 * @param query SQL text.
 		 * @param logger Logger instance.
@@ -83,6 +83,7 @@ namespace StormByte::Database::Postgres {
 		PreparedSTMT(const std::string& name, const std::string& query, std::shared_ptr<Logger::Log> logger);
 
 		/**
+		 * @brief Construct from moved strings.
 		 * @param name Statement name.
 		 * @param query SQL text.
 		 * @param logger Logger instance.
@@ -90,20 +91,20 @@ namespace StormByte::Database::Postgres {
 		PreparedSTMT(std::string&& name, std::string&& query, std::shared_ptr<Logger::Log> logger) noexcept;
 
 		/**
-		 * Stores a bound value at @p index.
+		 * @brief Store a bound value at @p index.
 		 * @param index Parameter index.
 		 * @param value Value to bind.
 		 */
 		void Binder(const int& index, Value&& value) noexcept override;
 
 		/**
-		 * Executes via PQexecPrepared.
+		 * @brief Execute via PQexecPrepared.
 		 * @return Result rows or an error.
 		 */
 		ExpectedRows DoExecute() override;
 
 		/**
-		 * Clears all bind storage.
+		 * @brief Clear all bind storage.
 		 */
 		void Reset() noexcept override;
 	};

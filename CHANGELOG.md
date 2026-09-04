@@ -18,7 +18,7 @@ If you landed here from a release link and have not read the tree:
 - What this module is, how to build it, and short examples: [README.md](https://github.com/StormBytePP/StormByte-Database/blob/master/README.md)
 - License: GNU Lesser General Public License version 3 or later, [LICENSE](https://github.com/StormBytePP/StormByte-Database/blob/master/LICENSE)
 
-## [1.0.0] - 2026-09-04
+## [1.0.0] - 2026-09-05
 
 Initial public release of StormByte Database.
 

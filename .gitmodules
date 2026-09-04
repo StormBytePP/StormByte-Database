@@ -1,7 +1,6 @@
 [submodule "StormByte Suite - Logger"]
 	path = thirdparty/StormByte/logger/src
 	url = https://github.com/StormBytePP/StormByte-Logger.git
-	branch = master
 [submodule "MariaDB Connector C"]
 	path = thirdparty/mariadb/mariadb-connector-c
 	url = https://github.com/mariadb-corporation/mariadb-connector-c.git

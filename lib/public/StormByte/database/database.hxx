@@ -1,21 +1,21 @@
 /*
- * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
- *
- * This file is part of StormByte-Database.
- *
- * StormByte-Database is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
- *
- * StormByte-Database is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Database. If not, see
- * <https://www.gnu.org/licenses/lgpl-3.0.html>.
- */
+* Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+*
+* This file is part of StormByte-Database.
+*
+* StormByte-Database is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Lesser General Public License version 3
+* or later, as published by the Free Software Foundation.
+*
+* StormByte-Database is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public License
+* along with StormByte-Database. If not, see
+* <https://www.gnu.org/licenses/lgpl-3.0.html>.
+*/
 
 #pragma once
 
@@ -29,71 +29,63 @@
 #include <unordered_map>
 
 /**
- * @namespace Database
- * @brief Contains classes and functions for database operations.
+ * @brief Database module of the StormByte suite.
  */
 namespace StormByte::Database {
 	/**
 	 * @class Database
-	 * @brief Abstract base for database backends.
+	 * @brief Abstract backend.
 	 *
-	 * @note **Not thread-safe.** Concurrent use of the same instance from multiple
-	 * threads is undefined behaviour. Create one connection per thread.
-	 *
-	 * @note **Inheritance-oriented API.** Concrete backends (SQLite3, MariaDB,
-	 * Postgres) expose only protected constructors. The intended usage is to
-	 * derive your own class, call the backend constructor from your constructor,
-	 * and optionally override lifecycle hooks (DoPreConnect, DoPostConnect, …)
-	 * or prepare statements there. Direct “generic” construction of backend
-	 * instances is intentionally unsupported.
+	 * @note Not thread-safe. One connection per thread.
+	 * @note Inheritance-oriented. Concrete backends expose protected constructors. Derive, call the backend constructor, override hooks if needed.
 	 */
 	class STORMBYTE_DATABASE_PUBLIC Database {
 		public:
 			/**
-			 * Constructor.
+			 * @brief Construct with an optional logger.
 			 * @param logger Logger instance (may be null).
 			 */
 			Database(std::shared_ptr<Logger::Log> logger) noexcept
 				: m_logger(std::move(logger)), m_connected(false), m_ssl_mode(SslMode::Default) {}
 
 			/**
-			 * Copy constructor (deleted).
+			 * @brief Copy constructor (deleted).
 			 */
 			Database(const Database&) = delete;
 
 			/**
-			 * Move constructor.
+			 * @brief Move constructor.
 			 */
 			Database(Database&&) noexcept = default;
 
 			/**
-			 * Copy assignment (deleted).
+			 * @brief Copy assignment (deleted).
 			 */
 			Database& operator=(const Database&) = delete;
 
 			/**
-			 * Move assignment.
+			 * @brief Move assignment.
 			 */
 			Database& operator=(Database&&) noexcept = default;
 
 			/**
-			 * Destructor.
+			 * @brief Destructor.
 			 */
 			virtual ~Database() = default;
 
 			/**
-			 * Connects to the database.
-			 * @return true on success, false otherwise.
+			 * @brief Connect.
+			 * @return true on success.
 			 */
 			bool Connect() noexcept;
 
 			/**
-			 * Disconnects from the database.
+			 * @brief Disconnect.
 			 */
 			void Disconnect() noexcept;
 
 			/**
-			 * Checks whether the database is connected.
+			 * @brief Whether the connection is open.
 			 * @return true if connected.
 			 */
 			bool IsConnected() const noexcept {
@@ -101,8 +93,7 @@ namespace StormByte::Database {
 			}
 
 			/**
-			 * Sets the TLS policy applied on the next Connect().
-			 * Ignored by SQLite.
+			 * @brief TLS policy for the next Connect(). Ignored by SQLite.
 			 * @param mode Desired SSL mode.
 			 */
 			void SetSslMode(SslMode mode) noexcept {
@@ -110,17 +101,18 @@ namespace StormByte::Database {
 			}
 
 			/**
-			 * @return Current TLS policy.
+			 * @brief Current TLS policy.
+			 * @return Mode.
 			 */
 			SslMode GetSslMode() const noexcept {
 				return m_ssl_mode;
 			}
 
 			/**
-			 * Executes a prepared statement by name.
-			 * @tparam Args Argument types to bind.
+			 * @brief Execute a prepared statement by name.
+			 * @tparam Args Bind argument types.
 			 * @param name Prepared statement name.
-			 * @param args Values to bind (positional, 0-based).
+			 * @param args Positional values (0-based).
 			 * @return Result rows or an error.
 			 */
 			template<typename... Args>
@@ -132,33 +124,33 @@ namespace StormByte::Database {
 			}
 
 			/**
-			 * Executes a query and returns rows.
+			 * @brief Execute a query that returns rows.
 			 * @param query SQL text.
 			 * @return Result rows or an error.
 			 */
 			virtual ExpectedRows Query(const std::string& query) = 0;
 
 			/**
-			 * Executes a query that does not return rows.
+			 * @brief Execute a query that does not return rows.
 			 * @param query SQL text.
-			 * @return true on success, false on failure.
+			 * @return true on success.
 			 */
 			virtual bool SilentQuery(const std::string& query) noexcept = 0;
 
 			/**
-			 * Begins a transaction.
-			 * @param level Isolation level (backend-specific mapping).
-			 * @return RAII Transaction (rolls back on destruction if not committed).
+			 * @brief Begin a transaction.
+			 * @param level Isolation (backend-specific mapping).
+			 * @return RAII Transaction (rollback on destruction if not committed).
 			 */
 			Transaction BeginTransaction(IsolationLevel level = IsolationLevel::Default);
 
 			/**
-			 * Commits the current transaction.
+			 * @brief Commit the current transaction.
 			 */
 			void CommitTransaction();
 
 			/**
-			 * Rolls back the current transaction.
+			 * @brief Roll back the current transaction.
 			 */
 			void RollbackTransaction();
 
@@ -172,74 +164,73 @@ namespace StormByte::Database {
 
 			/**
 			 * @name Lifecycle hooks
-			 * Called by Connect() / Disconnect(). Prefer DoSilentQuery() and
-			 * DoPrepareSTMT() from overrides so logging stays consistent.
+			 * Called by Connect() / Disconnect(). Prefer DoSilentQuery() and DoPrepareSTMT() from overrides.
 			 * @{
 			 */
 
 			/**
-			 * Pre-connect hook. Default no-op.
+			 * @brief Pre-connect hook. Default no-op.
 			 */
 			virtual void DoPreConnect() noexcept {}
 
 			/**
-			 * Backend-specific connect.
+			 * @brief Backend connect.
 			 * @return true on success.
 			 */
 			virtual bool DoConnect() noexcept = 0;
 
 			/**
-			 * Post-connect hook. Default no-op.
+			 * @brief Post-connect hook. Default no-op.
 			 */
 			virtual void DoPostConnect() noexcept {}
 
 			/**
-			 * Pre-disconnect hook. Default no-op.
+			 * @brief Pre-disconnect hook. Default no-op.
 			 */
 			virtual void DoPreDisconnect() noexcept {}
 
 			/**
-			 * Backend-specific disconnect.
+			 * @brief Backend disconnect.
 			 */
 			virtual void DoDisconnect() noexcept = 0;
 
 			/**
-			 * Post-disconnect hook. Default no-op.
+			 * @brief Post-disconnect hook. Default no-op.
 			 */
 			virtual void DoPostDisconnect() noexcept {}
 
 			/** @} */
 
 			/**
-			 * Creates a backend-specific prepared statement.
+			 * @brief Create a backend prepared statement.
 			 * @param name Statement name.
 			 * @param query SQL text.
-			 * @return Prepared statement or nullptr on failure.
+			 * @return Statement or nullptr on failure.
 			 */
 			virtual std::unique_ptr<PreparedSTMT> CreatePreparedSTMT(std::string&& name, std::string&& query) noexcept = 0;
 
 			/**
-			 * Registers a prepared statement under @p name.
+			 * @brief Register a prepared statement under @p name.
 			 * @param name Statement name.
 			 * @param query SQL text.
 			 */
 			void PrepareSTMT(std::string&& name, std::string&& query) noexcept;
 
 			/**
-			 * Same as PrepareSTMT; kept for symmetry with hooks.
+			 * @brief Same as PrepareSTMT; kept for hook symmetry.
 			 * @param name Statement name.
 			 * @param query SQL text.
 			 */
 			void DoPrepareSTMT(std::string&& name, std::string&& query) noexcept;
 
 			/**
-			 * Backend-specific BEGIN with isolation level.
+			 * @brief Backend BEGIN with isolation.
 			 * @param level Isolation level.
 			 */
 			virtual void DoBeginTransaction(IsolationLevel level) = 0;
 
 			/**
-			 * Backend-specific silent query.
+			 * @brief Backend silent query.
 			 * @param query SQL text.
 			 * @return true on success.
 			 */

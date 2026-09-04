@@ -1,21 +1,21 @@
 /*
- * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
- *
- * This file is part of StormByte-Database.
- *
- * StormByte-Database is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
- *
- * StormByte-Database is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Database. If not, see
- * <https://www.gnu.org/licenses/lgpl-3.0.html>.
- */
+* Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+*
+* This file is part of StormByte-Database.
+*
+* StormByte-Database is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Lesser General Public License version 3
+* or later, as published by the Free Software Foundation.
+*
+* StormByte-Database is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public License
+* along with StormByte-Database. If not, see
+* <https://www.gnu.org/licenses/lgpl-3.0.html>.
+*/
 
 #pragma once
 
@@ -28,17 +28,17 @@
 #include <utility>
 
 /**
- * @namespace Database
- * @brief Contains classes and functions for database operations.
+ * @brief Database module of the StormByte suite.
  */
 namespace StormByte::Database {
 	/**
 	 * @class PreparedSTMT
-	 * @brief Abstract prepared statement (backend-specific subclasses).
+	 * @brief Abstract prepared statement. Backends subclass this.
 	 */
 	class STORMBYTE_DATABASE_PUBLIC PreparedSTMT {
 		public:
 			/**
+			 * @brief Copy name, query and logger.
 			 * @param name Statement name.
 			 * @param query SQL text.
 			 * @param logger Logger instance.
@@ -47,6 +47,7 @@ namespace StormByte::Database {
 				: m_name(name), m_query(query), m_logger(std::move(logger)) {}
 
 			/**
+			 * @brief Move name, query and logger.
 			 * @param name Statement name.
 			 * @param query SQL text.
 			 * @param logger Logger instance.
@@ -55,32 +56,32 @@ namespace StormByte::Database {
 				: m_name(std::move(name)), m_query(std::move(query)), m_logger(std::move(logger)) {}
 
 			/**
-			 * Copy constructor (deleted).
+			 * @brief Copy constructor (deleted).
 			 */
 			PreparedSTMT(const PreparedSTMT& other) = delete;
 
 			/**
-			 * Move constructor.
+			 * @brief Move constructor.
 			 */
 			PreparedSTMT(PreparedSTMT&& other) = default;
 
 			/**
-			 * Destructor.
+			 * @brief Destructor.
 			 */
 			virtual ~PreparedSTMT() = default;
 
 			/**
-			 * Copy assignment (deleted).
+			 * @brief Copy assignment (deleted).
 			 */
 			PreparedSTMT& operator=(const PreparedSTMT& other) = delete;
 
 			/**
-			 * Move assignment.
+			 * @brief Move assignment.
 			 */
 			PreparedSTMT& operator=(PreparedSTMT&& other) = default;
 
 			/**
-			 * Binds arguments and executes the statement.
+			 * @brief Bind arguments and execute.
 			 * @tparam Args Argument types.
 			 * @param args Positional bind values (0-based).
 			 * @return Result rows or an error.
@@ -96,14 +97,16 @@ namespace StormByte::Database {
 			}
 
 			/**
-			 * @return Statement name.
+			 * @brief Statement name.
+			 * @return Name.
 			 */
 			inline const std::string& Name() const noexcept {
 				return m_name;
 			}
 
 			/**
-			 * @return SQL text.
+			 * @brief SQL text.
+			 * @return Query.
 			 */
 			inline const std::string& Query() const noexcept {
 				return m_query;
@@ -115,7 +118,7 @@ namespace StormByte::Database {
 			std::shared_ptr<Logger::Log> m_logger;		///< Logger instance
 
 			/**
-			 * Binds a value at @p index.
+			 * @brief Bind a value at @p index.
 			 * @tparam T Value type.
 			 * @param index Parameter index (0-based).
 			 * @param value Value to bind.
@@ -126,7 +129,7 @@ namespace StormByte::Database {
 			}
 
 			/**
-			 * Binds SQL NULL at @p index.
+			 * @brief Bind SQL NULL at @p index.
 			 * @param index Parameter index (0-based).
 			 */
 			void Bind(const int& index, std::nullptr_t) noexcept {
@@ -135,19 +138,19 @@ namespace StormByte::Database {
 
 		private:
 			/**
-			 * Backend bind implementation.
+			 * @brief Backend bind.
 			 * @param index Parameter index (0-based).
 			 * @param value Value to bind.
 			 */
 			virtual void Binder(const int& index, Value&& value) noexcept = 0;
 
 			/**
-			 * Resets bindings / statement state.
+			 * @brief Reset bindings / statement state.
 			 */
 			virtual void Reset() noexcept = 0;
 
 			/**
-			 * Executes the prepared statement.
+			 * @brief Execute the prepared statement.
 			 * @return Result rows or an error.
 			 */
 			virtual ExpectedRows DoExecute() = 0;

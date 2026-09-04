@@ -5,39 +5,40 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Summary]
 
-### Changed
+StormByte Database is the C++26 SQL layer of the StormByte suite.
 
-- Port SQLite amalgamation to StormByte-BuildMaster (cached download + static PIC build via `create_cmake_component`)
-- Bump bundled SQLite to 3.53.4
-- Use pinned Git submodule commit for bundled PostgreSQL (remove configure-time fetch / `REL_18_STABLE` switch)
-- Tidy bundled PostgreSQL and MariaDB Connector C CMake (status messages, target alias guards)
-- Minor indentation adjustments in configure status messages
+One API covers SQLite, PostgreSQL and MariaDB.
+Backends are base classes: you derive your schema, prepare statements and hook connect there.
+This repository is not Base, Buffer, Config, Crypto, Logger, Multimedia, Network or System.
 
-## [1.0.0] - 2026-08-20
+If you landed here from a release link and have not read the tree:
 
-Initial public release of **StormByte-Database**: a C++26 abstraction over SQLite, PostgreSQL and MariaDB with a shared API for connections, queries, prepared statements and transactions.
+- What this module is, how to build it, and short examples: [README.md](https://github.com/StormBytePP/StormByte-Database/blob/master/README.md)
+- License: GNU Lesser General Public License version 3 or later, [LICENSE](https://github.com/StormBytePP/StormByte-Database/blob/master/LICENSE)
+
+## [1.0.0] - 2026-09-04
+
+Initial public release of StormByte Database.
 
 ### Added
 
-- Unified `Database` API for SQLite, PostgreSQL and MariaDB backends
-- Optional backends selected at configure time (`WITH_SQLITE`, `WITH_POSTGRES`, `WITH_MARIADB`: `BUNDLED` / `SYSTEM` / `OFF`)
-- Prepared statements with type-safe parameter binding
-- Result `Rows` / `Row` with access by column index and by name
-- Typed `Value` storage (integers, floating point, text, blob, bool, null) with safe numeric conversions
-- RAII `Transaction` via `BeginTransaction()` with automatic rollback if neither commit nor rollback is called
-- `IsolationLevel` (`Default`, `ReadUncommitted`, `ReadCommitted`, `RepeatableRead`, `Serializable`) mapped per backend
-- `SslMode` (`Default`, `Disable`, `Prefer`, `Require`) on `Database` for PostgreSQL and MariaDB
-- Integration with StormByte-Logger (query/connect diagnostics; PostgreSQL notices and MariaDB warnings at notice level)
-- Lifecycle hooks (`DoPreConnect`, `DoConnect`, `DoPostConnect`, `DoPreDisconnect`, `DoDisconnect`, `DoPostDisconnect`) for schema setup and cleanup
-- Comprehensive tests for all three backends (edge cases, blobs, nulls, transactions, isolation, concurrent multi-connection workloads)
-- Cross-platform CI (Linux, macOS, Windows)
+- **Database** abstract connection: Connect / Disconnect, Query / SilentQuery, named prepared statements, isolation and RAII transactions
+- **Inheritance-oriented backends** — SQLite3, MariaDB and Postgres with protected constructors
+- **Value** — type-erased SQL cell (NULL, integers, double, text, blob, bool) with safe `Get<T>()`
+- **NamedValue**, **Row**, **Rows** — column lookup by name or index
+- **PreparedSTMT** — positional binds (0-based), `nullptr` is SQL NULL, `ExpectedRows` on execute
+- **Transaction** — rolls back if neither Commit nor Rollback ran
+- **SslMode** for MariaDB and PostgreSQL (SQLite ignores it)
+- **IsolationLevel** mapped per backend
+- Optional backends: `WITH_SQLITE` / `WITH_POSTGRES` / `WITH_MARIADB` as OFF, SYSTEM or BUNDLED
+- Exception types: ConnectionError, WrongValueType, ColumnNotFound, OutOfBounds, QueryException, UnknownSTMT, ExecuteError
 
 ### Notes
 
-- `Database` instances are **not thread-safe**. Use one connection per thread; use separate connections for concurrent workloads.
-- Backend constructors are protected: subclass the backend and set up schema / prepared statements in `DoPostConnect()` (prefer `DoSilentQuery` / `DoPrepareSTMT` inside hooks).
-- SQLite ignores `SslMode`. Network backends apply it on `Connect()`.
+- First stable release of StormByte Database.
+- Not thread-safe: one connection per thread.
+- Needs a C++26 compiler and CMake ≥ 3.28.
 
 [1.0.0]: https://github.com/StormBytePP/StormByte-Database/releases/tag/1.0.0

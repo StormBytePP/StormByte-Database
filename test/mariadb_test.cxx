@@ -1,39 +1,52 @@
+/*
+ * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+ *
+ * This file is part of StormByte-Database.
+ *
+ * StormByte-Database is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License version 3
+ * or later, as published by the Free Software Foundation.
+ *
+ * StormByte-Database is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with StormByte-Database. If not, see
+ * <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ */
+
 #include <StormByte/database/mariadb/mariadb.hxx>
 #include <StormByte/database/transaction.hxx>
 #include <StormByte/logger/log.hxx>
 #include <StormByte/logger/threaded_log.hxx>
 #include <StormByte/test_handlers.h>
-
 #include <memory>
 #include <iostream>
 #include <vector>
 #include <thread>
 #include <chrono>
 #include <stdexcept>
-
 using ExpectedRows = StormByte::Database::ExpectedRows;
 using namespace StormByte::Database::MariaDB;
 using StormByte::Database::IsolationLevel;
 using StormByte::Database::Transaction;
 using StormByte::Database::ColumnNotFound;
 using StormByte::Database::SslMode;
-
 std::shared_ptr<StormByte::Logger::Log> logger =
 	std::make_shared<StormByte::Logger::ThreadedLog>(std::cout, StormByte::Logger::Level::Info);
-
 class TestDatabase : public MariaDB {
 	public:
 		TestDatabase()
 			: MariaDB("127.0.0.1", "testuser", "testpass", "stormbyte_test", 3306, logger) {
 			SetSslMode(SslMode::Disable);
 		}
-
 		const ExpectedRows get_users() { return ExecuteSTMT("select_users"); }
 		const ExpectedRows get_products() { return ExecuteSTMT("select_products"); }
 		const ExpectedRows get_orders() { return ExecuteSTMT("select_orders"); }
 		const ExpectedRows get_joined_data() { return ExecuteSTMT("select_join"); }
 		const ExpectedRows get_blob() { return ExecuteSTMT("select_blob"); }
-
 	private:
 		void DoPostConnect() noexcept override {
 			DoSilentQuery("CREATE TABLE IF NOT EXISTS users (id INT PRIMARY KEY AUTO_INCREMENT, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE);");
@@ -42,7 +55,6 @@ class TestDatabase : public MariaDB {
 			DoSilentQuery("CREATE TABLE IF NOT EXISTS blobs (id INT PRIMARY KEY AUTO_INCREMENT, data BLOB);");
 			DoSilentQuery("CREATE TABLE IF NOT EXISTS nulls (id INT PRIMARY KEY AUTO_INCREMENT, value TEXT);");
 			DoSilentQuery("CREATE TABLE IF NOT EXISTS concurrent (id INT PRIMARY KEY AUTO_INCREMENT, value INTEGER);");
-
 			DoSilentQuery("DELETE FROM orders;");
 			DoSilentQuery("DELETE FROM blobs;");
 			DoSilentQuery("DELETE FROM nulls;");
@@ -55,7 +67,6 @@ class TestDatabase : public MariaDB {
 			DoSilentQuery("ALTER TABLE concurrent AUTO_INCREMENT=1;");
 			DoSilentQuery("ALTER TABLE users AUTO_INCREMENT=1;");
 			DoSilentQuery("ALTER TABLE products AUTO_INCREMENT=1;");
-
 			DoSilentQuery("INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com');");
 			DoSilentQuery("INSERT INTO users (name, email) VALUES ('Bob', 'bob@example.com');");
 			DoSilentQuery("INSERT INTO products (name, price) VALUES ('Laptop', 999.99);");
@@ -63,7 +74,6 @@ class TestDatabase : public MariaDB {
 			DoSilentQuery("INSERT INTO orders (user_id, product_id, quantity) VALUES (1, 1, 1);");
 			DoSilentQuery("INSERT INTO orders (user_id, product_id, quantity) VALUES (2, 2, 2);");
 			DoSilentQuery("INSERT INTO nulls (value) VALUES (NULL);");
-
 			DoPrepareSTMT("select_users", "SELECT name, email FROM users;");
 			DoPrepareSTMT("select_products", "SELECT name, price FROM products;");
 			DoPrepareSTMT("select_orders", "SELECT user_id, product_id, quantity FROM orders;");
@@ -76,14 +86,12 @@ class TestDatabase : public MariaDB {
 			DoPrepareSTMT("count_concurrent", "SELECT COUNT(*) FROM concurrent;");
 		}
 };
-
 class ConcurrentDatabase : public MariaDB {
 	public:
 		ConcurrentDatabase()
 			: MariaDB("127.0.0.1", "testuser", "testpass", "stormbyte_test", 3306, logger) {
 			SetSslMode(SslMode::Disable);
 		}
-
 	private:
 		void DoPostConnect() noexcept override {
 			DoSilentQuery("CREATE TABLE IF NOT EXISTS concurrent (id INT PRIMARY KEY AUTO_INCREMENT, value INTEGER);");
@@ -91,7 +99,6 @@ class ConcurrentDatabase : public MariaDB {
 			DoPrepareSTMT("count_concurrent", "SELECT COUNT(*) FROM concurrent;");
 		}
 };
-
 int not_connected_query() {
 	const std::string fn_name = "not_connected_query";
 	TestDatabase db;
@@ -99,14 +106,12 @@ int not_connected_query() {
 	ASSERT_FALSE(fn_name, res.has_value());
 	RETURN_TEST(fn_name, 0);
 }
-
 int not_connected_silent() {
 	const std::string fn_name = "not_connected_silent";
 	TestDatabase db;
 	ASSERT_FALSE(fn_name, db.SilentQuery("SELECT 1;"));
 	RETURN_TEST(fn_name, 0);
 }
-
 int not_connected_execute() {
 	const std::string fn_name = "not_connected_execute";
 	TestDatabase db;
@@ -114,7 +119,6 @@ int not_connected_execute() {
 	ASSERT_FALSE(fn_name, res.has_value());
 	RETURN_TEST(fn_name, 0);
 }
-
 int not_connected_transaction() {
 	const std::string fn_name = "not_connected_transaction";
 	TestDatabase db;
@@ -128,7 +132,6 @@ int not_connected_transaction() {
 	ASSERT_TRUE(fn_name, threw || true);
 	RETURN_TEST(fn_name, 0);
 }
-
 int is_connected_test() {
 	const std::string fn_name = "is_connected_test";
 	TestDatabase db;
@@ -139,7 +142,6 @@ int is_connected_test() {
 	ASSERT_FALSE(fn_name, db.IsConnected());
 	RETURN_TEST(fn_name, 0);
 }
-
 int double_connect() {
 	const std::string fn_name = "double_connect";
 	TestDatabase db;
@@ -147,7 +149,6 @@ int double_connect() {
 	ASSERT_FALSE(fn_name, db.Connect());
 	RETURN_TEST(fn_name, 0);
 }
-
 int verify_inserted_users() {
 	const std::string fn_name = "verify_inserted_users";
 	TestDatabase db;
@@ -164,7 +165,6 @@ int verify_inserted_users() {
 	ASSERT_EQUAL(fn_name, "bob@example.com", rows[1][1].Get<std::string>());
 	RETURN_TEST(fn_name, 0);
 }
-
 int verify_inserted_products() {
 	const std::string fn_name = "verify_inserted_products";
 	TestDatabase db;
@@ -181,7 +181,6 @@ int verify_inserted_products() {
 	ASSERT_EQUAL(fn_name, 19.99, rows[1][1].Get<double>());
 	RETURN_TEST(fn_name, 0);
 }
-
 int verify_inserted_orders() {
 	const std::string fn_name = "verify_inserted_orders";
 	TestDatabase db;
@@ -200,7 +199,6 @@ int verify_inserted_orders() {
 	ASSERT_EQUAL(fn_name, 2, rows[1][2].Get<long int>());
 	RETURN_TEST(fn_name, 0);
 }
-
 int verify_relationships() {
 	const std::string fn_name = "verify_relationships";
 	TestDatabase db;
@@ -219,7 +217,6 @@ int verify_relationships() {
 	ASSERT_EQUAL(fn_name, 2, rows[1][2].Get<long int>());
 	RETURN_TEST(fn_name, 0);
 }
-
 int query_test() {
 	const std::string fn_name = "query_test";
 	TestDatabase db;
@@ -232,7 +229,6 @@ int query_test() {
 	ASSERT_EQUAL(fn_name, 2, rows[0][0].Get<long int>());
 	RETURN_TEST(fn_name, 0);
 }
-
 int empty_result_test() {
 	const std::string fn_name = "empty_result_test";
 	TestDatabase db;
@@ -242,7 +238,6 @@ int empty_result_test() {
 	ASSERT_EQUAL(fn_name, 0, expected_rows.value().Count());
 	RETURN_TEST(fn_name, 0);
 }
-
 int syntax_error_test() {
 	const std::string fn_name = "syntax_error_test";
 	TestDatabase db;
@@ -251,7 +246,6 @@ int syntax_error_test() {
 	ASSERT_FALSE(fn_name, res.has_value());
 	RETURN_TEST(fn_name, 0);
 }
-
 int bool_test() {
 	const std::string fn_name = "bool_test";
 	TestDatabase db;
@@ -264,7 +258,6 @@ int bool_test() {
 	ASSERT_EQUAL(fn_name, true, rows[0][0].Get<long int>() != 0);
 	RETURN_TEST(fn_name, 0);
 }
-
 int verify_blobs() {
 	const std::string fn_name = "verify_blobs";
 	TestDatabase db;
@@ -286,7 +279,6 @@ int verify_blobs() {
 	ASSERT_EQUAL(fn_name, 255, static_cast<int>(bytes[3]));
 	RETURN_TEST(fn_name, 0);
 }
-
 int empty_blob_test() {
 	const std::string fn_name = "empty_blob_test";
 	TestDatabase db;
@@ -296,7 +288,6 @@ int empty_blob_test() {
 	ASSERT_TRUE(fn_name, insert_res.has_value());
 	RETURN_TEST(fn_name, 0);
 }
-
 int null_value_test() {
 	const std::string fn_name = "null_value_test";
 	TestDatabase db;
@@ -306,7 +297,6 @@ int null_value_test() {
 	ASSERT_TRUE(fn_name, rows.value()[0][0].IsNull());
 	RETURN_TEST(fn_name, 0);
 }
-
 int bind_null_test() {
 	const std::string fn_name = "bind_null_test";
 	TestDatabase db;
@@ -315,7 +305,6 @@ int bind_null_test() {
 	ASSERT_TRUE(fn_name, res.has_value());
 	RETURN_TEST(fn_name, 0);
 }
-
 int unknown_stmt_test() {
 	const std::string fn_name = "unknown_stmt_test";
 	TestDatabase db;
@@ -324,7 +313,6 @@ int unknown_stmt_test() {
 	ASSERT_FALSE(fn_name, res.has_value());
 	RETURN_TEST(fn_name, 0);
 }
-
 int name_access_test() {
 	const std::string fn_name = "name_access_test";
 	TestDatabase db;
@@ -335,7 +323,6 @@ int name_access_test() {
 	ASSERT_EQUAL(fn_name, "alice@example.com", expected_rows.value()[0]["email"].Get<std::string>());
 	RETURN_TEST(fn_name, 0);
 }
-
 int name_access_missing_column() {
 	const std::string fn_name = "name_access_missing_column";
 	TestDatabase db;
@@ -351,7 +338,6 @@ int name_access_missing_column() {
 	ASSERT_TRUE(fn_name, threw);
 	RETURN_TEST(fn_name, 0);
 }
-
 int transaction_commit_test() {
 	const std::string fn_name = "transaction_commit_test";
 	TestDatabase db;
@@ -366,7 +352,6 @@ int transaction_commit_test() {
 	ASSERT_EQUAL(fn_name, 3, rows.value()[0][0].Get<long int>());
 	RETURN_TEST(fn_name, 0);
 }
-
 int transaction_rollback_explicit() {
 	const std::string fn_name = "transaction_rollback_explicit";
 	TestDatabase db;
@@ -381,7 +366,6 @@ int transaction_rollback_explicit() {
 	ASSERT_EQUAL(fn_name, 0, rows.value()[0][0].Get<long int>());
 	RETURN_TEST(fn_name, 0);
 }
-
 int transaction_rollback_auto() {
 	const std::string fn_name = "transaction_rollback_auto";
 	TestDatabase db;
@@ -395,7 +379,6 @@ int transaction_rollback_auto() {
 	ASSERT_EQUAL(fn_name, 0, rows.value()[0][0].Get<long int>());
 	RETURN_TEST(fn_name, 0);
 }
-
 int isolation_default() {
 	const std::string fn_name = "isolation_default";
 	TestDatabase db;
@@ -404,7 +387,6 @@ int isolation_default() {
 	tx.Commit();
 	RETURN_TEST(fn_name, 0);
 }
-
 int isolation_serializable() {
 	const std::string fn_name = "isolation_serializable";
 	TestDatabase db;
@@ -413,7 +395,6 @@ int isolation_serializable() {
 	tx.Commit();
 	RETURN_TEST(fn_name, 0);
 }
-
 int isolation_repeatable_read() {
 	const std::string fn_name = "isolation_repeatable_read";
 	TestDatabase db;
@@ -422,18 +403,15 @@ int isolation_repeatable_read() {
 	tx.Commit();
 	RETURN_TEST(fn_name, 0);
 }
-
 int concurrent_multiple_connections() {
 	const std::string fn_name = "concurrent_multiple_connections";
 	constexpr int num_threads = 6;
 	constexpr int inserts_per_thread = 40;
-
 	{
 		ConcurrentDatabase setup;
 		setup.Connect();
 		setup.SilentQuery("DELETE FROM concurrent;");
 	}
-
 	std::vector<std::thread> threads;
 	for (int t = 0; t < num_threads; ++t) {
 		threads.emplace_back([t]() {
@@ -451,7 +429,6 @@ int concurrent_multiple_connections() {
 	}
 	for (auto& th : threads)
 		th.join();
-
 	ConcurrentDatabase check_db;
 	check_db.Connect();
 	auto rows = check_db.ExecuteSTMT("count_concurrent");
@@ -460,10 +437,8 @@ int concurrent_multiple_connections() {
 	check_db.SilentQuery("DELETE FROM concurrent;");
 	RETURN_TEST(fn_name, 0);
 }
-
 int main() {
 	int result = 0;
-
 	result += not_connected_query();
 	result += not_connected_silent();
 	result += not_connected_execute();
@@ -492,7 +467,6 @@ int main() {
 	result += isolation_serializable();
 	result += isolation_repeatable_read();
 	result += concurrent_multiple_connections();
-
 	if (result == 0) {
 		std::cout << "All tests passed successfully.\n";
 	} else {

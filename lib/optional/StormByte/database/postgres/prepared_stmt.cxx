@@ -1,29 +1,42 @@
+/*
+ * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+ *
+ * This file is part of StormByte-Database.
+ *
+ * StormByte-Database is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License version 3
+ * or later, as published by the Free Software Foundation.
+ *
+ * StormByte-Database is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with StormByte-Database. If not, see
+ * <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ */
+
 #include <StormByte/database/postgres/prepared_stmt.hxx>
 #include <StormByte/database/postgres/result_fetch.hxx>
 #include <libpq-fe.h>
-
 using namespace StormByte::Database::Postgres;
-
 PreparedSTMT::PreparedSTMT(const std::string& name, const std::string& query, std::shared_ptr<Logger::Log> logger)
 	: Database::PreparedSTMT(name, query, std::move(logger)), m_conn(nullptr), m_stmt_name(name) {}
-
 PreparedSTMT::PreparedSTMT(std::string&& name, std::string&& query, std::shared_ptr<Logger::Log> logger) noexcept
 	: Database::PreparedSTMT(std::move(name), std::move(query), std::move(logger)), m_conn(nullptr), m_stmt_name(Database::PreparedSTMT::m_name) {}
-
 void PreparedSTMT::Binder(const int& index, Value&& value) noexcept {
 	if (static_cast<std::size_t>(index) >= m_param_values.size()) {
 		m_param_values.resize(index + 1, nullptr);
 		m_param_lengths.resize(index + 1, 0);
 		m_param_formats.resize(index + 1, 0);
 	}
-
 	if (value.IsNull()) {
 		m_param_values[index] = nullptr;
 		m_param_lengths[index] = 0;
 		m_param_formats[index] = 0;
 		return;
 	}
-
 	switch (value.Type()) {
 		case Value::Type::Integer:
 			m_string_storage.emplace_back(std::to_string(value.Get<int>()));
@@ -85,7 +98,6 @@ void PreparedSTMT::Binder(const int& index, Value&& value) noexcept {
 			break;
 	}
 }
-
 void PreparedSTMT::Reset() noexcept {
 	m_param_values.clear();
 	m_param_lengths.clear();
@@ -93,34 +105,28 @@ void PreparedSTMT::Reset() noexcept {
 	m_string_storage.clear();
 	m_blob_storage.clear();
 }
-
 StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 	if (!m_conn)
 		return Unexpected<ExecuteError>("No connection available for prepared statement");
-
 	int nParams = static_cast<int>(m_param_values.size());
 	std::vector<const char*> params(nParams);
 	std::vector<int> lengths(nParams);
 	std::vector<int> formats(nParams);
-
 	for (int i = 0; i < nParams; ++i) {
 		params[i] = m_param_values[i];
 		lengths[i] = m_param_lengths[i];
 		formats[i] = m_param_formats[i];
 	}
-
 	PGresult* res = PQexecPrepared(m_conn, m_stmt_name.c_str(), nParams, params.data(), lengths.data(), formats.data(), 0);
 	if (!res) {
 		return Unexpected<ExecuteError>("Null PGresult from PQexecPrepared");
 	}
-
 	ExecStatusType st = PQresultStatus(res);
 	if (st != PGRES_TUPLES_OK && st != PGRES_COMMAND_OK) {
 		std::string err = PQerrorMessage(m_conn) ? PQerrorMessage(m_conn) : "Unknown Postgres error";
 		PQclear(res);
 		return Unexpected<ExecuteError>(err);
 	}
-
 	ExpectedRows rows = StepResults(res);
 	PQclear(res);
 	return rows;

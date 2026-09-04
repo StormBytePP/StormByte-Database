@@ -1,238 +1,147 @@
 # StormByte-Database
 
-![Linux](https://img.shields.io/badge/Linux-Supported-1793D1?logo=linux&logoColor=white)
-![Windows](https://img.shields.io/badge/Windows-Supported-0078D6?logo=windows&logoColor=white)
-![macOS](https://img.shields.io/badge/macOS-Supported-0078D6?logo=apple&logoColor=white)
+![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS-lightgrey)
 ![C++26](https://img.shields.io/badge/C%2B%2B-26-00599C?logo=c%2B%2B&logoColor=white)
-![CMake](https://img.shields.io/badge/CMake-3.12+-064F8C?logo=cmake&logoColor=white)
+![CMake](https://img.shields.io/badge/CMake-3.28+-064F8C?logo=cmake&logoColor=white)
 ![License: LGPL v3](https://img.shields.io/badge/License-LGPL_v3-blue.svg)
 [![CI](https://github.com/StormBytePP/StormByte-Database/actions/workflows/ci.yml/badge.svg)](https://github.com/StormBytePP/StormByte-Database/actions/workflows/ci.yml)
+[![Sponsor](https://img.shields.io/badge/Sponsor-StormBytePP-ea4aaa?logo=githubsponsors)](https://github.com/sponsors/StormBytePP)
 
-Cross-platform C++26 database abstraction for **SQLite**, **PostgreSQL** and **MariaDB**, with a single API for connections, queries, prepared statements and RAII transactions.
+This repository is **StormByte Database**: the C++26 SQL layer of the StormByte suite.
 
-## Features
+One API covers SQLite, PostgreSQL and MariaDB. You do **not** construct those backends as generic objects. They are **base classes**: derive your schema, call the backend constructor, prepare statements and hook connect/disconnect there.
 
-- Unified API across SQLite, PostgreSQL and MariaDB
-- Prepared statements with type-safe binding
-- Result rows with index and column-name access
-- RAII transactions with configurable isolation levels
-- `SslMode` for network backends (Disable / Prefer / Require / Default)
-- Logging via [StormByte-Logger](https://github.com/StormBytePP/StormByte-Logger)
-- Optional backends (`BUNDLED` / `SYSTEM` / `OFF`) selected at configure time
+The suite is split on purpose. Base, Buffer, Config, Crypto, Logger, Multimedia, Network and System are **other repositories**.
 
-> **Thread safety:** `Database` instances are **not** thread-safe. Use **one connection per thread**. Concurrent access on the same instance is undefined behaviour; the database engine handles concurrency across separate connections.
+## What this module does
 
-## Table of contents
+- **One connection type** — `StormByte::Database::Database` with Connect / Disconnect, Query / SilentQuery, named prepared statements and RAII transactions.
+- **Inheritance first** — SQLite3, MariaDB and Postgres constructors are protected. Your application database is a subclass.
+- **Values** — type-erased `Value` (NULL, integers, double, text, blob, bool) with safe numeric `Get<T>()`.
+- **Rows** — ordered columns, lookup by name (`ColumnNotFound` / `OutOfBounds`).
+- **Prepared statements** — bind by position (0-based), `nullptr` is SQL NULL, `ExpectedRows` on execute.
+- **Transactions** — `BeginTransaction(IsolationLevel)` returns a `Transaction` that rolls back if you forget Commit.
+- **TLS** — `SslMode` for MariaDB and PostgreSQL. SQLite ignores it.
+- **Not thread-safe** — one connection per thread.
 
-- [Repository](#repository)
+## The rest of the suite
+
+| Module | Role |
+| --- | --- |
+| [Base](https://github.com/StormBytePP/StormByte) | Exceptions, Expected, serialization, strings, UUID, concepts |
+| [Buffer](https://github.com/StormBytePP/StormByte-Buffer) | FIFO, SharedFIFO, Ring, Producer/Consumer and multi-stage pipelines |
+| [Config](https://github.com/StormBytePP/StormByte-Config) | Human-readable text and versioned binary documents (groups, lists, raw bytes) |
+| [Crypto](https://github.com/StormBytePP/StormByte-Crypto) | Hash, compress, encrypt, sign and key agreement — Crypto++ never leaves the private tree |
+| [Database](https://github.com/StormBytePP/StormByte-Database) | This repository |
+| [Logger](https://github.com/StormBytePP/StormByte-Logger) | Stream logger with levels, headers, human-readable sizes and redaction (`ThreadedLog`) |
+| [Multimedia](https://github.com/StormBytePP/StormByte-Multimedia) | Decode, encode and containers without raw FFmpeg types; codecs enabled only if present |
+| [Network](https://github.com/StormBytePP/StormByte-Network) | Framed packets, Client/Server, IPv4/IPv6 TCP and Buffer pipelines (compress/encrypt) |
+| [System](https://github.com/StormBytePP/StormByte-System) | Processes, pipes and environment variables across Linux, Windows and macOS |
+
+Docs sites (when published): [Base](https://dev.stormbyte.org/StormByte), [Buffer](https://dev.stormbyte.org/StormByte-Buffer), [Config](https://dev.stormbyte.org/StormByte-Config), [Crypto](https://dev.stormbyte.org/StormByte-Crypto), [Database](https://dev.stormbyte.org/StormByte-Database), [Logger](https://dev.stormbyte.org/StormByte-Logger), [Multimedia](https://dev.stormbyte.org/StormByte-Multimedia), [Network](https://dev.stormbyte.org/StormByte-Network), [System](https://dev.stormbyte.org/StormByte-System).
+
+## Table of Contents
+
+- [What this module does](#what-this-module-does)
+- [The rest of the suite](#the-rest-of-the-suite)
 - [Installation](#installation)
 - [Usage](#usage)
-  - [Subclass pattern](#subclass-pattern)
-  - [SQLite](#sqlite)
-  - [PostgreSQL](#postgresql)
-  - [MariaDB](#mariadb)
+  - [Derive your database](#derive-your-database)
+  - [Values and rows](#values-and-rows)
+  - [Queries and statements](#queries-and-statements)
   - [Transactions](#transactions)
-  - [SSL](#ssl)
-- [CMake options](#cmake-options)
-- [Modules](#modules)
 - [Contributing](#contributing)
 - [License](#license)
 
-## Repository
-
-[https://github.com/StormBytePP/StormByte-Database](https://github.com/StormBytePP/StormByte-Database)
-
 ## Installation
 
-### Prerequisites
-
-- C++26 compiler
-- CMake 3.12+
-- Optional system libraries if not using bundled backends:
-  - SQLite3
-  - PostgreSQL (`libpq`)
-  - MariaDB Connector/C (`libmariadb`)
-
-### Building
+Needs a C++26 compiler and CMake 3.28 or newer. Enable the backends you want (`WITH_SQLITE`, `WITH_POSTGRES`, `WITH_MARIADB`: `OFF`, `SYSTEM` or `BUNDLED`).
 
 ```sh
-git clone --recursive https://github.com/StormBytePP/StormByte-Database.git
+git clone https://github.com/StormBytePP/StormByte-Database.git
 cd StormByte-Database
-cmake -S . -B build \
-  -DENABLE_TEST=ON \
-  -DWITH_SQLITE=BUNDLED \
-  -DWITH_POSTGRES=BUNDLED \
-  -DWITH_MARIADB=BUNDLED \
-  -DWITH_STORMBYTE=BUNDLED
+cmake -S . -B build
 cmake --build build
-ctest --test-dir build/test --output-on-failure
 ```
 
 ## Usage
 
-### Subclass pattern
+Headers are `#include <StormByte/database/….hxx>`. Namespace root is `StormByte::Database`.
 
-Backend constructors are **protected**. Typical use is a thin subclass that sets up schema and prepared statements in `DoPostConnect()` (prefer `DoSilentQuery` / `DoPrepareSTMT` inside hooks):
+### Derive your database
 
 ```cpp
 #include <StormByte/database/sqlite/sqlite3.hxx>
 #include <StormByte/logger/log.hxx>
-#include <iostream>
-#include <memory>
 
 class AppDb : public StormByte::Database::SQLite::SQLite3 {
 public:
 	AppDb(std::shared_ptr<StormByte::Logger::Log> log)
-		: SQLite3(":memory:", log) {}
+		: SQLite3(std::filesystem::path{"app.db"}, log) {}
 
-	auto users() { return ExecuteSTMT("select_users"); }
-
-private:
+protected:
 	void DoPostConnect() noexcept override {
-		DoSilentQuery("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL);");
-		DoSilentQuery("INSERT INTO users (name) VALUES ('Alice');");
-		DoPrepareSTMT("select_users", "SELECT id, name FROM users;");
+		EnableForeignKeys();
+		PrepareSTMT("user_by_id", "SELECT id, name FROM users WHERE id = ?");
 	}
 };
 
 int main() {
-	auto logger = std::make_shared<StormByte::Logger::Log>(
-		std::cout, StormByte::Logger::Level::Info);
-
-	AppDb db(logger);
+	AppDb db(nullptr);
 	if (!db.Connect())
 		return 1;
 
-	auto rows = db.users();
-	if (rows.has_value()) {
-		for (const auto& row : rows.value()) {
-			// row[0], row["name"], ...
-		}
-	}
-
-	db.Disconnect();
-	return 0;
+	auto rows = db.Query("SELECT 1 AS n");
+	if (!rows)
+		return 1;
 }
 ```
 
-Public surface after connect: `Query`, `SilentQuery`, `ExecuteSTMT`, `BeginTransaction`, `IsConnected`, `SetSslMode` / `GetSslMode`.
+MariaDB / Postgres follow the same pattern: subclass, pass host / user / password / database (and port on MariaDB), optionally `SetSslMode` before `Connect()`.
 
-### SQLite
-
-```cpp
-#include <StormByte/database/sqlite/sqlite3.hxx>
-
-// In-memory
-SQLite3(std::shared_ptr<Logger::Log> logger);
-
-// File
-SQLite3(const std::filesystem::path& dbfile, std::shared_ptr<Logger::Log> logger);
-```
-
-SQLite ignores `SslMode`. Optional helpers in subclasses: `EnableForeignKeys()`, WAL / `busy_timeout` via `PRAGMA` in `DoPostConnect`.
-
-### PostgreSQL
+### Values and rows
 
 ```cpp
-#include <StormByte/database/postgres/postgres.hxx>
+#include <StormByte/database/value.hxx>
 
-Postgres(const std::string& host,
-         const std::string& user,
-         const std::string& password,
-         const std::string& db_name,
-         std::shared_ptr<Logger::Log> logger);
+using namespace StormByte::Database;
+
+Value n(42);
+Value empty;          // SQL NULL
+auto i = n.Get<int>();
+if (auto row = /* from Query */) {
+	const Value& name = (*row)[0]["name"];
+}
 ```
 
-Placeholders in prepared statements use `$1`, `$2`, …  
-Client notices are forwarded to the logger at `Level::Notice`.
-
-### MariaDB
+### Queries and statements
 
 ```cpp
-#include <StormByte/database/mariadb/mariadb.hxx>
+auto result = db.ExecuteSTMT("user_by_id", 7);
+if (!result)
+	return 1;
 
-MariaDB(const std::string& host,
-        const std::string& user,
-        const std::string& password,
-        const std::string& db_name,
-        int port,
-        std::shared_ptr<Logger::Log> logger);
+for (const auto& row : *result) {
+	auto id = row["id"].Get<int>();
+}
 ```
 
-Placeholders use `?`.  
-`TEXT` vs binary `BLOB` is distinguished via field charset (`charsetnr == 63` → binary).  
-Server warnings are logged at `Level::Notice`.
+`nullptr` binds SQL NULL. Missing statement names raise `UnknownSTMT` through `ExpectedRows`.
 
 ### Transactions
 
 ```cpp
-#include <StormByte/database/transaction.hxx>
-using StormByte::Database::IsolationLevel;
-
 {
 	auto tx = db.BeginTransaction(IsolationLevel::Serializable);
-	db.SilentQuery("INSERT INTO users (name) VALUES ('Bob');");
-	tx.Commit();   // without Commit/Rollback, destructor rolls back
-}
+	db.SilentQuery("INSERT INTO users(name) VALUES ('ada')");
+	tx.Commit();
+} // Rollback if Commit was not called
 ```
-
-| `IsolationLevel`   | Typical mapping                                      |
-|--------------------|------------------------------------------------------|
-| `Default`          | Backend default                                      |
-| `ReadUncommitted`  | Where supported (SQLite → `BEGIN DEFERRED`)          |
-| `ReadCommitted`    | PostgreSQL / MariaDB default                         |
-| `RepeatableRead`   | Supported on PG/MariaDB; SQLite → `BEGIN IMMEDIATE`  |
-| `Serializable`     | Highest isolation; SQLite → `BEGIN EXCLUSIVE`        |
-
-### SSL
-
-Network backends only (PostgreSQL / MariaDB):
-
-```cpp
-using StormByte::Database::SslMode;
-
-db.SetSslMode(SslMode::Disable);  // local / CI without TLS
-db.SetSslMode(SslMode::Prefer);
-db.SetSslMode(SslMode::Require);
-db.Connect();
-```
-
-| Mode       | PostgreSQL `sslmode` | MariaDB (when available)   |
-|------------|----------------------|----------------------------|
-| `Default`  | client default       | client default             |
-| `Disable`  | `disable`            | `SSL_MODE_DISABLED`        |
-| `Prefer`   | `prefer`             | `SSL_MODE_PREFERRED`       |
-| `Require`  | `require`            | `SSL_MODE_REQUIRED`        |
-
-## CMake options
-
-| Option            | Values                         | Meaning                          |
-|-------------------|--------------------------------|----------------------------------|
-| `WITH_SQLITE`     | `BUNDLED` / `SYSTEM` / `OFF`   | SQLite backend                   |
-| `WITH_POSTGRES`   | `BUNDLED` / `SYSTEM` / `OFF`   | PostgreSQL backend               |
-| `WITH_MARIADB`    | `BUNDLED` / `SYSTEM` / `OFF`   | MariaDB backend                  |
-| `WITH_STORMBYTE`  | `BUNDLED` / `SYSTEM`           | Core StormByte dependency        |
-| `ENABLE_TEST`     | `ON` / `OFF`                   | Build tests                      |
-| `ENABLE_DOC`      | `ON` / `OFF`                   | Doxygen target                   |
-
-## Modules
-
-StormByte is split into several libraries:
-
-- [Base](https://dev.stormbyte.org/StormByte)
-- [Buffer](https://dev.stormbyte.org/StormByte-Buffer)
-- [Config](https://dev.stormbyte.org/StormByte-Config)
-- [Crypto](https://dev.stormbyte.org/StormByte-Crypto)
-- **Database** (this repository)
-- [Logger](https://github.com/StormBytePP/StormByte-Logger)
-- [Multimedia](https://dev.stormbyte.org/StormByte-Multimedia)
-- [Network](https://dev.stormbyte.org/StormByte-Network)
-- [System](https://dev.stormbyte.org/StormByte-System)
 
 ## Contributing
 
-Fork the repository and open a pull request. Please keep the coding style (opening brace on the same line as the declaration, Doxygen on public headers, English comments only when necessary) and run the test suite before submitting.
+Issues only on this repository. Fork and open a pull request against `master`.
 
 ## License
 
-LGPL v3 — see [LICENSE](LICENSE).
+GNU Lesser General Public License version 3 or later. See [LICENSE](LICENSE) and <https://www.gnu.org/licenses/lgpl-3.0.html>.

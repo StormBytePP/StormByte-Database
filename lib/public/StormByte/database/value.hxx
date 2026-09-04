@@ -1,21 +1,21 @@
 /*
- * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
- *
- * This file is part of StormByte-Database.
- *
- * StormByte-Database is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
- *
- * StormByte-Database is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Database. If not, see
- * <https://www.gnu.org/licenses/lgpl-3.0.html>.
- */
+* Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+*
+* This file is part of StormByte-Database.
+*
+* StormByte-Database is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Lesser General Public License version 3
+* or later, as published by the Free Software Foundation.
+*
+* StormByte-Database is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public License
+* along with StormByte-Database. If not, see
+* <https://www.gnu.org/licenses/lgpl-3.0.html>.
+*/
 
 #pragma once
 
@@ -23,13 +23,13 @@
 #include <StormByte/database/typedefs.hxx>
 #include <StormByte/database/visibility.h>
 #include <StormByte/type_traits.hxx>
+
 #include <cmath>
 #include <limits>
 #include <type_traits>
 
 /**
- * @namespace Database
- * @brief Contains classes and functions for database operations.
+ * @brief Database module of the StormByte suite.
  */
 namespace StormByte::Database {
 	/**
@@ -55,68 +55,115 @@ namespace StormByte::Database {
 			};
 
 			/**
-			 * @name Constructors
+			 * @name Construction
 			 * @{
+			 */
+			/**
+			 * @brief Default constructor. Stores SQL NULL.
 			 */
 			Value() noexcept:
 			m_value(std::monostate{}), m_type(Type::Null) {}
 
+			/**
+			 * @brief From a signed int.
+			 * @param value Stored value.
+			 */
 			Value(int value) noexcept:
 			m_value(value), m_type(Type::Integer) {}
 
+			/**
+			 * @brief From an unsigned int.
+			 * @param value Stored value.
+			 */
 			Value(unsigned int value) noexcept:
 			m_value(value), m_type(Type::UnsignedInteger) {}
 
+			/**
+			 * @brief From a signed long int.
+			 * @param value Stored value.
+			 */
 			Value(long int value) noexcept:
 			m_value(value), m_type(Type::LongInteger) {}
 
+			/**
+			 * @brief From an unsigned long int.
+			 * @param value Stored value.
+			 */
 			Value(unsigned long int value) noexcept:
 			m_value(value), m_type(Type::UnsignedLongInteger) {}
 
+			/**
+			 * @brief From a double.
+			 * @param value Stored value.
+			 */
 			Value(double value) noexcept:
 			m_value(value), m_type(Type::Double) {}
 
+			/**
+			 * @brief From a string (copy).
+			 * @param value Stored text.
+			 */
 			Value(const std::string& value) noexcept:
 			m_value(value), m_type(Type::Text) {}
 
+			/**
+			 * @brief From a string (move).
+			 * @param value Stored text.
+			 */
 			Value(std::string&& value) noexcept:
 			m_value(std::move(value)), m_type(Type::Text) {}
 
+			/**
+			 * @brief From a C string.
+			 * @param value Stored text.
+			 */
 			Value(const char* value) noexcept:
 			Value(std::string(value)) {}
 
+			/**
+			 * @brief From a blob (copy).
+			 * @param value Stored bytes.
+			 */
 			Value(const std::vector<std::byte>& value) noexcept:
 			m_value(value), m_type(Type::Blob) {}
 
+			/**
+			 * @brief From a blob (move).
+			 * @param value Stored bytes.
+			 */
 			Value(std::vector<std::byte>&& value) noexcept:
 			m_value(std::move(value)), m_type(Type::Blob) {}
 
+			/**
+			 * @brief From a bool.
+			 * @param value Stored value.
+			 */
 			Value(bool value) noexcept:
 			m_value(value), m_type(Type::Boolean) {}
 			/** @} */
 
 			/**
-			 * Copy constructor.
+			 * @brief Copy constructor.
 			 */
 			Value(const Value&) = default;
 
 			/**
-			 * Move constructor.
+			 * @brief Move constructor.
 			 */
 			Value(Value&&) noexcept = default;
 
 			/**
-			 * Copy assignment.
+			 * @brief Copy assignment.
 			 */
 			Value& operator=(const Value&) = default;
 
 			/**
-			 * Move assignment.
+			 * @brief Move assignment.
 			 */
 			Value& operator=(Value&&) noexcept = default;
 
 			/**
-			 * Equality comparison (stored values).
+			 * @brief Equality of the stored alternatives.
 			 * @param other Other value.
 			 * @return true if equal.
 			 */
@@ -125,7 +172,7 @@ namespace StormByte::Database {
 			}
 
 			/**
-			 * Inequality comparison.
+			 * @brief Inequality.
 			 * @param other Other value.
 			 * @return true if not equal.
 			 */
@@ -134,15 +181,15 @@ namespace StormByte::Database {
 			}
 
 			/**
-			 * Destructor.
+			 * @brief Destructor.
 			 */
 			virtual ~Value() noexcept = default;
 
 			/**
-			 * Retrieves the stored value as type @p T, with safe numeric conversions.
-			 * @tparam T Requested type (must be one of ValuesVariant alternatives).
+			 * @brief Stored value as @p T, with safe numeric conversions.
+			 * @tparam T Requested type (must be a ValuesVariant alternative).
 			 * @return Converted value.
-			 * @throws WrongValueType on type mismatch or unsafe conversion.
+			 * @throws WrongValueType on mismatch or unsafe conversion.
 			 */
 			template<typename T>
 			requires StormByte::Type::VariantHasType<ValuesVariant, std::decay_t<T>>
@@ -163,14 +210,16 @@ namespace StormByte::Database {
 			}
 
 			/**
-			 * @return Discriminator of the stored alternative.
+			 * @brief Discriminator of the stored alternative.
+			 * @return Type.
 			 */
 			inline Type Type() const noexcept {
 				return m_type;
 			}
 
 			/**
-			 * @return true if the value is SQL NULL.
+			 * @brief Whether the value is SQL NULL.
+			 * @return true if NULL.
 			 */
 			inline bool IsNull() const noexcept {
 				return m_type == Type::Null;
@@ -178,12 +227,12 @@ namespace StormByte::Database {
 
 		private:
 			/**
-			 * Safe numeric conversion between arithmetic types.
+			 * @brief Safe numeric conversion between arithmetic types.
 			 * @tparam To Destination type.
 			 * @tparam From Source type.
 			 * @param val Source value.
 			 * @return Converted value.
-			 * @throws WrongValueType on overflow, sign loss or non-integral float.
+			 * @throws WrongValueType on overflow, sign loss or a non-integral float.
 			 */
 			template<typename To, typename From>
 			requires (std::is_arithmetic_v<To> && std::is_arithmetic_v<From>)

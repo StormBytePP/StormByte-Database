@@ -1,40 +1,39 @@
 /*
- * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
- *
- * This file is part of StormByte-Database.
- *
- * StormByte-Database is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
- *
- * StormByte-Database is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Database. If not, see
- * <https://www.gnu.org/licenses/lgpl-3.0.html>.
- */
+* Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+*
+* This file is part of StormByte-Database.
+*
+* StormByte-Database is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Lesser General Public License version 3
+* or later, as published by the Free Software Foundation.
+*
+* StormByte-Database is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public License
+* along with StormByte-Database. If not, see
+* <https://www.gnu.org/licenses/lgpl-3.0.html>.
+*/
 
 #pragma once
 
-#include <StormByte/exception.hxx>
 #include <StormByte/database/visibility.h>
+#include <StormByte/exception.hxx>
 
 /**
- * @namespace Database
- * @brief Contains classes and functions for database operations.
+ * @brief Database module of the StormByte suite.
  */
 namespace StormByte::Database {
 	/**
 	 * @class Exception
-	 * @brief Base class for Database exceptions.
+	 * @brief Base exception for the Database module.
 	 */
 	class STORMBYTE_DATABASE_PUBLIC Exception: public StormByte::Exception {
 		public:
 			/**
-			 * Construct with component prefix and format string.
+			 * @brief Construct with a component prefix and a format string.
 			 * @tparam Args Format argument types.
 			 * @param component Subsystem name.
 			 * @param fmt Format string.
@@ -47,19 +46,20 @@ namespace StormByte::Database {
 			using StormByte::Exception::Exception;
 
 			/**
-			 * Destructor.
+			 * @brief Destructor.
 			 */
 			virtual ~Exception() noexcept override = default;
 	};
 
 	/**
 	 * @class ConnectionError
-	 * @brief Exception thrown on connection failures.
+	 * @brief Connection failed.
 	 */
 	class STORMBYTE_DATABASE_PUBLIC ConnectionError final: public Exception {
 		public:
 			/**
-			 * @param error Error description.
+			 * @brief Construct from a backend message.
+			 * @param error Error text.
 			 */
 			ConnectionError(const std::string& error):
 			Exception("Connection: ", error) {}
@@ -69,11 +69,12 @@ namespace StormByte::Database {
 
 	/**
 	 * @class WrongValueType
-	 * @brief Exception thrown when a Value is accessed with the wrong type.
+	 * @brief Value accessed as the wrong type.
 	 */
 	class STORMBYTE_DATABASE_PUBLIC WrongValueType final: public Exception {
 		public:
 			/**
+			 * @brief Construct with a format string.
 			 * @tparam Args Format argument types.
 			 * @param component Context label.
 			 * @param fmt Format string.
@@ -88,12 +89,13 @@ namespace StormByte::Database {
 
 	/**
 	 * @class ColumnNotFound
-	 * @brief Exception when a column name is not present in a Row.
+	 * @brief Column name missing from a Row.
 	 */
 	class STORMBYTE_DATABASE_PUBLIC ColumnNotFound: public Exception {
 		public:
 			/**
-			 * @param column Column name that was not found.
+			 * @brief Construct from the missing name.
+			 * @param column Column name.
 			 */
 			template <typename... Args>
 			ColumnNotFound(const std::string& column):
@@ -104,11 +106,12 @@ namespace StormByte::Database {
 
 	/**
 	 * @class OutOfBounds
-	 * @brief Exception when a column index is out of range.
+	 * @brief Column index out of range.
 	 */
 	class STORMBYTE_DATABASE_PUBLIC OutOfBounds: public Exception {
 		public:
 			/**
+			 * @brief Construct from index and size.
 			 * @param pos Requested index.
 			 * @param size Container size.
 			 */
@@ -120,11 +123,12 @@ namespace StormByte::Database {
 
 	/**
 	 * @class QueryException
-	 * @brief Base for query-related errors.
+	 * @brief Base for query errors.
 	 */
 	class STORMBYTE_DATABASE_PUBLIC QueryException: public Exception {
 		public:
 			/**
+			 * @brief Construct with a query subsystem prefix.
 			 * @tparam Args Format argument types.
 			 * @param component Subsystem name.
 			 * @param fmt Format string.
@@ -139,11 +143,12 @@ namespace StormByte::Database {
 
 	/**
 	 * @class UnknownSTMT
-	 * @brief Exception when a prepared statement name is not registered.
+	 * @brief Prepared statement name is not registered.
 	 */
 	class STORMBYTE_DATABASE_PUBLIC UnknownSTMT: public QueryException {
 		public:
 			/**
+			 * @brief Construct from the statement name.
 			 * @param name Statement name.
 			 */
 			UnknownSTMT(const std::string& name):
@@ -154,12 +159,13 @@ namespace StormByte::Database {
 
 	/**
 	 * @class ExecuteError
-	 * @brief Exception when query or statement execution fails.
+	 * @brief Query or statement execution failed.
 	 */
 	class STORMBYTE_DATABASE_PUBLIC ExecuteError: public QueryException {
 		public:
 			/**
-			 * @param error Backend error message.
+			 * @brief Construct from a backend message.
+			 * @param error Error text.
 			 */
 			ExecuteError(const std::string& error):
 			QueryException("Execute: ", "Error executing query: {}", error) {}

@@ -29,6 +29,7 @@
 #include <thread>
 #include <chrono>
 #include <filesystem>
+#include <limits>
 using ExpectedRows = StormByte::Database::ExpectedRows;
 using namespace StormByte::Database::SQLite;
 using StormByte::Database::IsolationLevel;
@@ -54,6 +55,7 @@ class TestMemoryDatabase : public SQLite3 {
 			DoSilentQuery("CREATE TABLE blobs (id INTEGER PRIMARY KEY AUTOINCREMENT, data BLOB);");
 			DoSilentQuery("CREATE TABLE nulls (id INTEGER PRIMARY KEY AUTOINCREMENT, value TEXT);");
 			DoSilentQuery("CREATE TABLE required_values (id INTEGER PRIMARY KEY AUTOINCREMENT, value TEXT NOT NULL);");
+			DoSilentQuery("CREATE TABLE unsigned_values (id INTEGER PRIMARY KEY AUTOINCREMENT, value INTEGER NOT NULL);");
 			DoSilentQuery("CREATE TABLE concurrent (id INTEGER PRIMARY KEY AUTOINCREMENT, value INTEGER);");
 			DoSilentQuery("INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com');");
 			DoSilentQuery("INSERT INTO users (name, email) VALUES ('Bob', 'bob@example.com');");
@@ -71,6 +73,7 @@ class TestMemoryDatabase : public SQLite3 {
 			DoPrepareSTMT("insert_null", "INSERT INTO nulls (value) VALUES (?);");
 			DoPrepareSTMT("select_nulls", "SELECT value FROM nulls;");
 			DoPrepareSTMT("insert_required", "INSERT INTO required_values (value) VALUES (?);");
+			DoPrepareSTMT("insert_unsigned", "INSERT INTO unsigned_values (value) VALUES (?);");
 			DoPrepareSTMT("insert_concurrent", "INSERT INTO concurrent (value) VALUES (?);");
 			DoPrepareSTMT("count_concurrent", "SELECT COUNT(*) FROM concurrent;");
 		}
@@ -245,6 +248,17 @@ int missing_required_bind_is_error() {
 	auto rows = db.Query("SELECT COUNT(*) FROM required_values;");
 	ASSERT_TRUE(fn_name, rows.has_value());
 	ASSERT_EQUAL(fn_name, 1, rows.value()[0][0].Get<int>());
+	RETURN_TEST(fn_name, 0);
+}
+int unsigned_bind_preserves_value() {
+	const std::string fn_name = "unsigned_bind_preserves_value";
+	TestMemoryDatabase db;
+	ASSERT_TRUE(fn_name, db.Connect());
+	const unsigned int value = std::numeric_limits<unsigned int>::max();
+	ASSERT_TRUE(fn_name, db.ExecuteSTMT("insert_unsigned", value).has_value());
+	auto rows = db.Query("SELECT CAST(value AS TEXT) FROM unsigned_values;");
+	ASSERT_TRUE(fn_name, rows.has_value());
+	ASSERT_EQUAL(fn_name, std::to_string(value), rows.value()[0][0].Get<std::string>());
 	RETURN_TEST(fn_name, 0);
 }
 int constraint_violation_preserves_connection() {
@@ -501,6 +515,7 @@ int main() {
 	result += syntax_error_test();
 	result += silent_syntax_error_preserves_connection();
 	result += missing_required_bind_is_error();
+	result += unsigned_bind_preserves_value();
 	result += constraint_violation_preserves_connection();
 	result += invalid_row_index_throws();
 	result += bool_test();

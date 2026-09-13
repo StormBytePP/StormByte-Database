@@ -28,6 +28,7 @@ If you landed here from a release link and have not read the tree:
 - Fixed PostgreSQL and MariaDB numeric result parsing so invalid values return query errors instead of silent zero values.
 - Fixed `Row` index access to throw the Database `OutOfBounds` exception.
 - Fixed PostgreSQL prepared statements with multiple text or numeric parameters.
+- Fixed SQLite prepared statements truncating unsigned integer values.
 
 ### Changed
 

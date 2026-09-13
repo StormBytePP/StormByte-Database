@@ -62,6 +62,7 @@ namespace StormByte::Database::SQLite {
 
 	private:
 		sqlite3_stmt* m_stmt;	///< SQLite statement handle
+		bool m_bind_error;		///< Whether binding failed or exceeded SQLite integer range
 
 		/**
 		 * @brief Construct from copies.

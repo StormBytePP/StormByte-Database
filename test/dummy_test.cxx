@@ -18,9 +18,11 @@
  */
 
 #include <StormByte/database/exception.hxx>
+#include <StormByte/database/value.hxx>
 #include <StormByte/test_handlers.h>
 
 #include <iostream>
+#include <limits>
 #include <string>
 
 using namespace StormByte::Database;
@@ -37,8 +39,54 @@ int test_component_prefixed_exceptions() {
 	RETURN_TEST("test_component_prefixed_exceptions", result);
 }
 
+int test_invalid_value_conversions_throw() {
+	int result = 0;
+	bool threw = false;
+	try {
+		(void)Value().Get<int>();
+	} catch (const WrongValueType&) {
+		threw = true;
+	}
+	ASSERT_TRUE("test_invalid_value_conversions_throw", threw);
+
+	threw = false;
+	try {
+		(void)Value("text").Get<int>();
+	} catch (const WrongValueType&) {
+		threw = true;
+	}
+	ASSERT_TRUE("test_invalid_value_conversions_throw", threw);
+
+	threw = false;
+	try {
+		(void)Value(-1).Get<unsigned int>();
+	} catch (const WrongValueType&) {
+		threw = true;
+	}
+	ASSERT_TRUE("test_invalid_value_conversions_throw", threw);
+
+	threw = false;
+	try {
+		(void)Value(std::numeric_limits<unsigned long int>::max()).Get<int>();
+	} catch (const WrongValueType&) {
+		threw = true;
+	}
+	ASSERT_TRUE("test_invalid_value_conversions_throw", threw);
+
+	threw = false;
+	try {
+		(void)Value(1.5).Get<int>();
+	} catch (const WrongValueType&) {
+		threw = true;
+	}
+	ASSERT_TRUE("test_invalid_value_conversions_throw", threw);
+	RETURN_TEST("test_invalid_value_conversions_throw", result);
+}
+
 int main() {
-	int result = test_component_prefixed_exceptions();
+	int result = 0;
+	result += test_component_prefixed_exceptions();
+	result += test_invalid_value_conversions_throw();
 	if (result == 0) {
 		std::cout << "All tests passed successfully.\n";
 	} else {

@@ -34,6 +34,7 @@ using namespace StormByte::Database::SQLite;
 using StormByte::Database::IsolationLevel;
 using StormByte::Database::Transaction;
 using StormByte::Database::ColumnNotFound;
+using StormByte::Database::OutOfBounds;
 std::shared_ptr<StormByte::Logger::Log> logger =
 	std::make_shared<StormByte::Logger::ThreadedLog>(std::cout, StormByte::Logger::Level::Info);
 class TestMemoryDatabase : public SQLite3 {
@@ -52,6 +53,7 @@ class TestMemoryDatabase : public SQLite3 {
 			DoSilentQuery("CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, product_id INTEGER, quantity INTEGER NOT NULL, FOREIGN KEY (user_id) REFERENCES users(id), FOREIGN KEY (product_id) REFERENCES products(id));");
 			DoSilentQuery("CREATE TABLE blobs (id INTEGER PRIMARY KEY AUTOINCREMENT, data BLOB);");
 			DoSilentQuery("CREATE TABLE nulls (id INTEGER PRIMARY KEY AUTOINCREMENT, value TEXT);");
+			DoSilentQuery("CREATE TABLE required_values (id INTEGER PRIMARY KEY AUTOINCREMENT, value TEXT NOT NULL);");
 			DoSilentQuery("CREATE TABLE concurrent (id INTEGER PRIMARY KEY AUTOINCREMENT, value INTEGER);");
 			DoSilentQuery("INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com');");
 			DoSilentQuery("INSERT INTO users (name, email) VALUES ('Bob', 'bob@example.com');");
@@ -68,6 +70,7 @@ class TestMemoryDatabase : public SQLite3 {
 			DoPrepareSTMT("select_blob", "SELECT data FROM blobs WHERE id = 1;");
 			DoPrepareSTMT("insert_null", "INSERT INTO nulls (value) VALUES (?);");
 			DoPrepareSTMT("select_nulls", "SELECT value FROM nulls;");
+			DoPrepareSTMT("insert_required", "INSERT INTO required_values (value) VALUES (?);");
 			DoPrepareSTMT("insert_concurrent", "INSERT INTO concurrent (value) VALUES (?);");
 			DoPrepareSTMT("count_concurrent", "SELECT COUNT(*) FROM concurrent;");
 		}
@@ -220,6 +223,53 @@ int syntax_error_test() {
 	db.Connect();
 	auto res = db.Query("SELEC * FROM users;");
 	ASSERT_FALSE(fn_name, res.has_value());
+	RETURN_TEST(fn_name, 0);
+}
+int silent_syntax_error_preserves_connection() {
+	const std::string fn_name = "silent_syntax_error_preserves_connection";
+	TestMemoryDatabase db;
+	ASSERT_TRUE(fn_name, db.Connect());
+	ASSERT_FALSE(fn_name, db.SilentQuery("SELEC * FROM users;"));
+	auto rows = db.Query("SELECT COUNT(*) FROM users;");
+	ASSERT_TRUE(fn_name, rows.has_value());
+	ASSERT_EQUAL(fn_name, 2, rows.value()[0][0].Get<int>());
+	RETURN_TEST(fn_name, 0);
+}
+int missing_required_bind_is_error() {
+	const std::string fn_name = "missing_required_bind_is_error";
+	TestMemoryDatabase db;
+	ASSERT_TRUE(fn_name, db.Connect());
+	auto result = db.ExecuteSTMT("insert_required");
+	ASSERT_FALSE(fn_name, result.has_value());
+	ASSERT_TRUE(fn_name, db.ExecuteSTMT("insert_required", "valid").has_value());
+	auto rows = db.Query("SELECT COUNT(*) FROM required_values;");
+	ASSERT_TRUE(fn_name, rows.has_value());
+	ASSERT_EQUAL(fn_name, 1, rows.value()[0][0].Get<int>());
+	RETURN_TEST(fn_name, 0);
+}
+int constraint_violation_preserves_connection() {
+	const std::string fn_name = "constraint_violation_preserves_connection";
+	TestMemoryDatabase db;
+	ASSERT_TRUE(fn_name, db.Connect());
+	ASSERT_FALSE(fn_name, db.SilentQuery("INSERT INTO users (name, email) VALUES ('Mallory', 'alice@example.com');"));
+	auto rows = db.Query("SELECT COUNT(*) FROM users;");
+	ASSERT_TRUE(fn_name, rows.has_value());
+	ASSERT_EQUAL(fn_name, 2, rows.value()[0][0].Get<int>());
+	RETURN_TEST(fn_name, 0);
+}
+int invalid_row_index_throws() {
+	const std::string fn_name = "invalid_row_index_throws";
+	TestMemoryDatabase db;
+	ASSERT_TRUE(fn_name, db.Connect());
+	auto rows = db.get_users();
+	ASSERT_TRUE(fn_name, rows.has_value());
+	bool threw = false;
+	try {
+		(void)rows.value()[0][99];
+	} catch (const OutOfBounds&) {
+		threw = true;
+	}
+	ASSERT_TRUE(fn_name, threw);
 	RETURN_TEST(fn_name, 0);
 }
 int bool_test() {
@@ -449,6 +499,10 @@ int main() {
 	result += query_test();
 	result += empty_result_test();
 	result += syntax_error_test();
+	result += silent_syntax_error_preserves_connection();
+	result += missing_required_bind_is_error();
+	result += constraint_violation_preserves_connection();
+	result += invalid_row_index_throws();
 	result += bool_test();
 	result += verify_blobs();
 	result += empty_blob_test();

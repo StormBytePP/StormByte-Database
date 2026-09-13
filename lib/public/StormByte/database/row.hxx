@@ -93,7 +93,29 @@ namespace StormByte::Database {
 			 */
 			Value operator[](const std::string& columnName) &&;
 
-			using Iterable::operator[];
+			/**
+			 * @brief Access a column by zero-based index (const lvalue).
+			 * @param index Column index.
+			 * @return Const reference to the named value.
+			 * @throws OutOfBounds if @p index is outside this row.
+			 */
+			const NamedValue& operator[](std::size_t index) const &;
+
+			/**
+			 * @brief Access a column by zero-based index (lvalue).
+			 * @param index Column index.
+			 * @return Reference to the named value.
+			 * @throws OutOfBounds if @p index is outside this row.
+			 */
+			NamedValue& operator[](std::size_t index) &;
+
+			/**
+			 * @brief Access a column by zero-based index (rvalue).
+			 * @param index Column index.
+			 * @return Named value moved from this row.
+			 * @throws OutOfBounds if @p index is outside this row.
+			 */
+			NamedValue operator[](std::size_t index) &&;
 
 			/**
 			 * @brief Append a named column.

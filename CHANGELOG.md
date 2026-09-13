@@ -26,6 +26,7 @@ If you landed here from a release link and have not read the tree:
 - Fixed system connector discovery with `WITH_SQLITE=SYSTEM`, `WITH_POSTGRES=SYSTEM` and `WITH_MARIADB=SYSTEM`.
 - Fixed ownership transfer when moving connected SQLite, PostgreSQL and MariaDB backends.
 - Fixed PostgreSQL and MariaDB numeric result parsing so invalid values return query errors instead of silent zero values.
+- Fixed `Row` index access to throw the Database `OutOfBounds` exception.
 
 ### Changed
 

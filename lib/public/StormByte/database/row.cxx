@@ -55,3 +55,16 @@ Value Row::operator[](const std::string& columnName) && {
 		throw ColumnNotFound(columnName);
 	return std::move(m_data[it->second]);
 }
+const NamedValue& Row::operator[](std::size_t index) const & {
+	if (index >= m_data.size())
+		throw OutOfBounds(static_cast<int>(index), m_data.size());
+	return m_data[index];
+}
+NamedValue& Row::operator[](std::size_t index) & {
+	return const_cast<NamedValue&>(static_cast<const Row*>(this)->operator[](index));
+}
+NamedValue Row::operator[](std::size_t index) && {
+	if (index >= m_data.size())
+		throw OutOfBounds(static_cast<int>(index), m_data.size());
+	return std::move(m_data[index]);
+}

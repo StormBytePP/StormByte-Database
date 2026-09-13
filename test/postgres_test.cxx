@@ -55,8 +55,9 @@ class TestDatabase : public Postgres {
 			DoSilentQuery("CREATE TABLE IF NOT EXISTS blobs (id SERIAL PRIMARY KEY, data BYTEA);");
 			DoSilentQuery("CREATE TABLE IF NOT EXISTS nulls (id SERIAL PRIMARY KEY, value TEXT);");
 			DoSilentQuery("CREATE TABLE IF NOT EXISTS required_values (id SERIAL PRIMARY KEY, value TEXT NOT NULL);");
+			DoSilentQuery("CREATE TABLE IF NOT EXISTS pairs (id SERIAL PRIMARY KEY, first_value TEXT NOT NULL, second_value TEXT NOT NULL);");
 			DoSilentQuery("CREATE TABLE IF NOT EXISTS concurrent (id SERIAL PRIMARY KEY, value INTEGER);");
-			DoSilentQuery("TRUNCATE TABLE users, products, orders, blobs, nulls, required_values, concurrent RESTART IDENTITY CASCADE;");
+			DoSilentQuery("TRUNCATE TABLE users, products, orders, blobs, nulls, required_values, pairs, concurrent RESTART IDENTITY CASCADE;");
 			DoSilentQuery("INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com');");
 			DoSilentQuery("INSERT INTO users (name, email) VALUES ('Bob', 'bob@example.com');");
 			DoSilentQuery("INSERT INTO products (name, price) VALUES ('Laptop', 999.99);");
@@ -73,6 +74,7 @@ class TestDatabase : public Postgres {
 			DoPrepareSTMT("insert_null", "INSERT INTO nulls (value) VALUES ($1);");
 			DoPrepareSTMT("select_nulls", "SELECT value FROM nulls;");
 			DoPrepareSTMT("insert_required", "INSERT INTO required_values (value) VALUES ($1);");
+			DoPrepareSTMT("insert_pair", "INSERT INTO pairs (first_value, second_value) VALUES ($1, $2);");
 			DoPrepareSTMT("insert_concurrent", "INSERT INTO concurrent (value) VALUES ($1);");
 			DoPrepareSTMT("count_concurrent", "SELECT COUNT(*) FROM concurrent;");
 		}
@@ -255,6 +257,17 @@ int syntax_error_test() {
 	db.Connect();
 	auto res = db.Query("SELEC * FROM users;");
 	ASSERT_FALSE(fn_name, res.has_value());
+	RETURN_TEST(fn_name, 0);
+}
+int multiple_text_parameters_preserve_values() {
+	const std::string fn_name = "multiple_text_parameters_preserve_values";
+	TestDatabase db;
+	ASSERT_TRUE(fn_name, db.Connect());
+	ASSERT_TRUE(fn_name, db.ExecuteSTMT("insert_pair", "first", "second").has_value());
+	auto rows = db.Query("SELECT first_value, second_value FROM pairs;");
+	ASSERT_TRUE(fn_name, rows.has_value());
+	ASSERT_EQUAL(fn_name, "first", rows.value()[0][0].Get<std::string>());
+	ASSERT_EQUAL(fn_name, "second", rows.value()[0][1].Get<std::string>());
 	RETURN_TEST(fn_name, 0);
 }
 int silent_syntax_error_preserves_connection() {
@@ -511,6 +524,7 @@ int main() {
 	result += query_test();
 	result += empty_result_test();
 	result += syntax_error_test();
+	result += multiple_text_parameters_preserve_values();
 	result += silent_syntax_error_preserves_connection();
 	result += missing_required_bind_is_error();
 	result += constraint_violation_preserves_connection();

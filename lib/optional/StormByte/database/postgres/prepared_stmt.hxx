@@ -67,12 +67,7 @@ namespace StormByte::Database::Postgres {
 	private:
 		struct pg_conn* m_conn;							///< Connection handle
 		std::string m_stmt_name;						///< Server-side statement name
-
-		std::vector<const char*> m_param_values;		///< Bind value pointers
-		std::vector<int> m_param_lengths;				///< Bind lengths (blobs)
-		std::vector<int> m_param_formats;				///< 0 = text, 1 = binary
-		std::vector<std::string> m_string_storage;		///< Owns text/numeric string params
-		std::vector<std::vector<char>> m_blob_storage;	///< Owns blob params
+		std::vector<Value> m_params;						///< Bound values, retained until execution
 
 		/**
 		 * @brief Construct from copies.

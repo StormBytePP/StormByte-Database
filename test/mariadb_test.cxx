@@ -27,6 +27,7 @@
 #include <vector>
 #include <thread>
 #include <chrono>
+#include <limits>
 using ExpectedRows = StormByte::Database::ExpectedRows;
 using namespace StormByte::Database::MariaDB;
 using StormByte::Database::IsolationLevel;
@@ -55,11 +56,13 @@ class TestDatabase : public MariaDB {
 			DoSilentQuery("CREATE TABLE IF NOT EXISTS blobs (id INT PRIMARY KEY AUTO_INCREMENT, data BLOB);");
 			DoSilentQuery("CREATE TABLE IF NOT EXISTS nulls (id INT PRIMARY KEY AUTO_INCREMENT, value TEXT);");
 			DoSilentQuery("CREATE TABLE IF NOT EXISTS required_values (id INT PRIMARY KEY AUTO_INCREMENT, value TEXT NOT NULL);");
+			DoSilentQuery("CREATE TABLE IF NOT EXISTS unsigned_values (id INT PRIMARY KEY AUTO_INCREMENT, value INT UNSIGNED NOT NULL);");
 			DoSilentQuery("CREATE TABLE IF NOT EXISTS concurrent (id INT PRIMARY KEY AUTO_INCREMENT, value INTEGER);");
 			DoSilentQuery("DELETE FROM orders;");
 			DoSilentQuery("DELETE FROM blobs;");
 			DoSilentQuery("DELETE FROM nulls;");
 			DoSilentQuery("DELETE FROM required_values;");
+			DoSilentQuery("DELETE FROM unsigned_values;");
 			DoSilentQuery("DELETE FROM concurrent;");
 			DoSilentQuery("DELETE FROM users;");
 			DoSilentQuery("DELETE FROM products;");
@@ -67,6 +70,7 @@ class TestDatabase : public MariaDB {
 			DoSilentQuery("ALTER TABLE blobs AUTO_INCREMENT=1;");
 			DoSilentQuery("ALTER TABLE nulls AUTO_INCREMENT=1;");
 			DoSilentQuery("ALTER TABLE required_values AUTO_INCREMENT=1;");
+			DoSilentQuery("ALTER TABLE unsigned_values AUTO_INCREMENT=1;");
 			DoSilentQuery("ALTER TABLE concurrent AUTO_INCREMENT=1;");
 			DoSilentQuery("ALTER TABLE users AUTO_INCREMENT=1;");
 			DoSilentQuery("ALTER TABLE products AUTO_INCREMENT=1;");
@@ -86,6 +90,7 @@ class TestDatabase : public MariaDB {
 			DoPrepareSTMT("insert_null", "INSERT INTO nulls (value) VALUES (?);");
 			DoPrepareSTMT("select_nulls", "SELECT value FROM nulls;");
 			DoPrepareSTMT("insert_required", "INSERT INTO required_values (value) VALUES (?);");
+			DoPrepareSTMT("insert_unsigned", "INSERT INTO unsigned_values (value) VALUES (?);");
 			DoPrepareSTMT("insert_concurrent", "INSERT INTO concurrent (value) VALUES (?);");
 			DoPrepareSTMT("count_concurrent", "SELECT COUNT(*) FROM concurrent;");
 		}
@@ -290,6 +295,17 @@ int missing_required_bind_is_error() {
 	auto rows = db.Query("SELECT COUNT(*) FROM required_values;");
 	ASSERT_TRUE(fn_name, rows.has_value());
 	ASSERT_EQUAL(fn_name, 1, rows.value()[0][0].Get<long int>());
+	RETURN_TEST(fn_name, 0);
+}
+int unsigned_bind_preserves_value() {
+	const std::string fn_name = "unsigned_bind_preserves_value";
+	TestDatabase db;
+	ASSERT_TRUE(fn_name, db.Connect());
+	const unsigned int value = std::numeric_limits<unsigned int>::max();
+	ASSERT_TRUE(fn_name, db.ExecuteSTMT("insert_unsigned", value).has_value());
+	auto rows = db.Query("SELECT CAST(value AS CHAR) FROM unsigned_values;");
+	ASSERT_TRUE(fn_name, rows.has_value());
+	ASSERT_EQUAL(fn_name, std::to_string(value), rows.value()[0][0].Get<std::string>());
 	RETURN_TEST(fn_name, 0);
 }
 int constraint_violation_preserves_connection() {
@@ -526,6 +542,7 @@ int main() {
 	result += syntax_error_test();
 	result += silent_syntax_error_preserves_connection();
 	result += missing_required_bind_is_error();
+	result += unsigned_bind_preserves_value();
 	result += constraint_violation_preserves_connection();
 	result += invalid_row_index_throws();
 	result += bool_test();

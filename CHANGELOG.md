@@ -29,6 +29,7 @@ If you landed here from a release link and have not read the tree:
 - Fixed `Row` index access to throw the Database `OutOfBounds` exception.
 - Fixed PostgreSQL prepared statements with multiple text or numeric parameters.
 - Fixed SQLite prepared statements truncating unsigned integer values.
+- Fixed MariaDB prepared statements interpreting unsigned integers as negative values.
 
 ### Changed
 

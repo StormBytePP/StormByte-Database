@@ -134,6 +134,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 				uint_buf[i] = p.Get<unsigned int>();
 				bind_in[i].buffer_type = MYSQL_TYPE_LONG;
 				bind_in[i].buffer = &uint_buf[i];
+				bind_in[i].is_unsigned = 1;
 				bind_in[i].is_null = &is_null[i];
 				break;
 			}
@@ -148,6 +149,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 				ull_buf[i] = p.Get<unsigned long int>();
 				bind_in[i].buffer_type = MYSQL_TYPE_LONGLONG;
 				bind_in[i].buffer = &ull_buf[i];
+				bind_in[i].is_unsigned = 1;
 				bind_in[i].is_null = &is_null[i];
 				break;
 			}

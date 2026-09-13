@@ -22,6 +22,10 @@
 #include <StormByte/database/visibility.h>
 #include <StormByte/exception.hxx>
 
+#include <format>
+#include <string>
+#include <utility>
+
 /**
  * @brief Database module of the StormByte suite.
  */
@@ -33,22 +37,45 @@ namespace StormByte::Database {
 	class STORMBYTE_DATABASE_PUBLIC Exception: public StormByte::Exception {
 		public:
 			/**
-			 * @brief Construct with a component prefix and a format string.
+			 * @brief Construct with an unformatted message.
+			 * @param message Message text.
+			 */
+			explicit Exception(const std::string& message):
+				StormByte::Exception(StormByte::Component{"Database"}, "{}", message) {}
+
+			/**
+			 * @brief Construct with a moved unformatted message.
+			 * @param message Message text.
+			 */
+			explicit Exception(std::string&& message):
+				StormByte::Exception(StormByte::Component{"Database"}, "{}", std::move(message)) {}
+
+			/**
+			 * @brief Construct with a formatted message.
 			 * @tparam Args Format argument types.
-			 * @param component Subsystem name.
 			 * @param fmt Format string.
 			 * @param args Format arguments.
 			 */
 			template <typename... Args>
-			Exception(const std::string& component, std::format_string<Args...> fmt, Args&&... args):
-			StormByte::Exception("Database::" + component, fmt, std::forward<Args>(args)...) {}
-
-			using StormByte::Exception::Exception;
+			Exception(std::format_string<Args...> fmt, Args&&... args):
+				StormByte::Exception(StormByte::Component{"Database"}, fmt, std::forward<Args>(args)...) {}
 
 			/**
 			 * @brief Destructor.
 			 */
 			virtual ~Exception() noexcept override = default;
+
+		protected:
+			/**
+			 * @brief Construct with a qualified database component and formatted message.
+			 * @tparam Args Format argument types.
+			 * @param component Qualified component name.
+			 * @param fmt Format string.
+			 * @param args Format arguments.
+			 */
+			template <typename... Args>
+			Exception(StormByte::Component component, std::format_string<Args...> fmt, Args&&... args):
+				StormByte::Exception(component, fmt, std::forward<Args>(args)...) {}
 	};
 
 	/**
@@ -62,9 +89,14 @@ namespace StormByte::Database {
 			 * @param error Error text.
 			 */
 			ConnectionError(const std::string& error):
-			Exception("Connection: ", error) {}
+				Exception(StormByte::Component{"Database::Connection"}, "{}", error) {}
 
-			using Exception::Exception;
+			/**
+			 * @brief Construct from a moved backend message.
+			 * @param error Error text.
+			 */
+			ConnectionError(std::string&& error):
+				Exception(StormByte::Component{"Database::Connection"}, "{}", std::move(error)) {}
 	};
 
 	/**
@@ -74,6 +106,20 @@ namespace StormByte::Database {
 	class STORMBYTE_DATABASE_PUBLIC WrongValueType final: public Exception {
 		public:
 			/**
+			 * @brief Construct from an error message.
+			 * @param error Error text.
+			 */
+			WrongValueType(const std::string& error):
+				Exception(StormByte::Component{"Database::WrongValueType"}, "{}", error) {}
+
+			/**
+			 * @brief Construct from a moved error message.
+			 * @param error Error text.
+			 */
+			WrongValueType(std::string&& error):
+				Exception(StormByte::Component{"Database::WrongValueType"}, "{}", std::move(error)) {}
+
+			/**
 			 * @brief Construct with a format string.
 			 * @tparam Args Format argument types.
 			 * @param component Context label.
@@ -82,9 +128,8 @@ namespace StormByte::Database {
 			 */
 			template <typename... Args>
 			WrongValueType(const std::string& component, std::format_string<Args...> fmt, Args&&... args):
-			Exception("WrongValueType: ", fmt, std::forward<Args>(args)...) {}
+				Exception(StormByte::Component{std::string("Database::WrongValueType::") + component}, fmt, std::forward<Args>(args)...) {}
 
-			using Exception::Exception;
 	};
 
 	/**
@@ -97,11 +142,9 @@ namespace StormByte::Database {
 			 * @brief Construct from the missing name.
 			 * @param column Column name.
 			 */
-			template <typename... Args>
 			ColumnNotFound(const std::string& column):
-			Exception("ColumnNotFound: ", "Column '{}' not found", column) {}
+				Exception(StormByte::Component{"Database::ColumnNotFound"}, "Column '{}' not found", column) {}
 
-			using Exception::Exception;
 	};
 
 	/**
@@ -116,9 +159,8 @@ namespace StormByte::Database {
 			 * @param size Container size.
 			 */
 			OutOfBounds(int pos, std::size_t size):
-			Exception("OutOfBounds: ", "Position {} is out of bounds for size {}", pos, size) {}
+				Exception(StormByte::Component{"Database::OutOfBounds"}, "Position {} is out of bounds for size {}", pos, size) {}
 
-			using Exception::Exception;
 	};
 
 	/**
@@ -128,6 +170,20 @@ namespace StormByte::Database {
 	class STORMBYTE_DATABASE_PUBLIC QueryException: public Exception {
 		public:
 			/**
+			 * @brief Construct from an error message.
+			 * @param error Error text.
+			 */
+			QueryException(const std::string& error):
+				Exception(StormByte::Component{"Database::Query"}, "{}", error) {}
+
+			/**
+			 * @brief Construct from a moved error message.
+			 * @param error Error text.
+			 */
+			QueryException(std::string&& error):
+				Exception(StormByte::Component{"Database::Query"}, "{}", std::move(error)) {}
+
+			/**
 			 * @brief Construct with a query subsystem prefix.
 			 * @tparam Args Format argument types.
 			 * @param component Subsystem name.
@@ -136,9 +192,8 @@ namespace StormByte::Database {
 			 */
 			template <typename... Args>
 			QueryException(const std::string& component, std::format_string<Args...> fmt, Args&&... args):
-			Exception("Query::" + component, fmt, std::forward<Args>(args)...) {}
+				Exception(StormByte::Component{std::string("Database::Query::") + component}, fmt, std::forward<Args>(args)...) {}
 
-			using Exception::Exception;
 	};
 
 	/**
@@ -152,9 +207,14 @@ namespace StormByte::Database {
 			 * @param name Statement name.
 			 */
 			UnknownSTMT(const std::string& name):
-			QueryException("PreparedSTMT: ", "Statement '{}' not found", name) {}
+				QueryException("PreparedSTMT", "Statement '{}' not found", name) {}
 
-			using QueryException::QueryException;
+			/**
+			 * @brief Construct from a moved statement name.
+			 * @param name Statement name.
+			 */
+			UnknownSTMT(std::string&& name):
+				QueryException("PreparedSTMT", "Statement '{}' not found", name) {}
 	};
 
 	/**
@@ -168,8 +228,13 @@ namespace StormByte::Database {
 			 * @param error Error text.
 			 */
 			ExecuteError(const std::string& error):
-			QueryException("Execute: ", "Error executing query: {}", error) {}
+				QueryException("Execute", "Error executing query: {}", error) {}
 
-			using QueryException::QueryException;
+			/**
+			 * @brief Construct from a moved backend message.
+			 * @param error Error text.
+			 */
+			ExecuteError(std::string&& error):
+				QueryException("Execute", "Error executing query: {}", std::move(error)) {}
 	};
 }

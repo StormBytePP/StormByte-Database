@@ -17,7 +17,32 @@
  * <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
-// This is just a dummy test file to test the test framework when everything is disabled
+#include <StormByte/database/exception.hxx>
+#include <StormByte/test_handlers.h>
+
+#include <iostream>
+#include <string>
+
+using namespace StormByte::Database;
+
+int test_component_prefixed_exceptions() {
+	int result = 0;
+	ASSERT_EQUAL("test_component_prefixed_exceptions", std::string("StormByte::Database: generic error"), std::string(Exception("generic error").what()));
+	ASSERT_EQUAL("test_component_prefixed_exceptions", std::string("StormByte::Database::Connection: connection failed"), std::string(ConnectionError("connection failed").what()));
+	ASSERT_EQUAL("test_component_prefixed_exceptions", std::string("StormByte::Database::WrongValueType::Value: expected integer"), std::string(WrongValueType("Value", "expected {}", "integer").what()));
+	ASSERT_EQUAL("test_component_prefixed_exceptions", std::string("StormByte::Database::ColumnNotFound: Column 'id' not found"), std::string(ColumnNotFound("id").what()));
+	ASSERT_EQUAL("test_component_prefixed_exceptions", std::string("StormByte::Database::OutOfBounds: Position 3 is out of bounds for size 2"), std::string(OutOfBounds(3, 2).what()));
+	ASSERT_EQUAL("test_component_prefixed_exceptions", std::string("StormByte::Database::Query::PreparedSTMT: Statement 'users' not found"), std::string(UnknownSTMT("users").what()));
+	ASSERT_EQUAL("test_component_prefixed_exceptions", std::string("StormByte::Database::Query::Execute: Error executing query: syntax error"), std::string(ExecuteError("syntax error").what()));
+	RETURN_TEST("test_component_prefixed_exceptions", result);
+}
+
 int main() {
-	return 0;
+	int result = test_component_prefixed_exceptions();
+	if (result == 0) {
+		std::cout << "All tests passed successfully.\n";
+	} else {
+		std::cout << result << " tests failed.\n";
+	}
+	return result;
 }

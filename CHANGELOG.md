@@ -20,9 +20,9 @@ If you landed here from a release link and have not read the tree:
 
 ## [Unreleased]
 
-### Changed
+### Fixed
 
-- Updated the minimum requirements to StormByte Base 1.1.0 and StormByte-Logger 1.1.0.
+- Updated the minimum requirements to StormByte Base 1.1.0 and StormByte-Logger 1.1.0, including component-aware Database exceptions.
 
 ## [1.0.0] - 2026-09-05
 

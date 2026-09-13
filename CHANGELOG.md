@@ -18,6 +18,12 @@ If you landed here from a release link and have not read the tree:
 - What this module is, how to build it, and short examples: [README.md](https://github.com/StormBytePP/StormByte-Database/blob/master/README.md)
 - License: GNU Lesser General Public License version 3 or later, [LICENSE](https://github.com/StormBytePP/StormByte-Database/blob/master/LICENSE)
 
+## [Unreleased]
+
+### Changed
+
+- Updated the minimum requirements to StormByte Base 1.1.0 and StormByte-Logger 1.1.0.
+
 ## [1.0.0] - 2026-09-05
 
 Initial public release of StormByte Database.
@@ -41,4 +47,5 @@ Initial public release of StormByte Database.
 - Not thread-safe: one connection per thread.
 - Needs a C++26 compiler and CMake ≥ 3.28.
 
+[Unreleased]: https://github.com/StormBytePP/StormByte-Database/compare/1.0.0...HEAD
 [1.0.0]: https://github.com/StormBytePP/StormByte-Database/releases/tag/1.0.0

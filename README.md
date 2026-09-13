@@ -53,7 +53,7 @@ The suite is split on purpose. Base, Buffer, Config, Crypto, Logger, Multimedia,
 
 ## Installation
 
-Needs a C++26 compiler and CMake 3.28 or newer. Enable the backends you want (`WITH_SQLITE`, `WITH_POSTGRES`, `WITH_MARIADB`: `OFF`, `SYSTEM` or `BUNDLED`).
+Needs a C++26 compiler, CMake 3.28 or newer, [StormByte Base 1.1.0](https://github.com/StormBytePP/StormByte/releases/tag/1.1.0) and [StormByte-Logger 1.1.0](https://github.com/StormBytePP/StormByte-Logger/releases/tag/1.1.0). Enable the backends you want (`WITH_SQLITE`, `WITH_POSTGRES`, `WITH_MARIADB`: `OFF`, `SYSTEM` or `BUNDLED`).
 
 ```sh
 git clone https://github.com/StormBytePP/StormByte-Database.git

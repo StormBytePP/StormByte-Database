@@ -21,6 +21,7 @@
 
 #include <StormByte/database/rows.hxx>
 
+#include <charconv>
 #include <limits>
 #include <mysql.h>
 #include <string>
@@ -67,7 +68,9 @@ namespace StormByte::Database::MariaDB {
 							prow.add(std::string(colName ? colName : ""), b);
 						} else {
 							long long v = 0;
-							try { v = std::stoll(std::string(row[c], len)); } catch (...) { v = 0; }
+							auto parsed = std::from_chars(row[c], row[c] + len, v);
+							if (parsed.ec != std::errc{} || parsed.ptr != row[c] + len)
+								return Unexpected<QueryException>(ExecuteError("Invalid integer result value."));
 							if (v > std::numeric_limits<int>::max() || v < std::numeric_limits<int>::min())
 								prow.add(std::string(colName ? colName : ""), static_cast<long int>(v));
 							else
@@ -80,7 +83,9 @@ namespace StormByte::Database::MariaDB {
 					case MYSQL_TYPE_LONG:
 					case MYSQL_TYPE_INT24: {
 						long long v = 0;
-						try { v = std::stoll(std::string(row[c], len)); } catch (...) { v = 0; }
+						auto parsed = std::from_chars(row[c], row[c] + len, v);
+						if (parsed.ec != std::errc{} || parsed.ptr != row[c] + len)
+							return Unexpected<QueryException>(ExecuteError("Invalid integer result value."));
 						if (v > std::numeric_limits<int>::max() || v < std::numeric_limits<int>::min())
 							prow.add(std::string(colName ? colName : ""), static_cast<long int>(v));
 						else
@@ -90,7 +95,9 @@ namespace StormByte::Database::MariaDB {
 
 					case MYSQL_TYPE_LONGLONG: {
 						long long v = 0;
-						try { v = std::stoll(std::string(row[c], len)); } catch (...) { v = 0; }
+						auto parsed = std::from_chars(row[c], row[c] + len, v);
+						if (parsed.ec != std::errc{} || parsed.ptr != row[c] + len)
+							return Unexpected<QueryException>(ExecuteError("Invalid integer result value."));
 						prow.add(std::string(colName ? colName : ""), static_cast<long int>(v));
 						break;
 					}
@@ -100,7 +107,9 @@ namespace StormByte::Database::MariaDB {
 					case MYSQL_TYPE_DECIMAL:
 					case MYSQL_TYPE_NEWDECIMAL: {
 						double d = 0.0;
-						try { d = std::stod(std::string(row[c], len)); } catch (...) { d = 0.0; }
+						auto parsed = std::from_chars(row[c], row[c] + len, d);
+						if (parsed.ec != std::errc{} || parsed.ptr != row[c] + len)
+							return Unexpected<QueryException>(ExecuteError("Invalid floating-point result value."));
 						prow.add(std::string(colName ? colName : ""), d);
 						break;
 					}

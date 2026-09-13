@@ -113,6 +113,8 @@ if (auto row = /* from Query */) {
 }
 ```
 
+Malformed or out-of-range numeric values returned by a backend are reported through `ExpectedRows` as query errors.
+
 ### Queries and statements
 
 ```cpp

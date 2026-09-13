@@ -21,6 +21,7 @@
 
 #include <StormByte/database/rows.hxx>
 
+#include <charconv>
 #include <cctype>
 #include <libpq-fe.h>
 #include <limits>
@@ -84,7 +85,9 @@ namespace StormByte::Database::Postgres {
 					case 21:
 					case 23: {
 						long long v = 0;
-						try { v = std::stoll(std::string(val, vall)); } catch (...) { v = 0; }
+						auto parsed = std::from_chars(val, val + vall, v);
+						if (parsed.ec != std::errc{} || parsed.ptr != val + vall)
+							return Unexpected<QueryException>(ExecuteError("Invalid integer result value."));
 						if (v > std::numeric_limits<int>::max() || v < std::numeric_limits<int>::min())
 							row.add(std::string(colName ? colName : ""), static_cast<long int>(v));
 						else
@@ -95,7 +98,9 @@ namespace StormByte::Database::Postgres {
 					case 700:
 					case 701: {
 						double d = 0.0;
-						try { d = std::stod(std::string(val, vall)); } catch (...) { d = 0.0; }
+						auto parsed = std::from_chars(val, val + vall, d);
+						if (parsed.ec != std::errc{} || parsed.ptr != val + vall)
+							return Unexpected<QueryException>(ExecuteError("Invalid floating-point result value."));
 						row.add(std::string(colName ? colName : ""), d);
 						break;
 					}

@@ -81,6 +81,7 @@ namespace StormByte::Database {
 
 			/**
 			 * @brief Disconnect.
+			 * @note Has no effect when the database is already disconnected.
 			 */
 			void Disconnect() noexcept;
 

@@ -46,9 +46,10 @@ namespace StormByte::Database::MariaDB {
 			MariaDB(const MariaDB& db) = delete;
 
 			/**
-			 * @brief Move constructor.
+			 * @brief Move constructor that transfers the database connection.
+			 * @param db Database to move from.
 			 */
-			MariaDB(MariaDB&& db) noexcept = default;
+			MariaDB(MariaDB&& db) noexcept;
 
 			/**
 			 * @brief Copy assignment (deleted).
@@ -56,9 +57,11 @@ namespace StormByte::Database::MariaDB {
 			MariaDB& operator=(const MariaDB& db) = delete;
 
 			/**
-			 * @brief Move assignment.
+			 * @brief Move assignment that transfers the database connection.
+			 * @param db Database to move from.
+			 * @return Reference to this database.
 			 */
-			MariaDB& operator=(MariaDB&& db) noexcept = default;
+			MariaDB& operator=(MariaDB&& db) noexcept;
 
 			/**
 			 * @brief Destructor.

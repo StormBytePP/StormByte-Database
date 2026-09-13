@@ -46,9 +46,10 @@ namespace StormByte::Database::SQLite {
 			SQLite3(const SQLite3& db) = delete;
 
 			/**
-			 * @brief Move constructor.
+			 * @brief Move constructor that transfers the database connection.
+			 * @param db Database to move from.
 			 */
-			SQLite3(SQLite3&& db) noexcept = default;
+			SQLite3(SQLite3&& db) noexcept;
 
 			/**
 			 * @brief Copy assignment (deleted).
@@ -56,9 +57,11 @@ namespace StormByte::Database::SQLite {
 			SQLite3& operator=(const SQLite3& db) = delete;
 
 			/**
-			 * @brief Move assignment.
+			 * @brief Move assignment that transfers the database connection.
+			 * @param db Database to move from.
+			 * @return Reference to this database.
 			 */
-			SQLite3& operator=(SQLite3&& db) noexcept = default;
+			SQLite3& operator=(SQLite3&& db) noexcept;
 
 			/**
 			 * @brief Destructor.

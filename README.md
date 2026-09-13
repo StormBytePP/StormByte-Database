@@ -65,6 +65,7 @@ cmake --build build
 ## Usage
 
 Headers are `#include <StormByte/database/….hxx>`. Namespace root is `StormByte::Database`.
+Moving a connected backend transfers ownership of its connection; the moved-from backend is disconnected.
 
 ### Derive your database
 

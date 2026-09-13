@@ -95,6 +95,26 @@ int not_connected_query() {
 	ASSERT_FALSE(fn_name, res.has_value());
 	RETURN_TEST(fn_name, 0);
 }
+int connected_database_move() {
+	const std::string fn_name = "connected_database_move";
+	std::unique_ptr<TestDatabase> moved;
+	{
+		TestDatabase source;
+		ASSERT_TRUE(fn_name, source.Connect());
+		moved = std::make_unique<TestDatabase>(std::move(source));
+	}
+	ASSERT_TRUE(fn_name, moved->IsConnected());
+	ASSERT_TRUE(fn_name, moved->Query("SELECT 1;").has_value());
+	TestDatabase reassigned;
+	{
+		TestDatabase source;
+		ASSERT_TRUE(fn_name, source.Connect());
+		reassigned = std::move(source);
+	}
+	ASSERT_TRUE(fn_name, reassigned.IsConnected());
+	ASSERT_TRUE(fn_name, reassigned.Query("SELECT 1;").has_value());
+	RETURN_TEST(fn_name, 0);
+}
 int not_connected_silent() {
 	const std::string fn_name = "not_connected_silent";
 	TestDatabase db;
@@ -429,6 +449,7 @@ int concurrent_multiple_connections() {
 int main() {
 	int result = 0;
 	result += not_connected_query();
+	result += connected_database_move();
 	result += not_connected_silent();
 	result += not_connected_execute();
 	result += not_connected_transaction();

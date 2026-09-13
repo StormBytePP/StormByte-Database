@@ -24,6 +24,7 @@ If you landed here from a release link and have not read the tree:
 
 - Updated the minimum requirements to StormByte Base 1.1.0 and StormByte-Logger 1.1.0, including component-aware Database exceptions.
 - Fixed system connector discovery with `WITH_SQLITE=SYSTEM`, `WITH_POSTGRES=SYSTEM` and `WITH_MARIADB=SYSTEM`.
+- Fixed ownership transfer when moving connected SQLite, PostgreSQL and MariaDB backends.
 
 ## [1.0.0] - 2026-09-05
 

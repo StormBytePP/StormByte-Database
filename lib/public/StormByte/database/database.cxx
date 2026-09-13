@@ -33,6 +33,8 @@ bool Database::Connect() noexcept {
 	return result;
 }
 void Database::Disconnect() noexcept {
+	if (!m_connected)
+		return;
 	if (m_logger)
 		*m_logger << Logger::Level::LowLevel << "Disconnect enter" << std::endl;
 	DoPreDisconnect();

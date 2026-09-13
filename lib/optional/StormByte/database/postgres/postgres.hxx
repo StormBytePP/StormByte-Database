@@ -46,9 +46,10 @@ namespace StormByte::Database::Postgres {
 			Postgres(const Postgres& db) = delete;
 
 			/**
-			 * @brief Move constructor.
+			 * @brief Move constructor that transfers the database connection.
+			 * @param db Database to move from.
 			 */
-			Postgres(Postgres&& db) noexcept = default;
+			Postgres(Postgres&& db) noexcept;
 
 			/**
 			 * @brief Copy assignment (deleted).
@@ -56,9 +57,11 @@ namespace StormByte::Database::Postgres {
 			Postgres& operator=(const Postgres& db) = delete;
 
 			/**
-			 * @brief Move assignment.
+			 * @brief Move assignment that transfers the database connection.
+			 * @param db Database to move from.
+			 * @return Reference to this database.
 			 */
-			Postgres& operator=(Postgres&& db) noexcept = default;
+			Postgres& operator=(Postgres&& db) noexcept;
 
 			/**
 			 * @brief Destructor.

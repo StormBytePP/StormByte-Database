@@ -415,6 +415,26 @@ int concurrent_multiple_connections() {
 	std::filesystem::remove(db_path, ec);
 	RETURN_TEST(fn_name, 0);
 }
+int connected_database_move() {
+	const std::string fn_name = "connected_database_move";
+	std::unique_ptr<TestMemoryDatabase> moved;
+	{
+		TestMemoryDatabase source;
+		ASSERT_TRUE(fn_name, source.Connect());
+		moved = std::make_unique<TestMemoryDatabase>(std::move(source));
+	}
+	ASSERT_TRUE(fn_name, moved->IsConnected());
+	ASSERT_TRUE(fn_name, moved->Query("SELECT 1;").has_value());
+	TestMemoryDatabase reassigned;
+	{
+		TestMemoryDatabase source;
+		ASSERT_TRUE(fn_name, source.Connect());
+		reassigned = std::move(source);
+	}
+	ASSERT_TRUE(fn_name, reassigned.IsConnected());
+	ASSERT_TRUE(fn_name, reassigned.Query("SELECT 1;").has_value());
+	RETURN_TEST(fn_name, 0);
+}
 int main() {
 	int result = 0;
 	result += not_connected_query();
@@ -445,6 +465,7 @@ int main() {
 	result += isolation_serializable();
 	result += isolation_repeatable_read();
 	result += concurrent_multiple_connections();
+	result += connected_database_move();
 	if (result == 0) {
 		std::cout << "All tests passed successfully.\n";
 	} else {

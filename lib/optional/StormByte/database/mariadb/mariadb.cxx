@@ -22,6 +22,7 @@
 #include <StormByte/database/mariadb/prepared_stmt.hxx>
 #include <mysql.h>
 #include <string>
+#include <utility>
 using namespace StormByte::Database::MariaDB;
 namespace {
 	void LogMariaDBWarnings(MYSQL* conn, std::shared_ptr<StormByte::Logger::Log>& logger) {
@@ -100,6 +101,26 @@ MariaDB::MariaDB(std::string&& host, std::string&& user, std::string&& password,
 	: Database(logger), m_host(std::move(host)), m_user(std::move(user)),
 	m_password(std::move(password)), m_dbname(std::move(db_name)),
 	m_port(port), m_conn(nullptr) {}
+MariaDB::MariaDB(MariaDB&& db) noexcept
+	: Database(std::move(db)), m_host(std::move(db.m_host)), m_user(std::move(db.m_user)),
+	m_password(std::move(db.m_password)), m_dbname(std::move(db.m_dbname)),
+	m_port(db.m_port), m_conn(std::exchange(db.m_conn, nullptr)) {
+	db.m_connected = false;
+}
+MariaDB& MariaDB::operator=(MariaDB&& db) noexcept {
+	if (this != &db) {
+		Disconnect();
+		Database::operator=(std::move(db));
+		m_host = std::move(db.m_host);
+		m_user = std::move(db.m_user);
+		m_password = std::move(db.m_password);
+		m_dbname = std::move(db.m_dbname);
+		m_port = db.m_port;
+		m_conn = std::exchange(db.m_conn, nullptr);
+		db.m_connected = false;
+	}
+	return *this;
+}
 bool MariaDB::DoConnect() noexcept {
 	if (m_logger)
 		*m_logger << Logger::Level::LowLevel << "MariaDB::DoConnect enter" << std::endl;

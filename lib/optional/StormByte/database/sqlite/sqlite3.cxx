@@ -23,6 +23,7 @@
 #include <sqlite3.h>
 #include <atomic>
 #include <mutex>
+#include <utility>
 using namespace StormByte::Database::SQLite;
 namespace {
 	std::atomic<int> g_sqlite_refcount{0};
@@ -34,6 +35,21 @@ SQLite3::SQLite3(const std::filesystem::path& dbfile, std::shared_ptr<Logger::Lo
 	: Database(logger), m_database_file(dbfile), m_database(nullptr) {}
 SQLite3::SQLite3(std::filesystem::path&& dbfile, std::shared_ptr<Logger::Log>&& logger)
 	: Database(std::move(logger)), m_database_file(std::move(dbfile)), m_database(nullptr) {}
+SQLite3::SQLite3(SQLite3&& db) noexcept
+	: Database(std::move(db)), m_database_file(std::move(db.m_database_file)),
+	m_database(std::exchange(db.m_database, nullptr)) {
+	db.m_connected = false;
+}
+SQLite3& SQLite3::operator=(SQLite3&& db) noexcept {
+	if (this != &db) {
+		Disconnect();
+		Database::operator=(std::move(db));
+		m_database_file = std::move(db.m_database_file);
+		m_database = std::exchange(db.m_database, nullptr);
+		db.m_connected = false;
+	}
+	return *this;
+}
 SQLite3::~SQLite3() noexcept {
 	if (m_logger)
 		*m_logger << Logger::Level::LowLevel << "SQLite3 dtor" << std::endl;

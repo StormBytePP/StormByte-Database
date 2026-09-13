@@ -23,6 +23,7 @@
 #include <libpq-fe.h>
 #include <cctype>
 #include <string>
+#include <utility>
 using namespace StormByte::Database::Postgres;
 namespace {
 	void PostgresNoticeProcessor(void* arg, const char* message) {
@@ -44,6 +45,25 @@ Postgres::Postgres(std::string&& host, std::string&& user, std::string&& passwor
 				std::string&& db_name, std::shared_ptr<Logger::Log> logger)
 	: Database(logger), m_host(std::move(host)), m_user(std::move(user)),
 	m_password(std::move(password)), m_dbname(std::move(db_name)), m_conn(nullptr) {}
+Postgres::Postgres(Postgres&& db) noexcept
+	: Database(std::move(db)), m_host(std::move(db.m_host)), m_user(std::move(db.m_user)),
+	m_password(std::move(db.m_password)), m_dbname(std::move(db.m_dbname)),
+	m_conn(std::exchange(db.m_conn, nullptr)) {
+	db.m_connected = false;
+}
+Postgres& Postgres::operator=(Postgres&& db) noexcept {
+	if (this != &db) {
+		Disconnect();
+		Database::operator=(std::move(db));
+		m_host = std::move(db.m_host);
+		m_user = std::move(db.m_user);
+		m_password = std::move(db.m_password);
+		m_dbname = std::move(db.m_dbname);
+		m_conn = std::exchange(db.m_conn, nullptr);
+		db.m_connected = false;
+	}
+	return *this;
+}
 Postgres::~Postgres() noexcept {
 	if (m_logger)
 		*m_logger << Logger::Level::LowLevel << "Postgres dtor" << std::endl;

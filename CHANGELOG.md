@@ -12,6 +12,7 @@ StormByte Database is the C++26 SQL layer of the StormByte suite.
 One API covers SQLite, PostgreSQL and MariaDB.
 Backends are base classes: you derive your schema, prepare statements and hook connect there.
 This repository is not Base, Buffer, Config, Crypto, Logger, Multimedia, Network or System.
+It requires [StormByte Base 1.1.0](https://github.com/StormBytePP/StormByte/releases/tag/1.1.0) and [StormByte-Logger 1.1.0](https://github.com/StormBytePP/StormByte-Logger/releases/tag/1.1.0) or newer.
 
 If you landed here from a release link and have not read the tree:
 
@@ -20,21 +21,25 @@ If you landed here from a release link and have not read the tree:
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-13
+
 ### Fixed
 
-- Updated the minimum requirements to StormByte Base 1.1.0 and StormByte-Logger 1.1.0, including component-aware Database exceptions.
-- Fixed system connector discovery with `WITH_SQLITE=SYSTEM`, `WITH_POSTGRES=SYSTEM` and `WITH_MARIADB=SYSTEM`.
-- Fixed ownership transfer when moving connected SQLite, PostgreSQL and MariaDB backends.
-- Fixed PostgreSQL and MariaDB numeric result parsing so invalid values return query errors instead of silent zero values.
+- **Backend connection and transaction handling**
+	- Fixed system connector discovery with `WITH_SQLITE=SYSTEM`, `WITH_POSTGRES=SYSTEM` and `WITH_MARIADB=SYSTEM`.
+	- Fixed ownership transfer when moving connected SQLite, PostgreSQL and MariaDB backends.
+	- Fixed transactions silently continuing after failed `BEGIN` or `COMMIT` commands.
+	- Fixed PostgreSQL connection handling for credentials containing quotes or backslashes.
+- **Prepared statements and result handling**
+	- Fixed PostgreSQL and MariaDB numeric result parsing so invalid values return query errors instead of silent zero values.
+	- Fixed PostgreSQL prepared statements with multiple text or numeric parameters.
+	- Fixed SQLite prepared statements truncating unsigned integer values.
+	- Fixed MariaDB prepared statements interpreting unsigned integers as negative values.
 - Fixed `Row` index access to throw the Database `OutOfBounds` exception.
-- Fixed PostgreSQL prepared statements with multiple text or numeric parameters.
-- Fixed SQLite prepared statements truncating unsigned integer values.
-- Fixed MariaDB prepared statements interpreting unsigned integers as negative values.
-- Fixed transactions silently continuing after failed `BEGIN` or `COMMIT` commands.
-- Fixed PostgreSQL connection handling for credentials containing quotes or backslashes.
 
 ### Changed
 
+- Updated the minimum requirements to StormByte Base 1.1.0 and StormByte-Logger 1.1.0, including component-aware Database exceptions.
 - Adopted StormByte Base type concepts for Database value conversions.
 
 ## [1.0.0] - 2026-09-05
@@ -60,5 +65,6 @@ Initial public release of StormByte Database.
 - Not thread-safe: one connection per thread.
 - Needs a C++26 compiler and CMake ≥ 3.28.
 
-[Unreleased]: https://github.com/StormBytePP/StormByte-Database/compare/1.0.0...HEAD
+[Unreleased]: https://github.com/StormBytePP/StormByte-Database/compare/1.1.0...HEAD
+[1.1.0]: https://github.com/StormBytePP/StormByte-Database/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/StormBytePP/StormByte-Database/releases/tag/1.0.0

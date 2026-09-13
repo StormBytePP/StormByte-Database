@@ -9,7 +9,8 @@ if(NOT WITH_MARIADB STREQUAL "OFF")
 		list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 		find_package(MariaDBConnector REQUIRED QUIET)
 		message(STATUS "Using system MariaDB Connector C")
-		target_link_libraries(StormByte-Database PRIVATE MariaDB::ConnectorC)
+		add_library(MariaDB-ConnectorC INTERFACE IMPORTED GLOBAL)
+		target_link_libraries(MariaDB-ConnectorC INTERFACE MariaDB::ConnectorC)
 	else()
 		set(MARIADB_C_OPTIONS
 			WITH_MYSQLCOMPAT=OFF
@@ -40,7 +41,7 @@ if(NOT WITH_MARIADB STREQUAL "OFF")
 			SYSTEM INTERFACE
 			"${BUILDMASTER_INSTALL_INCLUDEDIR}/mariadb"
 		)
-
-		buildmaster_link(StormByte-Database MariaDB-ConnectorC)
 	endif()
+
+	buildmaster_link(StormByte-Database MariaDB-ConnectorC)
 endif()

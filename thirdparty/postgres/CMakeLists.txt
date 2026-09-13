@@ -8,7 +8,8 @@ if(NOT WITH_POSTGRES STREQUAL "OFF")
 	if(WITH_POSTGRES STREQUAL "SYSTEM")
 		find_package(PostgreSQL REQUIRED QUIET)
 		message(STATUS "Using system PostgreSQL: ${PostgreSQL_VERSION}")
-		target_link_libraries(StormByte-Database PRIVATE PostgreSQL::PostgreSQL)
+		add_library(PostgreSQL INTERFACE IMPORTED GLOBAL)
+		target_link_libraries(PostgreSQL INTERFACE PostgreSQL::PostgreSQL)
 	else()
 		set(POSTGRES_OPTIONS
 			docs=disabled
@@ -57,7 +58,7 @@ if(NOT WITH_POSTGRES STREQUAL "OFF")
 			"pq;pgport;pgport_shlib;pgcommon;pgcommon_shlib"
 			"${_pg_optstr}"
 		)
-
-		buildmaster_link(StormByte-Database PostgreSQL)
 	endif()
+
+	buildmaster_link(StormByte-Database PostgreSQL)
 endif()

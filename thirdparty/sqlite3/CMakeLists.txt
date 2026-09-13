@@ -8,7 +8,8 @@ if(NOT WITH_SQLITE STREQUAL "OFF")
 	if(WITH_SQLITE STREQUAL "SYSTEM")
 		find_package(SQLite3 REQUIRED QUIET)
 		message(STATUS "Using system SQLite3: ${SQLite3_VERSION}")
-		target_link_libraries(StormByte-Database PRIVATE SQLite3::SQLite3)
+		add_library(sqlite3 INTERFACE IMPORTED GLOBAL)
+		target_link_libraries(sqlite3 INTERFACE SQLite3::SQLite3)
 	else()
 		set(SQLITE_AMALGAMATION_URL
 			"https://sqlite.org/2026/sqlite-amalgamation-3530400.zip")
@@ -24,7 +25,7 @@ if(NOT WITH_SQLITE STREQUAL "OFF")
 			"sqlite3"
 			"ALIAS=SQLite3::SQLite3;FILES={URL=${SQLITE_AMALGAMATION_URL};NAME=sqlite3;UNPACK;TITLE=SQLite3 amalgamation;EXPECTED_HASH=${SQLITE_AMALGAMATION_HASH}}"
 		)
-
-		buildmaster_link(StormByte-Database sqlite3)
 	endif()
+
+	buildmaster_link(StormByte-Database sqlite3)
 endif()

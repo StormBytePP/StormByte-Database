@@ -27,7 +27,6 @@
 #include <vector>
 #include <thread>
 #include <chrono>
-#include <stdexcept>
 using ExpectedRows = StormByte::Database::ExpectedRows;
 using namespace StormByte::Database::MariaDB;
 using StormByte::Database::IsolationLevel;

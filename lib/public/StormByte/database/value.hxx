@@ -197,11 +197,11 @@ namespace StormByte::Database {
 				using To = std::decay_t<T>;
 				return std::visit([](auto&& val) -> To {
 					using From = std::decay_t<decltype(val)>;
-					if constexpr (std::is_same_v<From, std::monostate>) {
+					if constexpr (StormByte::Type::SameAs<From, std::monostate>) {
 						throw WrongValueType("Requested type does not match stored type (null).");
-					} else if constexpr (std::is_same_v<From, To>) {
+					} else if constexpr (StormByte::Type::SameAs<From, To>) {
 						return val;
-					} else if constexpr (std::is_arithmetic_v<From> && std::is_arithmetic_v<To>) {
+					} else if constexpr (StormByte::Type::Arithmetic<From> && StormByte::Type::Arithmetic<To>) {
 						return convert_numeric<To, From>(val);
 					} else {
 						throw WrongValueType("Requested type does not match stored type.");
@@ -235,12 +235,12 @@ namespace StormByte::Database {
 			 * @throws WrongValueType on overflow, sign loss or a non-integral float.
 			 */
 			template<typename To, typename From>
-			requires (std::is_arithmetic_v<To> && std::is_arithmetic_v<From>)
+			requires (StormByte::Type::Arithmetic<To> && StormByte::Type::Arithmetic<From>)
 			static To convert_numeric(const From& val) {
-				if constexpr (std::is_integral_v<From> && std::is_integral_v<To>) {
-					if constexpr (std::is_signed_v<From>) {
+				if constexpr (StormByte::Type::Integral<From> && StormByte::Type::Integral<To>) {
+					if constexpr (StormByte::Type::Signed<From>) {
 						std::intmax_t from = static_cast<std::intmax_t>(val);
-						if constexpr (std::is_signed_v<To>) {
+						if constexpr (StormByte::Type::Signed<To>) {
 							if (from < static_cast<std::intmax_t>(std::numeric_limits<To>::lowest()) || from > static_cast<std::intmax_t>(std::numeric_limits<To>::max()))
 								throw WrongValueType("Integer conversion would overflow/narrow.");
 							return static_cast<To>(from);
@@ -252,7 +252,7 @@ namespace StormByte::Database {
 						}
 					} else {
 						std::uintmax_t from = static_cast<std::uintmax_t>(val);
-						if constexpr (std::is_signed_v<To>) {
+						if constexpr (StormByte::Type::Signed<To>) {
 							if (from > static_cast<std::uintmax_t>(std::numeric_limits<To>::max()))
 								throw WrongValueType("Integer conversion would overflow/narrow.");
 							return static_cast<To>(from);
@@ -262,14 +262,14 @@ namespace StormByte::Database {
 							return static_cast<To>(from);
 						}
 					}
-				} else if constexpr (std::is_integral_v<From> && std::is_floating_point_v<To>) {
+				} else if constexpr (StormByte::Type::Integral<From> && StormByte::Type::FloatingPoint<To>) {
 					return static_cast<To>(val);
-				} else if constexpr (std::is_floating_point_v<From> && std::is_integral_v<To>) {
+				} else if constexpr (StormByte::Type::FloatingPoint<From> && StormByte::Type::Integral<To>) {
 					long double d = static_cast<long double>(val);
 					if (!std::isfinite(d)) throw WrongValueType("Non-finite floating conversion to integer.");
 					if (std::trunc(d) != d) throw WrongValueType("Floating value has fractional part; would lose data.");
 					std::intmax_t tmp = static_cast<std::intmax_t>(d);
-					if constexpr (std::is_signed_v<To>) {
+					if constexpr (StormByte::Type::Signed<To>) {
 						if (tmp < static_cast<std::intmax_t>(std::numeric_limits<To>::lowest()) || tmp > static_cast<std::intmax_t>(std::numeric_limits<To>::max()))
 							throw WrongValueType("Floating to integer conversion would overflow/narrow.");
 						return static_cast<To>(tmp);
@@ -279,7 +279,7 @@ namespace StormByte::Database {
 							throw WrongValueType("Floating to integer conversion would overflow/narrow.");
 						return static_cast<To>(tmp);
 					}
-				} else if constexpr (std::is_floating_point_v<From> && std::is_floating_point_v<To>) {
+				} else if constexpr (StormByte::Type::FloatingPoint<From> && StormByte::Type::FloatingPoint<To>) {
 					return static_cast<To>(val);
 				} else {
 					throw WrongValueType("Unsupported numeric conversion.");

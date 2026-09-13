@@ -29,7 +29,6 @@
 #include <thread>
 #include <chrono>
 #include <filesystem>
-#include <stdexcept>
 using ExpectedRows = StormByte::Database::ExpectedRows;
 using namespace StormByte::Database::SQLite;
 using StormByte::Database::IsolationLevel;

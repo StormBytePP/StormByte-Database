@@ -210,22 +210,24 @@ Postgres::CreatePreparedSTMT(std::string&& name, std::string&& query) noexcept {
 	return stmt;
 }
 void Postgres::DoBeginTransaction(IsolationLevel level) {
+	const char* query = "BEGIN;";
 	switch (level) {
 		case IsolationLevel::ReadUncommitted:
-			DoSilentQuery("BEGIN ISOLATION LEVEL READ UNCOMMITTED;");
+			query = "BEGIN ISOLATION LEVEL READ UNCOMMITTED;";
 			break;
 		case IsolationLevel::ReadCommitted:
-			DoSilentQuery("BEGIN ISOLATION LEVEL READ COMMITTED;");
+			query = "BEGIN ISOLATION LEVEL READ COMMITTED;";
 			break;
 		case IsolationLevel::RepeatableRead:
-			DoSilentQuery("BEGIN ISOLATION LEVEL REPEATABLE READ;");
+			query = "BEGIN ISOLATION LEVEL REPEATABLE READ;";
 			break;
 		case IsolationLevel::Serializable:
-			DoSilentQuery("BEGIN ISOLATION LEVEL SERIALIZABLE;");
+			query = "BEGIN ISOLATION LEVEL SERIALIZABLE;";
 			break;
 		case IsolationLevel::Default:
 		default:
-			DoSilentQuery("BEGIN;");
 			break;
 	}
+	if (!DoSilentQuery(query))
+		throw ExecuteError("Unable to begin transaction.");
 }

@@ -139,10 +139,10 @@ int not_connected_transaction() {
 	try {
 		auto tx = db.BeginTransaction();
 		(void)tx;
-	} catch (...) {
+	} catch (const StormByte::Database::ExecuteError&) {
 		threw = true;
 	}
-	ASSERT_TRUE(fn_name, threw || true);
+	ASSERT_TRUE(fn_name, threw);
 	RETURN_TEST(fn_name, 0);
 }
 int is_connected_test() {

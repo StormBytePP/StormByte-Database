@@ -211,22 +211,26 @@ MariaDB::CreatePreparedSTMT(std::string&& name, std::string&& query) noexcept {
 		new PreparedSTMT(std::move(name), std::move(query), m_conn, m_logger));
 }
 void MariaDB::DoBeginTransaction(IsolationLevel level) {
+	const char* isolation_query = nullptr;
 	switch (level) {
 		case IsolationLevel::ReadUncommitted:
-			DoSilentQuery("SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;");
+			isolation_query = "SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;";
 			break;
 		case IsolationLevel::ReadCommitted:
-			DoSilentQuery("SET TRANSACTION ISOLATION LEVEL READ COMMITTED;");
+			isolation_query = "SET TRANSACTION ISOLATION LEVEL READ COMMITTED;";
 			break;
 		case IsolationLevel::RepeatableRead:
-			DoSilentQuery("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;");
+			isolation_query = "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;";
 			break;
 		case IsolationLevel::Serializable:
-			DoSilentQuery("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;");
+			isolation_query = "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;";
 			break;
 		case IsolationLevel::Default:
 		default:
 			break;
 	}
-	DoSilentQuery("BEGIN;");
+	if (isolation_query && !DoSilentQuery(isolation_query))
+		throw ExecuteError("Unable to set transaction isolation level.");
+	if (!DoSilentQuery("BEGIN;"))
+		throw ExecuteError("Unable to begin transaction.");
 }

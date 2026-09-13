@@ -164,17 +164,19 @@ SQLite3::CreatePreparedSTMT(std::string&& name, std::string&& query) noexcept {
 	return stmt;
 }
 void SQLite3::DoBeginTransaction(IsolationLevel level) {
+	const char* query = "BEGIN DEFERRED;";
 	switch (level) {
 		case IsolationLevel::ReadUncommitted:
 		case IsolationLevel::ReadCommitted:
 		case IsolationLevel::Default:
-			DoSilentQuery("BEGIN DEFERRED;");
 			break;
 		case IsolationLevel::RepeatableRead:
-			DoSilentQuery("BEGIN IMMEDIATE;");
+			query = "BEGIN IMMEDIATE;";
 			break;
 		case IsolationLevel::Serializable:
-			DoSilentQuery("BEGIN EXCLUSIVE;");
+			query = "BEGIN EXCLUSIVE;";
 			break;
 	}
+	if (!DoSilentQuery(query))
+		throw ExecuteError("Unable to begin transaction.");
 }

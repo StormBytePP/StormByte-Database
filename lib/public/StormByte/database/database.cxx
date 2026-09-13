@@ -63,7 +63,8 @@ Transaction Database::BeginTransaction(IsolationLevel level) {
 void Database::CommitTransaction() {
 	if (m_logger)
 		*m_logger << Logger::Level::Debug << "CommitTransaction" << std::endl;
-	DoSilentQuery("COMMIT;");
+	if (!DoSilentQuery("COMMIT;"))
+		throw ExecuteError("Unable to commit transaction.");
 }
 void Database::RollbackTransaction() {
 	if (m_logger)

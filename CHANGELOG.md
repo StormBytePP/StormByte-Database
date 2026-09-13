@@ -30,6 +30,7 @@ If you landed here from a release link and have not read the tree:
 - Fixed PostgreSQL prepared statements with multiple text or numeric parameters.
 - Fixed SQLite prepared statements truncating unsigned integer values.
 - Fixed MariaDB prepared statements interpreting unsigned integers as negative values.
+- Fixed transactions silently continuing after failed `BEGIN` or `COMMIT` commands.
 
 ### Changed
 

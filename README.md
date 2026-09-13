@@ -96,7 +96,7 @@ int main() {
 }
 ```
 
-MariaDB / Postgres follow the same pattern: subclass, pass host / user / password / database (and port on MariaDB), optionally `SetSslMode` before `Connect()`.
+MariaDB / Postgres follow the same pattern: subclass, pass host / user / password / database (and port on MariaDB), optionally `SetSslMode` before `Connect()`. PostgreSQL connection parameters are passed separately, so credentials may contain quotes and backslashes.
 
 ### Values and rows
 

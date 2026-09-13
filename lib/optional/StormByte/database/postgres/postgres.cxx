@@ -74,26 +74,31 @@ bool Postgres::DoConnect() noexcept {
 		*m_logger << Logger::Level::LowLevel << "Postgres::DoConnect enter" << std::endl;
 	if (m_connected)
 		return false;
-	std::string conninfo;
-	if (!m_host.empty())     conninfo += "host='" + m_host + "' ";
-	if (!m_user.empty())     conninfo += "user='" + m_user + "' ";
-	if (!m_password.empty()) conninfo += "password='" + m_password + "' ";
-	if (!m_dbname.empty())   conninfo += "dbname='" + m_dbname + "' ";
+	const char* ssl_mode = nullptr;
 	switch (m_ssl_mode) {
 		case SslMode::Disable:
-			conninfo += "sslmode=disable ";
+			ssl_mode = "disable";
 			break;
 		case SslMode::Prefer:
-			conninfo += "sslmode=prefer ";
+			ssl_mode = "prefer";
 			break;
 		case SslMode::Require:
-			conninfo += "sslmode=require ";
+			ssl_mode = "require";
 			break;
 		case SslMode::Default:
 		default:
 			break;
 	}
-	PGconn* conn = PQconnectdb(conninfo.c_str());
+	const char* keywords[] = {"host", "user", "password", "dbname", "sslmode", nullptr};
+	const char* values[] = {
+		m_host.empty() ? nullptr : m_host.c_str(),
+		m_user.empty() ? nullptr : m_user.c_str(),
+		m_password.empty() ? nullptr : m_password.c_str(),
+		m_dbname.empty() ? nullptr : m_dbname.c_str(),
+		ssl_mode,
+		nullptr
+	};
+	PGconn* conn = PQconnectdbParams(keywords, values, 0);
 	if (!conn) {
 		if (m_logger)
 			*m_logger << Logger::Level::Error << "PQconnectdb returned null" << std::endl;

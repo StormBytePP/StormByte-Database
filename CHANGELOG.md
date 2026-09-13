@@ -31,6 +31,7 @@ If you landed here from a release link and have not read the tree:
 - Fixed SQLite prepared statements truncating unsigned integer values.
 - Fixed MariaDB prepared statements interpreting unsigned integers as negative values.
 - Fixed transactions silently continuing after failed `BEGIN` or `COMMIT` commands.
+- Fixed PostgreSQL connection handling for credentials containing quotes or backslashes.
 
 ### Changed
 

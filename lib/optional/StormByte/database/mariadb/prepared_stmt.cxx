@@ -29,16 +29,20 @@ using namespace StormByte::Database::MariaDB;
 static inline MYSQL* to_mysql_conn(struct st_mysql* c) noexcept {
 	return reinterpret_cast<MYSQL*>(c);
 }
+
 static inline MYSQL_STMT* to_mysql_stmt(struct st_mysql_stmt* s) noexcept {
 	return reinterpret_cast<MYSQL_STMT*>(s);
 }
+
 static inline struct st_mysql_stmt* to_st_mysql_stmt(MYSQL_STMT* s) noexcept {
 	return reinterpret_cast<struct st_mysql_stmt*>(s);
 }
+
 void PreparedSTMT::EnsureParamSize(std::vector<StormByte::Database::Value>& params, int index) noexcept {
 	if (index < 0) return;
 	if (static_cast<size_t>(index) >= params.size()) params.resize(index + 1);
 }
+
 PreparedSTMT::PreparedSTMT(const std::string& name, const std::string& query, struct st_mysql* conn, std::shared_ptr<Logger::Log> logger)
 	: Database::PreparedSTMT(name, query, std::move(logger)), m_conn(conn), m_stmt(nullptr) {
 	MYSQL* cpp_conn = to_mysql_conn(m_conn);
@@ -47,8 +51,10 @@ PreparedSTMT::PreparedSTMT(const std::string& name, const std::string& query, st
 		if (m_logger) {
 			*m_logger << Logger::Level::Error << "MariaDB: mysql_stmt_init returned null for query: " << Query() << std::endl;
 		}
+
 		return;
 	}
+
 	std::string prepq = Query();
 	while (!prepq.empty() && isspace(static_cast<unsigned char>(prepq.back()))) prepq.pop_back();
 	if (!prepq.empty() && prepq.back() == ';') prepq.pop_back();
@@ -58,11 +64,14 @@ PreparedSTMT::PreparedSTMT(const std::string& name, const std::string& query, st
 					<< (mysql_stmt_error(stmt) ? mysql_stmt_error(stmt) : "<none>")
 					<< " for query: " << Query() << std::endl;
 		}
+
 		mysql_stmt_close(stmt);
 		return;
 	}
+
 	m_stmt = to_st_mysql_stmt(stmt);
 }
+
 PreparedSTMT::PreparedSTMT(std::string&& name, std::string&& query, struct st_mysql* conn, std::shared_ptr<Logger::Log> logger) noexcept
 	: Database::PreparedSTMT(std::move(name), std::move(query), std::move(logger)), m_conn(conn), m_stmt(nullptr) {
 	MYSQL* cpp_conn = to_mysql_conn(m_conn);
@@ -75,8 +84,10 @@ PreparedSTMT::PreparedSTMT(std::string&& name, std::string&& query, struct st_my
 		mysql_stmt_close(stmt);
 		return;
 	}
+
 	m_stmt = to_st_mysql_stmt(stmt);
 }
+
 PreparedSTMT::~PreparedSTMT() noexcept {
 	if (m_stmt) {
 		MYSQL_STMT* stmt = to_mysql_stmt(m_stmt);
@@ -84,20 +95,24 @@ PreparedSTMT::~PreparedSTMT() noexcept {
 		m_stmt = nullptr;
 	}
 }
+
 void PreparedSTMT::Binder(const int& index, Value&& value) noexcept {
 	EnsureParamSize(m_params, index);
 	m_params[index] = std::move(value);
 }
+
 void PreparedSTMT::Reset() noexcept {
 	m_params.clear();
 	if (m_stmt) {
 		mysql_stmt_reset(to_mysql_stmt(m_stmt));
 	}
 }
+
 StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 	if (!m_conn || !m_stmt) {
 		return Unexpected<ExecuteError>("No DB connection or statement");
 	}
+
 	MYSQL_STMT* stmt = to_mysql_stmt(m_stmt);
 	std::vector<MYSQL_BIND> bind_in;
 	bind_in.resize(m_params.size());
@@ -121,6 +136,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 			is_null[i] = 1;
 			continue;
 		}
+
 		auto vt = p.Type();
 		switch (vt) {
 			case StormByte::Database::Value::Type::Integer: {
@@ -130,6 +146,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 				bind_in[i].is_null = &is_null[i];
 				break;
 			}
+
 			case StormByte::Database::Value::Type::UnsignedInteger: {
 				uint_buf[i] = p.Get<unsigned int>();
 				bind_in[i].buffer_type = MYSQL_TYPE_LONG;
@@ -138,6 +155,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 				bind_in[i].is_null = &is_null[i];
 				break;
 			}
+
 			case StormByte::Database::Value::Type::LongInteger: {
 				ll_buf[i] = p.Get<long int>();
 				bind_in[i].buffer_type = MYSQL_TYPE_LONGLONG;
@@ -145,6 +163,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 				bind_in[i].is_null = &is_null[i];
 				break;
 			}
+
 			case StormByte::Database::Value::Type::UnsignedLongInteger: {
 				ull_buf[i] = p.Get<unsigned long int>();
 				bind_in[i].buffer_type = MYSQL_TYPE_LONGLONG;
@@ -153,6 +172,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 				bind_in[i].is_null = &is_null[i];
 				break;
 			}
+
 			case StormByte::Database::Value::Type::Double: {
 				dbl_buf[i] = p.Get<double>();
 				bind_in[i].buffer_type = MYSQL_TYPE_DOUBLE;
@@ -160,6 +180,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 				bind_in[i].is_null = &is_null[i];
 				break;
 			}
+
 			case StormByte::Database::Value::Type::Boolean: {
 				bool_buf[i] = p.Get<bool>() ? 1 : 0;
 				bind_in[i].buffer_type = MYSQL_TYPE_TINY;
@@ -167,6 +188,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 				bind_in[i].is_null = &is_null[i];
 				break;
 			}
+
 			case StormByte::Database::Value::Type::Text: {
 				str_buf[i] = p.Get<std::string>();
 				bind_in[i].buffer_type = MYSQL_TYPE_STRING;
@@ -177,6 +199,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 				bind_in[i].is_null = &is_null[i];
 				break;
 			}
+
 			case StormByte::Database::Value::Type::Blob: {
 				auto bv = p.Get<std::vector<std::byte>>();
 				bin_buf[i].resize(bv.size());
@@ -190,6 +213,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 				bind_in[i].is_null = &is_null[i];
 				break;
 			}
+
 			case StormByte::Database::Value::Type::Null:
 			default: {
 				bind_in[i].buffer_type = MYSQL_TYPE_NULL;
@@ -199,21 +223,26 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 			}
 		}
 	}
+
 	if (!bind_in.empty()) {
 		if (mysql_stmt_bind_param(stmt, bind_in.data()) != 0) {
 			return Unexpected<ExecuteError>(mysql_stmt_error(stmt) ? mysql_stmt_error(stmt) : "Unknown MySQL stmt error");
 		}
 	}
+
 	if (mysql_stmt_execute(stmt) != 0) {
 		return Unexpected<ExecuteError>(mysql_stmt_error(stmt) ? mysql_stmt_error(stmt) : "Unknown MySQL stmt error");
 	}
+
 	MYSQL_RES* meta = mysql_stmt_result_metadata(stmt);
 	if (!meta) {
 		if (mysql_stmt_field_count(stmt) == 0) {
 			return Rows();
 		}
+
 		return Unexpected<ExecuteError>(mysql_stmt_error(stmt) ? mysql_stmt_error(stmt) : "Unknown MySQL stmt error");
 	}
+
 	const unsigned int nfields = mysql_num_fields(meta);
 	std::vector<MYSQL_BIND> bind_out(nfields);
 	std::vector<unsigned long> out_len(nfields);
@@ -243,6 +272,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 						bind_out[i].buffer = &out_int[i];
 					}
 				}
+
 				bind_out[i].is_null = &out_is_null[i];
 				bind_out[i].length = &out_len[i];
 				break;
@@ -254,6 +284,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 				} else {
 					bind_out[i].buffer = &out_int[i];
 				}
+
 				bind_out[i].is_null = &out_is_null[i];
 				bind_out[i].length = &out_len[i];
 				break;
@@ -264,6 +295,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 				} else {
 					bind_out[i].buffer = &out_ll[i];
 				}
+
 				bind_out[i].is_null = &out_is_null[i];
 				bind_out[i].length = &out_len[i];
 				break;
@@ -287,14 +319,17 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 				break;
 		}
 	}
+
 	if (mysql_stmt_bind_result(stmt, bind_out.data()) != 0) {
 		mysql_free_result(meta);
 		return Unexpected<ExecuteError>(mysql_stmt_error(stmt) ? mysql_stmt_error(stmt) : "Unknown MySQL stmt error");
 	}
+
 	if (mysql_stmt_store_result(stmt) != 0) {
 		mysql_free_result(meta);
 		return Unexpected<ExecuteError>(mysql_stmt_error(stmt) ? mysql_stmt_error(stmt) : "Unknown MySQL stmt error");
 	}
+
 	Rows rows;
 	while (true) {
 		int rc = mysql_stmt_fetch(stmt);
@@ -303,6 +338,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 			mysql_free_result(meta);
 			return Unexpected<ExecuteError>(mysql_stmt_error(stmt) ? mysql_stmt_error(stmt) : "Unknown MySQL stmt fetch error");
 		}
+
 		if (rc == MYSQL_DATA_TRUNCATED) {
 			for (unsigned int ci = 0; ci < nfields; ++ci) {
 				if (out_is_null[ci]) continue;
@@ -317,6 +353,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 				}
 			}
 		}
+
 		Row prow;
 		for (unsigned int i = 0; i < nfields; ++i) {
 			MYSQL_FIELD* f = mysql_fetch_field_direct(meta, i);
@@ -325,6 +362,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 				prow.add(std::string(colName ? colName : ""), Value());
 				continue;
 			}
+
 			switch (f ? f->type : MYSQL_TYPE_STRING) {
 				case MYSQL_TYPE_TINY: {
 					if (f && (f->flags & UNSIGNED_FLAG) == 0 && f->length == 1) {
@@ -334,8 +372,10 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 					} else {
 						prow.add(std::string(colName ? colName : ""), static_cast<int>(out_int[i]));
 					}
+
 					break;
 				}
+
 				case MYSQL_TYPE_SHORT:
 				case MYSQL_TYPE_LONG:
 					if (f && (f->flags & UNSIGNED_FLAG))
@@ -364,13 +404,16 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 							for (unsigned long bi = 0; bi < llen; ++bi)
 								blob[bi] = static_cast<std::byte>(out_str[i][bi]);
 						}
+
 						prow.add(std::string(colName ? colName : ""), std::move(blob));
 					} else {
 						std::string sval(out_str[i].data(), llen);
 						prow.add(std::string(colName ? colName : ""), std::move(sval));
 					}
+
 					break;
 				}
+
 				case MYSQL_TYPE_VAR_STRING:
 				case MYSQL_TYPE_STRING:
 				default: {
@@ -381,8 +424,10 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 				}
 			}
 		}
+
 		rows.add(std::move(prow));
 	}
+
 	mysql_free_result(meta);
 	mysql_stmt_free_result(stmt);
 	return rows;

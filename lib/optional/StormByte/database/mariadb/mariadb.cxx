@@ -44,8 +44,10 @@ namespace {
 			*logger << StormByte::Logger::Level::Notice
 					<< "MariaDB " << level << " (" << code << "): " << msg << std::endl;
 		}
+
 		mysql_free_result(res);
 	}
+
 	void ApplySslMode(MYSQL* conn, StormByte::Database::SslMode mode) {
 		if (!conn)
 			return;
@@ -87,11 +89,13 @@ namespace {
 #endif
 	}
 }
+
 MariaDB::~MariaDB() noexcept {
 	if (m_logger)
 		*m_logger << Logger::Level::LowLevel << "MariaDB dtor" << std::endl;
 	Disconnect();
 }
+
 MariaDB::MariaDB(const std::string& host, const std::string& user, const std::string& password,
 				const std::string& db_name, int port, std::shared_ptr<Logger::Log> logger)
 	: Database(logger), m_host(host), m_user(user), m_password(password),
@@ -107,6 +111,7 @@ MariaDB::MariaDB(MariaDB&& db) noexcept
 	m_port(db.m_port), m_conn(std::exchange(db.m_conn, nullptr)) {
 	db.m_connected = false;
 }
+
 MariaDB& MariaDB::operator=(MariaDB&& db) noexcept {
 	if (this != &db) {
 		Disconnect();
@@ -119,8 +124,10 @@ MariaDB& MariaDB::operator=(MariaDB&& db) noexcept {
 		m_conn = std::exchange(db.m_conn, nullptr);
 		db.m_connected = false;
 	}
+
 	return *this;
 }
+
 bool MariaDB::DoConnect() noexcept {
 	if (m_logger)
 		*m_logger << Logger::Level::LowLevel << "MariaDB::DoConnect enter" << std::endl;
@@ -132,6 +139,7 @@ bool MariaDB::DoConnect() noexcept {
 			*m_logger << Logger::Level::Error << "mysql_init failed" << std::endl;
 		return false;
 	}
+
 	ApplySslMode(conn, m_ssl_mode);
 	unsigned int port = static_cast<unsigned int>(m_port);
 	if (!mysql_real_connect(conn,
@@ -146,24 +154,29 @@ bool MariaDB::DoConnect() noexcept {
 					<< (mysql_error(conn) ? mysql_error(conn) : "Unknown error")
 					<< std::endl;
 		}
+
 		mysql_close(conn);
 		m_conn = nullptr;
 		return false;
 	}
+
 	m_conn = conn;
 	if (m_logger)
 		*m_logger << Logger::Level::LowLevel << "MariaDB::DoConnect leave (ok)" << std::endl;
 	return true;
 }
+
 void MariaDB::DoPreDisconnect() noexcept {
 	m_prepared_stmts.clear();
 }
+
 void MariaDB::DoDisconnect() noexcept {
 	if (m_conn) {
 		mysql_close(m_conn);
 		m_conn = nullptr;
 	}
 }
+
 StormByte::Database::ExpectedRows MariaDB::Query(const std::string& query) noexcept {
 	if (m_logger)
 		*m_logger << Logger::Level::Debug << "Executing query: " << query << std::endl;
@@ -172,6 +185,7 @@ StormByte::Database::ExpectedRows MariaDB::Query(const std::string& query) noexc
 	if (mysql_real_query(m_conn, query.c_str(), static_cast<unsigned long>(query.size())) != 0) {
 		return Unexpected<ExecuteError>(mysql_error(m_conn) ? mysql_error(m_conn) : "Unknown MySQL error");
 	}
+
 	LogMariaDBWarnings(m_conn, m_logger);
 	MYSQL_RES* res = mysql_store_result(m_conn);
 	if (!res) {
@@ -179,13 +193,16 @@ StormByte::Database::ExpectedRows MariaDB::Query(const std::string& query) noexc
 			return Rows();
 		return Unexpected<ExecuteError>(mysql_error(m_conn) ? mysql_error(m_conn) : "Unknown MySQL error");
 	}
+
 	StormByte::Database::ExpectedRows rows = StormByte::Database::MariaDB::StepResults(res);
 	mysql_free_result(res);
 	return rows;
 }
+
 bool MariaDB::SilentQuery(const std::string& query) noexcept {
 	return DoSilentQuery(query);
 }
+
 bool MariaDB::DoSilentQuery(const std::string& query) noexcept {
 	if (m_logger)
 		*m_logger << Logger::Level::Debug << "Executing silent query: " << query << std::endl;
@@ -198,11 +215,14 @@ bool MariaDB::DoSilentQuery(const std::string& query) noexcept {
 					<< (mysql_error(m_conn) ? mysql_error(m_conn) : "Unknown MySQL error")
 					<< std::endl;
 		}
+
 		return false;
 	}
+
 	LogMariaDBWarnings(m_conn, m_logger);
 	return true;
 }
+
 std::unique_ptr<StormByte::Database::PreparedSTMT>
 MariaDB::CreatePreparedSTMT(std::string&& name, std::string&& query) noexcept {
 	if (!m_conn)
@@ -210,6 +230,7 @@ MariaDB::CreatePreparedSTMT(std::string&& name, std::string&& query) noexcept {
 	return std::unique_ptr<PreparedSTMT>(
 		new PreparedSTMT(std::move(name), std::move(query), m_conn, m_logger));
 }
+
 void MariaDB::DoBeginTransaction(IsolationLevel level) {
 	const char* isolation_query = nullptr;
 	switch (level) {
@@ -229,6 +250,7 @@ void MariaDB::DoBeginTransaction(IsolationLevel level) {
 		default:
 			break;
 	}
+
 	if (isolation_query && !DoSilentQuery(isolation_query))
 		throw ExecuteError("Unable to set transaction isolation level.");
 	if (!DoSilentQuery("BEGIN;"))

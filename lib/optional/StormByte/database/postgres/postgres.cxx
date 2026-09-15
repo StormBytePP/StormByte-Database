@@ -37,6 +37,7 @@ namespace {
 			*log << StormByte::Logger::Level::Notice << msg << std::endl;
 	}
 }
+
 Postgres::Postgres(const std::string& host, const std::string& user, const std::string& password,
 				const std::string& db_name, std::shared_ptr<Logger::Log> logger)
 	: Database(logger), m_host(host), m_user(user), m_password(password),
@@ -45,12 +46,14 @@ Postgres::Postgres(std::string&& host, std::string&& user, std::string&& passwor
 				std::string&& db_name, std::shared_ptr<Logger::Log> logger)
 	: Database(logger), m_host(std::move(host)), m_user(std::move(user)),
 	m_password(std::move(password)), m_dbname(std::move(db_name)), m_conn(nullptr) {}
+
 Postgres::Postgres(Postgres&& db) noexcept
 	: Database(std::move(db)), m_host(std::move(db.m_host)), m_user(std::move(db.m_user)),
 	m_password(std::move(db.m_password)), m_dbname(std::move(db.m_dbname)),
 	m_conn(std::exchange(db.m_conn, nullptr)) {
 	db.m_connected = false;
 }
+
 Postgres& Postgres::operator=(Postgres&& db) noexcept {
 	if (this != &db) {
 		Disconnect();
@@ -62,13 +65,16 @@ Postgres& Postgres::operator=(Postgres&& db) noexcept {
 		m_conn = std::exchange(db.m_conn, nullptr);
 		db.m_connected = false;
 	}
+
 	return *this;
 }
+
 Postgres::~Postgres() noexcept {
 	if (m_logger)
 		*m_logger << Logger::Level::LowLevel << "Postgres dtor" << std::endl;
 	Disconnect();
 }
+
 bool Postgres::DoConnect() noexcept {
 	if (m_logger)
 		*m_logger << Logger::Level::LowLevel << "Postgres::DoConnect enter" << std::endl;
@@ -89,6 +95,7 @@ bool Postgres::DoConnect() noexcept {
 		default:
 			break;
 	}
+
 	const char* keywords[] = {"host", "user", "password", "dbname", "sslmode", nullptr};
 	const char* values[] = {
 		m_host.empty() ? nullptr : m_host.c_str(),
@@ -104,6 +111,7 @@ bool Postgres::DoConnect() noexcept {
 			*m_logger << Logger::Level::Error << "PQconnectdb returned null" << std::endl;
 		return false;
 	}
+
 	if (PQstatus(conn) != CONNECTION_OK) {
 		if (m_logger) {
 			*m_logger << Logger::Level::Error
@@ -111,10 +119,12 @@ bool Postgres::DoConnect() noexcept {
 					<< (PQerrorMessage(conn) ? PQerrorMessage(conn) : "Unknown error")
 					<< std::endl;
 		}
+
 		PQfinish(conn);
 		m_conn = nullptr;
 		return false;
 	}
+
 	m_conn = conn;
 	if (m_logger)
 		PQsetNoticeProcessor(conn, PostgresNoticeProcessor, m_logger.get());
@@ -122,15 +132,18 @@ bool Postgres::DoConnect() noexcept {
 		*m_logger << Logger::Level::LowLevel << "Postgres::DoConnect leave (ok)" << std::endl;
 	return true;
 }
+
 void Postgres::DoPreDisconnect() noexcept {
 	m_prepared_stmts.clear();
 }
+
 void Postgres::DoDisconnect() noexcept {
 	if (m_conn) {
 		PQfinish(static_cast<PGconn*>(m_conn));
 		m_conn = nullptr;
 	}
 }
+
 StormByte::Database::ExpectedRows Postgres::Query(const std::string& query) noexcept {
 	if (m_logger)
 		*m_logger << Logger::Level::Debug << "Executing query: " << query << std::endl;
@@ -147,13 +160,16 @@ StormByte::Database::ExpectedRows Postgres::Query(const std::string& query) noex
 		PQclear(res);
 		return Unexpected<ExecuteError>(err);
 	}
+
 	ExpectedRows rows = StepResults(res);
 	PQclear(res);
 	return rows;
 }
+
 bool Postgres::SilentQuery(const std::string& query) noexcept {
 	return DoSilentQuery(query);
 }
+
 bool Postgres::DoSilentQuery(const std::string& query) noexcept {
 	if (m_logger)
 		*m_logger << Logger::Level::Debug << "Executing silent query: " << query << std::endl;
@@ -172,12 +188,15 @@ bool Postgres::DoSilentQuery(const std::string& query) noexcept {
 							: "Unknown error")
 					<< std::endl;
 		}
+
 		PQclear(res);
 		return false;
 	}
+
 	PQclear(res);
 	return true;
 }
+
 std::unique_ptr<StormByte::Database::PreparedSTMT>
 Postgres::CreatePreparedSTMT(std::string&& name, std::string&& query) noexcept {
 	if (!m_conn)
@@ -188,6 +207,7 @@ Postgres::CreatePreparedSTMT(std::string&& name, std::string&& query) noexcept {
 		(qcopy.back() == ';' || isspace(static_cast<unsigned char>(qcopy.back())))) {
 		qcopy.pop_back();
 	}
+
 	PGresult* res = PQprepare(conn, name.c_str(), qcopy.c_str(), 0, nullptr);
 	if (!res) {
 		if (m_logger) {
@@ -195,8 +215,10 @@ Postgres::CreatePreparedSTMT(std::string&& name, std::string&& query) noexcept {
 					<< "PQprepare returned null for statement '" << name << "'"
 					<< std::endl;
 		}
+
 		return nullptr;
 	}
+
 	ExecStatusType st = PQresultStatus(res);
 	if (st != PGRES_COMMAND_OK && st != PGRES_TUPLES_OK) {
 		if (m_logger) {
@@ -205,15 +227,18 @@ Postgres::CreatePreparedSTMT(std::string&& name, std::string&& query) noexcept {
 					<< (PQresultErrorMessage(res) ? PQresultErrorMessage(res) : "Unknown")
 					<< std::endl;
 		}
+
 		PQclear(res);
 		return nullptr;
 	}
+
 	PQclear(res);
 	std::unique_ptr<PreparedSTMT> stmt =
 		std::make_unique<PreparedSTMT>(PreparedSTMT(std::move(name), std::move(query), m_logger));
 	stmt->m_conn = m_conn;
 	return stmt;
 }
+
 void Postgres::DoBeginTransaction(IsolationLevel level) {
 	const char* query = "BEGIN;";
 	switch (level) {
@@ -233,6 +258,7 @@ void Postgres::DoBeginTransaction(IsolationLevel level) {
 		default:
 			break;
 	}
+
 	if (!DoSilentQuery(query))
 		throw ExecuteError("Unable to begin transaction.");
 }

@@ -42,6 +42,7 @@ class TestDatabase : public Postgres {
 			: Postgres("localhost", "testuser", "testpass", "stormbyte_test", logger) {
 			SetSslMode(SslMode::Disable);
 		}
+
 		const ExpectedRows get_users() { return ExecuteSTMT("select_users"); }
 		const ExpectedRows get_products() { return ExecuteSTMT("select_products"); }
 		const ExpectedRows get_orders() { return ExecuteSTMT("select_orders"); }
@@ -85,6 +86,7 @@ class ConcurrentDatabase : public Postgres {
 			: Postgres("localhost", "testuser", "testpass", "stormbyte_test", logger) {
 			SetSslMode(SslMode::Disable);
 		}
+
 	private:
 		void DoPostConnect() noexcept override {
 			DoSilentQuery("CREATE TABLE IF NOT EXISTS concurrent (id SERIAL PRIMARY KEY, value INTEGER);");
@@ -99,6 +101,7 @@ int not_connected_query() {
 	ASSERT_FALSE(fn_name, res.has_value());
 	RETURN_TEST(fn_name, 0);
 }
+
 int connected_database_move() {
 	const std::string fn_name = "connected_database_move";
 	std::unique_ptr<TestDatabase> moved;
@@ -107,6 +110,7 @@ int connected_database_move() {
 		ASSERT_TRUE(fn_name, source.Connect());
 		moved = std::make_unique<TestDatabase>(std::move(source));
 	}
+
 	ASSERT_TRUE(fn_name, moved->IsConnected());
 	ASSERT_TRUE(fn_name, moved->Query("SELECT 1;").has_value());
 	TestDatabase reassigned;
@@ -115,16 +119,19 @@ int connected_database_move() {
 		ASSERT_TRUE(fn_name, source.Connect());
 		reassigned = std::move(source);
 	}
+
 	ASSERT_TRUE(fn_name, reassigned.IsConnected());
 	ASSERT_TRUE(fn_name, reassigned.Query("SELECT 1;").has_value());
 	RETURN_TEST(fn_name, 0);
 }
+
 int not_connected_silent() {
 	const std::string fn_name = "not_connected_silent";
 	TestDatabase db;
 	ASSERT_FALSE(fn_name, db.SilentQuery("SELECT 1;"));
 	RETURN_TEST(fn_name, 0);
 }
+
 int not_connected_execute() {
 	const std::string fn_name = "not_connected_execute";
 	TestDatabase db;
@@ -132,6 +139,7 @@ int not_connected_execute() {
 	ASSERT_FALSE(fn_name, res.has_value());
 	RETURN_TEST(fn_name, 0);
 }
+
 int not_connected_transaction() {
 	const std::string fn_name = "not_connected_transaction";
 	TestDatabase db;
@@ -142,9 +150,11 @@ int not_connected_transaction() {
 	} catch (const StormByte::Database::ExecuteError&) {
 		threw = true;
 	}
+
 	ASSERT_TRUE(fn_name, threw);
 	RETURN_TEST(fn_name, 0);
 }
+
 int is_connected_test() {
 	const std::string fn_name = "is_connected_test";
 	TestDatabase db;
@@ -155,6 +165,7 @@ int is_connected_test() {
 	ASSERT_FALSE(fn_name, db.IsConnected());
 	RETURN_TEST(fn_name, 0);
 }
+
 int double_connect() {
 	const std::string fn_name = "double_connect";
 	TestDatabase db;
@@ -162,6 +173,7 @@ int double_connect() {
 	ASSERT_FALSE(fn_name, db.Connect());
 	RETURN_TEST(fn_name, 0);
 }
+
 int verify_inserted_users() {
 	const std::string fn_name = "verify_inserted_users";
 	TestDatabase db;
@@ -178,6 +190,7 @@ int verify_inserted_users() {
 	ASSERT_EQUAL(fn_name, "bob@example.com", rows[1][1].Get<std::string>());
 	RETURN_TEST(fn_name, 0);
 }
+
 int verify_inserted_products() {
 	const std::string fn_name = "verify_inserted_products";
 	TestDatabase db;
@@ -194,6 +207,7 @@ int verify_inserted_products() {
 	ASSERT_EQUAL(fn_name, 19.99, rows[1][1].Get<double>());
 	RETURN_TEST(fn_name, 0);
 }
+
 int verify_inserted_orders() {
 	const std::string fn_name = "verify_inserted_orders";
 	TestDatabase db;
@@ -212,6 +226,7 @@ int verify_inserted_orders() {
 	ASSERT_EQUAL(fn_name, 2, rows[1][2].Get<int>());
 	RETURN_TEST(fn_name, 0);
 }
+
 int verify_relationships() {
 	const std::string fn_name = "verify_relationships";
 	TestDatabase db;
@@ -230,6 +245,7 @@ int verify_relationships() {
 	ASSERT_EQUAL(fn_name, 2, rows[1][2].Get<int>());
 	RETURN_TEST(fn_name, 0);
 }
+
 int query_test() {
 	const std::string fn_name = "query_test";
 	TestDatabase db;
@@ -242,6 +258,7 @@ int query_test() {
 	ASSERT_EQUAL(fn_name, 2, rows[0][0].Get<int>());
 	RETURN_TEST(fn_name, 0);
 }
+
 int empty_result_test() {
 	const std::string fn_name = "empty_result_test";
 	TestDatabase db;
@@ -251,6 +268,7 @@ int empty_result_test() {
 	ASSERT_EQUAL(fn_name, 0, expected_rows.value().Count());
 	RETURN_TEST(fn_name, 0);
 }
+
 int syntax_error_test() {
 	const std::string fn_name = "syntax_error_test";
 	TestDatabase db;
@@ -259,6 +277,7 @@ int syntax_error_test() {
 	ASSERT_FALSE(fn_name, res.has_value());
 	RETURN_TEST(fn_name, 0);
 }
+
 int multiple_text_parameters_preserve_values() {
 	const std::string fn_name = "multiple_text_parameters_preserve_values";
 	TestDatabase db;
@@ -270,6 +289,7 @@ int multiple_text_parameters_preserve_values() {
 	ASSERT_EQUAL(fn_name, "second", rows.value()[0][1].Get<std::string>());
 	RETURN_TEST(fn_name, 0);
 }
+
 int silent_syntax_error_preserves_connection() {
 	const std::string fn_name = "silent_syntax_error_preserves_connection";
 	TestDatabase db;
@@ -280,6 +300,7 @@ int silent_syntax_error_preserves_connection() {
 	ASSERT_EQUAL(fn_name, 2, rows.value()[0][0].Get<int>());
 	RETURN_TEST(fn_name, 0);
 }
+
 int missing_required_bind_is_error() {
 	const std::string fn_name = "missing_required_bind_is_error";
 	TestDatabase db;
@@ -292,6 +313,7 @@ int missing_required_bind_is_error() {
 	ASSERT_EQUAL(fn_name, 1, rows.value()[0][0].Get<int>());
 	RETURN_TEST(fn_name, 0);
 }
+
 int constraint_violation_preserves_connection() {
 	const std::string fn_name = "constraint_violation_preserves_connection";
 	TestDatabase db;
@@ -302,6 +324,7 @@ int constraint_violation_preserves_connection() {
 	ASSERT_EQUAL(fn_name, 2, rows.value()[0][0].Get<int>());
 	RETURN_TEST(fn_name, 0);
 }
+
 int invalid_row_index_throws() {
 	const std::string fn_name = "invalid_row_index_throws";
 	TestDatabase db;
@@ -314,9 +337,11 @@ int invalid_row_index_throws() {
 	} catch (const OutOfBounds&) {
 		threw = true;
 	}
+
 	ASSERT_TRUE(fn_name, threw);
 	RETURN_TEST(fn_name, 0);
 }
+
 int bool_test() {
 	const std::string fn_name = "bool_test";
 	TestDatabase db;
@@ -329,6 +354,7 @@ int bool_test() {
 	ASSERT_EQUAL(fn_name, true, rows[0][0].Get<bool>());
 	RETURN_TEST(fn_name, 0);
 }
+
 int verify_blobs() {
 	const std::string fn_name = "verify_blobs";
 	TestDatabase db;
@@ -350,6 +376,7 @@ int verify_blobs() {
 	ASSERT_EQUAL(fn_name, 255, static_cast<int>(bytes[3]));
 	RETURN_TEST(fn_name, 0);
 }
+
 int empty_blob_test() {
 	const std::string fn_name = "empty_blob_test";
 	TestDatabase db;
@@ -359,6 +386,7 @@ int empty_blob_test() {
 	ASSERT_TRUE(fn_name, insert_res.has_value());
 	RETURN_TEST(fn_name, 0);
 }
+
 int null_value_test() {
 	const std::string fn_name = "null_value_test";
 	TestDatabase db;
@@ -368,6 +396,7 @@ int null_value_test() {
 	ASSERT_TRUE(fn_name, rows.value()[0][0].IsNull());
 	RETURN_TEST(fn_name, 0);
 }
+
 int bind_null_test() {
 	const std::string fn_name = "bind_null_test";
 	TestDatabase db;
@@ -376,6 +405,7 @@ int bind_null_test() {
 	ASSERT_TRUE(fn_name, res.has_value());
 	RETURN_TEST(fn_name, 0);
 }
+
 int unknown_stmt_test() {
 	const std::string fn_name = "unknown_stmt_test";
 	TestDatabase db;
@@ -384,6 +414,7 @@ int unknown_stmt_test() {
 	ASSERT_FALSE(fn_name, res.has_value());
 	RETURN_TEST(fn_name, 0);
 }
+
 int name_access_test() {
 	const std::string fn_name = "name_access_test";
 	TestDatabase db;
@@ -394,6 +425,7 @@ int name_access_test() {
 	ASSERT_EQUAL(fn_name, "alice@example.com", expected_rows.value()[0]["email"].Get<std::string>());
 	RETURN_TEST(fn_name, 0);
 }
+
 int name_access_missing_column() {
 	const std::string fn_name = "name_access_missing_column";
 	TestDatabase db;
@@ -406,9 +438,11 @@ int name_access_missing_column() {
 	} catch (const ColumnNotFound&) {
 		threw = true;
 	}
+
 	ASSERT_TRUE(fn_name, threw);
 	RETURN_TEST(fn_name, 0);
 }
+
 int transaction_commit_test() {
 	const std::string fn_name = "transaction_commit_test";
 	TestDatabase db;
@@ -418,11 +452,13 @@ int transaction_commit_test() {
 		db.SilentQuery("INSERT INTO users (name, email) VALUES ('Charlie', 'charlie@example.com');");
 		tx.Commit();
 	}
+
 	auto rows = db.Query("SELECT COUNT(*) FROM users;");
 	ASSERT_TRUE(fn_name, rows.has_value());
 	ASSERT_EQUAL(fn_name, 3, rows.value()[0][0].Get<int>());
 	RETURN_TEST(fn_name, 0);
 }
+
 int transaction_rollback_explicit() {
 	const std::string fn_name = "transaction_rollback_explicit";
 	TestDatabase db;
@@ -432,11 +468,13 @@ int transaction_rollback_explicit() {
 		db.SilentQuery("INSERT INTO users (name, email) VALUES ('David', 'david@example.com');");
 		tx.Rollback();
 	}
+
 	auto rows = db.Query("SELECT COUNT(*) FROM users WHERE name = 'David';");
 	ASSERT_TRUE(fn_name, rows.has_value());
 	ASSERT_EQUAL(fn_name, 0, rows.value()[0][0].Get<int>());
 	RETURN_TEST(fn_name, 0);
 }
+
 int transaction_rollback_auto() {
 	const std::string fn_name = "transaction_rollback_auto";
 	TestDatabase db;
@@ -445,11 +483,13 @@ int transaction_rollback_auto() {
 		auto tx = db.BeginTransaction();
 		db.SilentQuery("INSERT INTO users (name, email) VALUES ('Eve', 'eve@example.com');");
 	}
+
 	auto rows = db.Query("SELECT COUNT(*) FROM users WHERE name = 'Eve';");
 	ASSERT_TRUE(fn_name, rows.has_value());
 	ASSERT_EQUAL(fn_name, 0, rows.value()[0][0].Get<int>());
 	RETURN_TEST(fn_name, 0);
 }
+
 int isolation_default() {
 	const std::string fn_name = "isolation_default";
 	TestDatabase db;
@@ -458,6 +498,7 @@ int isolation_default() {
 	tx.Commit();
 	RETURN_TEST(fn_name, 0);
 }
+
 int isolation_serializable() {
 	const std::string fn_name = "isolation_serializable";
 	TestDatabase db;
@@ -466,6 +507,7 @@ int isolation_serializable() {
 	tx.Commit();
 	RETURN_TEST(fn_name, 0);
 }
+
 int isolation_repeatable_read() {
 	const std::string fn_name = "isolation_repeatable_read";
 	TestDatabase db;
@@ -474,6 +516,7 @@ int isolation_repeatable_read() {
 	tx.Commit();
 	RETURN_TEST(fn_name, 0);
 }
+
 int concurrent_multiple_connections() {
 	const std::string fn_name = "concurrent_multiple_connections";
 	constexpr int num_threads = 6;
@@ -483,6 +526,7 @@ int concurrent_multiple_connections() {
 		setup.Connect();
 		setup.SilentQuery("DELETE FROM concurrent;");
 	}
+
 	std::vector<std::thread> threads;
 	for (int t = 0; t < num_threads; ++t) {
 		threads.emplace_back([t]() {
@@ -498,6 +542,7 @@ int concurrent_multiple_connections() {
 			}
 		});
 	}
+
 	for (auto& th : threads)
 		th.join();
 	ConcurrentDatabase check_db;
@@ -508,6 +553,7 @@ int concurrent_multiple_connections() {
 	check_db.SilentQuery("DELETE FROM concurrent;");
 	RETURN_TEST(fn_name, 0);
 }
+
 int main() {
 	int result = 0;
 	result += not_connected_query();
@@ -549,5 +595,6 @@ int main() {
 	} else {
 		std::cout << result << " tests failed.\n";
 	}
+
 	return result;
 }

@@ -47,6 +47,7 @@ int test_invalid_value_conversions_throw() {
 	} catch (const WrongValueType&) {
 		threw = true;
 	}
+
 	ASSERT_TRUE("test_invalid_value_conversions_throw", threw);
 
 	threw = false;
@@ -55,6 +56,7 @@ int test_invalid_value_conversions_throw() {
 	} catch (const WrongValueType&) {
 		threw = true;
 	}
+
 	ASSERT_TRUE("test_invalid_value_conversions_throw", threw);
 
 	threw = false;
@@ -63,6 +65,7 @@ int test_invalid_value_conversions_throw() {
 	} catch (const WrongValueType&) {
 		threw = true;
 	}
+
 	ASSERT_TRUE("test_invalid_value_conversions_throw", threw);
 
 	threw = false;
@@ -71,6 +74,7 @@ int test_invalid_value_conversions_throw() {
 	} catch (const WrongValueType&) {
 		threw = true;
 	}
+
 	ASSERT_TRUE("test_invalid_value_conversions_throw", threw);
 
 	threw = false;
@@ -79,6 +83,7 @@ int test_invalid_value_conversions_throw() {
 	} catch (const WrongValueType&) {
 		threw = true;
 	}
+
 	ASSERT_TRUE("test_invalid_value_conversions_throw", threw);
 	RETURN_TEST("test_invalid_value_conversions_throw", result);
 }
@@ -92,5 +97,6 @@ int main() {
 	} else {
 		std::cout << result << " tests failed.\n";
 	}
+
 	return result;
 }

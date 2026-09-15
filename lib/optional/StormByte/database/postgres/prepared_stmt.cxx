@@ -23,16 +23,20 @@
 using namespace StormByte::Database::Postgres;
 PreparedSTMT::PreparedSTMT(const std::string& name, const std::string& query, std::shared_ptr<Logger::Log> logger)
 	: Database::PreparedSTMT(name, query, std::move(logger)), m_conn(nullptr), m_stmt_name(name) {}
+
 PreparedSTMT::PreparedSTMT(std::string&& name, std::string&& query, std::shared_ptr<Logger::Log> logger) noexcept
 	: Database::PreparedSTMT(std::move(name), std::move(query), std::move(logger)), m_conn(nullptr), m_stmt_name(Database::PreparedSTMT::m_name) {}
+
 void PreparedSTMT::Binder(const int& index, Value&& value) noexcept {
 	if (static_cast<std::size_t>(index) >= m_params.size())
 		m_params.resize(index + 1);
 	m_params[index] = std::move(value);
 }
+
 void PreparedSTMT::Reset() noexcept {
 	m_params.clear();
 }
+
 StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 	if (!m_conn)
 		return Unexpected<ExecuteError>("No connection available for prepared statement");
@@ -78,22 +82,27 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 				formats[i] = 1;
 				continue;
 			}
+
 			case Value::Type::Null:
 			default:
 				continue;
 		}
+
 		params[i] = string_storage[i].c_str();
 	}
+
 	PGresult* res = PQexecPrepared(m_conn, m_stmt_name.c_str(), nParams, params.data(), lengths.data(), formats.data(), 0);
 	if (!res) {
 		return Unexpected<ExecuteError>("Null PGresult from PQexecPrepared");
 	}
+
 	ExecStatusType st = PQresultStatus(res);
 	if (st != PGRES_TUPLES_OK && st != PGRES_COMMAND_OK) {
 		std::string err = PQerrorMessage(m_conn) ? PQerrorMessage(m_conn) : "Unknown Postgres error";
 		PQclear(res);
 		return Unexpected<ExecuteError>(err);
 	}
+
 	ExpectedRows rows = StepResults(res);
 	PQclear(res);
 	return rows;

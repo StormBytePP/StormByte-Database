@@ -27,8 +27,10 @@ Row& Row::operator=(const Row& other) {
 		Iterable::operator=(other);
 		m_name_index = other.m_name_index;
 	}
+
 	return *this;
 }
+
 void Row::BuildNameIndex() const {
 	if (m_name_index) return;
 	std::unordered_map<std::string, std::size_t> index;
@@ -36,8 +38,10 @@ void Row::BuildNameIndex() const {
 	for (std::size_t i = 0; i < m_data.size(); ++i) {
 		index.emplace(m_data[i].Name(), i);
 	}
+
 	m_name_index = std::move(index);
 }
+
 const Value& Row::operator[](const std::string& columnName) const & {
 	BuildNameIndex();
 	auto it = m_name_index->find(columnName);
@@ -45,9 +49,11 @@ const Value& Row::operator[](const std::string& columnName) const & {
 		throw ColumnNotFound(columnName);
 	return m_data[it->second];
 }
+
 Value& Row::operator[](const std::string& columnName) & {
 	return const_cast<Value&>(static_cast<const Row*>(this)->operator[](columnName));
 }
+
 Value Row::operator[](const std::string& columnName) && {
 	BuildNameIndex();
 	auto it = m_name_index->find(columnName);
@@ -55,14 +61,17 @@ Value Row::operator[](const std::string& columnName) && {
 		throw ColumnNotFound(columnName);
 	return std::move(m_data[it->second]);
 }
+
 const NamedValue& Row::operator[](std::size_t index) const & {
 	if (index >= m_data.size())
 		throw OutOfBounds(static_cast<int>(index), m_data.size());
 	return m_data[index];
 }
+
 NamedValue& Row::operator[](std::size_t index) & {
 	return const_cast<NamedValue&>(static_cast<const Row*>(this)->operator[](index));
 }
+
 NamedValue Row::operator[](std::size_t index) && {
 	if (index >= m_data.size())
 		throw OutOfBounds(static_cast<int>(index), m_data.size());

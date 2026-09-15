@@ -25,14 +25,17 @@
 using namespace StormByte::Database::SQLite;
 PreparedSTMT::PreparedSTMT(const std::string& name, const std::string& query, std::shared_ptr<Logger::Log> logger)
 	: Database::PreparedSTMT(name, query, std::move(logger)), m_stmt(nullptr), m_bind_error(false) {}
+
 PreparedSTMT::PreparedSTMT(std::string&& name, std::string&& query, std::shared_ptr<Logger::Log> logger) noexcept
 	: Database::PreparedSTMT(std::move(name), std::move(query), std::move(logger)), m_stmt(nullptr), m_bind_error(false) {}
+
 PreparedSTMT::~PreparedSTMT() noexcept {
 	if (m_stmt) {
 		sqlite3_finalize(m_stmt);
 		m_stmt = nullptr;
 	}
 }
+
 void PreparedSTMT::Binder(const int& index, Value&& value) noexcept {
 	if (!m_stmt) return;
 	const int col = index + 1;
@@ -42,6 +45,7 @@ void PreparedSTMT::Binder(const int& index, Value&& value) noexcept {
 		m_bind_error = m_bind_error || result != SQLITE_OK;
 		return;
 	}
+
 	switch (value.Type()) {
 		case Value::Type::Integer:
 			result = sqlite3_bind_int(m_stmt, col, value.Get<int>());
@@ -57,6 +61,7 @@ void PreparedSTMT::Binder(const int& index, Value&& value) noexcept {
 				m_bind_error = true;
 				return;
 			}
+
 			result = sqlite3_bind_int64(m_stmt, col, static_cast<sqlite3_int64>(value.Get<unsigned long int>()));
 			break;
 		case Value::Type::Double:
@@ -70,6 +75,7 @@ void PreparedSTMT::Binder(const int& index, Value&& value) noexcept {
 			result = sqlite3_bind_text(m_stmt, col, s.c_str(), -1, SQLITE_TRANSIENT);
 			break;
 		}
+
 		case Value::Type::Blob: {
 			auto bv = value.Get<std::vector<std::byte>>();
 			if (bv.empty()) {
@@ -77,14 +83,18 @@ void PreparedSTMT::Binder(const int& index, Value&& value) noexcept {
 			} else {
 				result = sqlite3_bind_blob(m_stmt, col, reinterpret_cast<const void*>(bv.data()), static_cast<int>(bv.size()), SQLITE_TRANSIENT);
 			}
+
 			break;
 		}
+
 		default:
 			result = sqlite3_bind_null(m_stmt, col);
 			break;
 	}
+
 	m_bind_error = m_bind_error || result != SQLITE_OK;
 }
+
 void PreparedSTMT::Reset() noexcept {
 	m_bind_error = false;
 	if (m_stmt) {
@@ -92,6 +102,7 @@ void PreparedSTMT::Reset() noexcept {
 		sqlite3_reset(m_stmt);
 	}
 }
+
 StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 	if (m_bind_error)
 		return Unexpected<ExecuteError>("Invalid SQLite statement bind.");

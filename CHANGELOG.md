@@ -21,6 +21,10 @@ If you landed here from a release link and have not read the tree:
 
 ## [Unreleased]
 
+### Changed
+
+- Doxygen (`ENABLE_DOC`) resolves Logger and Base headers via `INCLUDE_PATH`, includes `lib/optional`, and skips `thirdparty`. No dependency pin change.
+
 ## [1.1.0] - 2026-09-13
 
 ### Fixed

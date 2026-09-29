@@ -3,9 +3,29 @@
  *
  * This file is part of StormByte-Database.
  *
- * StormByte-Database is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
+ * StormByte-Database original source is dual-licensed:
+ *
+ * 1. GNU Lesser General Public License v3.0 (or later)
+ *    You may redistribute and/or modify this file under the terms of the
+ *    GNU Lesser General Public License as published by the Free Software
+ *    Foundation, either version 3 of the License, or (at your option)
+ *    any later version.
+ *
+ * 2. Commercial license
+ *    Alternatively, this file may be used under the terms of a commercial
+ *    license agreement with the copyright holder
+ *    (David C. Manuelda <StormByte@gmail.com>).
+ *
+ * Both licenses apply only to original StormByte-Database source in this
+ * repository. They do not cover other StormByte modules or any third-party
+ * material shipped with this repository (including everything under
+ * thirdparty/, and in particular the bundled StormByte-Logger tree and
+ * the PostgreSQL, MariaDB and SQLite trees), which remain under their own
+ * licenses.
+ *
+ * Neither license grants any patent rights. Any patent licenses required
+ * to use this software or third-party components must be obtained separately
+ * from the patent holders.
  *
  * StormByte-Database is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -13,8 +33,10 @@
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Database. If not, see
+ * version 3 along with StormByte-Database. If not, see
  * <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ *
+ * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
 #pragma once
@@ -28,124 +50,24 @@
 #include <vector>
 
 /**
- * @brief MariaDB backend of the Database module.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte C++ suite.
  */
-namespace StormByte::Database::MariaDB {
+namespace StormByte {
 	/**
-	 * @brief Convert a MYSQL_RES into Rows (all rows stored client-side).
-	 * @param res Result set (must not be null).
-	 * @return Result rows or a QueryException.
+	 * @namespace StormByte::Database
+	 * @brief Database module of the StormByte suite.
 	 */
-	inline ExpectedRows StepResults(MYSQL_RES* res) noexcept {
-		if (!res)
-			return Unexpected<QueryException>(ExecuteError("Invalid MYSQL_RES provided."));
-
-		Rows rows;
-		const int nrows = static_cast<int>(mysql_num_rows(res));
-		const int nfields = mysql_num_fields(res);
-
-		for (int r = 0; r < nrows; ++r) {
-			MYSQL_ROW row = mysql_fetch_row(res);
-			unsigned long* lengths = mysql_fetch_lengths(res);
-			Row prow;
-
-			for (int c = 0; c < nfields; ++c) {
-				MYSQL_FIELD* field = mysql_fetch_field_direct(res, c);
-				const char* colName = field ? field->name : nullptr;
-
-				if (!row[c]) {
-					prow.add(std::string(colName ? colName : ""), Value());
-					continue;
-				}
-
-				const unsigned long len = lengths ? lengths[c] : 0;
-				const enum_field_types ftype = field ? field->type : MYSQL_TYPE_STRING;
-
-				switch (ftype) {
-					case MYSQL_TYPE_TINY: {
-						if (field && (field->flags & UNSIGNED_FLAG) == 0 && field->length == 1) {
-							const bool b = (row[c][0] != '0');
-							prow.add(std::string(colName ? colName : ""), b);
-						} else {
-							long long v = 0;
-							auto parsed = std::from_chars(row[c], row[c] + len, v);
-							if (parsed.ec != std::errc{} || parsed.ptr != row[c] + len)
-								return Unexpected<QueryException>(ExecuteError("Invalid integer result value."));
-							if (v > std::numeric_limits<int>::max() || v < std::numeric_limits<int>::min())
-								prow.add(std::string(colName ? colName : ""), static_cast<long int>(v));
-							else
-								prow.add(std::string(colName ? colName : ""), static_cast<int>(v));
-						}
-						break;
-					}
-
-					case MYSQL_TYPE_SHORT:
-					case MYSQL_TYPE_LONG:
-					case MYSQL_TYPE_INT24: {
-						long long v = 0;
-						auto parsed = std::from_chars(row[c], row[c] + len, v);
-						if (parsed.ec != std::errc{} || parsed.ptr != row[c] + len)
-							return Unexpected<QueryException>(ExecuteError("Invalid integer result value."));
-						if (v > std::numeric_limits<int>::max() || v < std::numeric_limits<int>::min())
-							prow.add(std::string(colName ? colName : ""), static_cast<long int>(v));
-						else
-							prow.add(std::string(colName ? colName : ""), static_cast<int>(v));
-						break;
-					}
-
-					case MYSQL_TYPE_LONGLONG: {
-						long long v = 0;
-						auto parsed = std::from_chars(row[c], row[c] + len, v);
-						if (parsed.ec != std::errc{} || parsed.ptr != row[c] + len)
-							return Unexpected<QueryException>(ExecuteError("Invalid integer result value."));
-						prow.add(std::string(colName ? colName : ""), static_cast<long int>(v));
-						break;
-					}
-
-					case MYSQL_TYPE_FLOAT:
-					case MYSQL_TYPE_DOUBLE:
-					case MYSQL_TYPE_DECIMAL:
-					case MYSQL_TYPE_NEWDECIMAL: {
-						double d = 0.0;
-						auto parsed = std::from_chars(row[c], row[c] + len, d);
-						if (parsed.ec != std::errc{} || parsed.ptr != row[c] + len)
-							return Unexpected<QueryException>(ExecuteError("Invalid floating-point result value."));
-						prow.add(std::string(colName ? colName : ""), d);
-						break;
-					}
-
-					case MYSQL_TYPE_TINY_BLOB:
-					case MYSQL_TYPE_MEDIUM_BLOB:
-					case MYSQL_TYPE_LONG_BLOB:
-					case MYSQL_TYPE_BLOB: {
-						const bool is_binary = field && field->charsetnr == 63;
-						if (is_binary) {
-							std::vector<std::byte> blob;
-							if (len > 0) {
-								blob.assign(
-									reinterpret_cast<const std::byte*>(row[c]),
-									reinterpret_cast<const std::byte*>(row[c]) + len
-								);
-							}
-							prow.add(std::string(colName ? colName : ""), std::move(blob));
-						} else {
-							prow.add(std::string(colName ? colName : ""), std::string(row[c], len));
-						}
-						break;
-					}
-
-					case MYSQL_TYPE_VAR_STRING:
-					case MYSQL_TYPE_STRING:
-					case MYSQL_TYPE_VARCHAR:
-					default: {
-						prow.add(std::string(colName ? colName : ""), std::string(row[c] ? row[c] : "", len));
-						break;
-					}
-				}
-			}
-			rows.add(std::move(prow));
-		}
-
-		return rows;
-	}
-}
+	namespace Database {
+		/**
+		 * @namespace StormByte::Database::MariaDB
+		 * @brief MariaDB backend of the Database module.
+		 */
+		namespace MariaDB {
+			/**
+			 * @brief Convert a MYSQL_RES into Rows (all rows stored client-side).
+			 * @param res Result set (must not be null).
+			 * @return Result rows or a QueryException.
+			 */
+			ExpectedRows StepResults(MYSQL_RES* result) noexcept;
+		}	}}

@@ -3,9 +3,29 @@
  *
  * This file is part of StormByte-Database.
  *
- * StormByte-Database is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
+ * StormByte-Database original source is dual-licensed:
+ *
+ * 1. GNU Lesser General Public License v3.0 (or later)
+ *    You may redistribute and/or modify this file under the terms of the
+ *    GNU Lesser General Public License as published by the Free Software
+ *    Foundation, either version 3 of the License, or (at your option)
+ *    any later version.
+ *
+ * 2. Commercial license
+ *    Alternatively, this file may be used under the terms of a commercial
+ *    license agreement with the copyright holder
+ *    (David C. Manuelda <StormByte@gmail.com>).
+ *
+ * Both licenses apply only to original StormByte-Database source in this
+ * repository. They do not cover other StormByte modules or any third-party
+ * material shipped with this repository (including everything under
+ * thirdparty/, and in particular the bundled StormByte-Logger tree and
+ * the PostgreSQL, MariaDB and SQLite trees), which remain under their own
+ * licenses.
+ *
+ * Neither license grants any patent rights. Any patent licenses required
+ * to use this software or third-party components must be obtained separately
+ * from the patent holders.
  *
  * StormByte-Database is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -13,8 +33,10 @@
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Database. If not, see
+ * version 3 along with StormByte-Database. If not, see
  * <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ *
+ * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
 #include <StormByte/database/sqlite/sqlite3.hxx>
@@ -22,7 +44,10 @@
 #include <StormByte/database/sqlite/prepared_stmt.hxx>
 #include <sqlite3.h>
 #include <atomic>
+#include <limits>
 #include <mutex>
+#include <string>
+#include <string_view>
 #include <utility>
 using namespace StormByte::Database::SQLite;
 namespace {
@@ -30,12 +55,12 @@ namespace {
 	std::mutex g_sqlite_init_mutex;
 }
 
-SQLite3::SQLite3(std::shared_ptr<Logger::Log> logger) noexcept
+SQLite3::SQLite3(const StormByte::Shared<Logger::Log>& logger) noexcept
 	: SQLite3(":memory:", logger) {}
-SQLite3::SQLite3(const std::filesystem::path& dbfile, std::shared_ptr<Logger::Log> logger)
+SQLite3::SQLite3(const std::filesystem::path& dbfile, const StormByte::Shared<Logger::Log>& logger)
 	: Database(logger), m_database_file(dbfile), m_database(nullptr) {}
-SQLite3::SQLite3(std::filesystem::path&& dbfile, std::shared_ptr<Logger::Log>&& logger)
-	: Database(std::move(logger)), m_database_file(std::move(dbfile)), m_database(nullptr) {}
+SQLite3::SQLite3(std::filesystem::path&& dbfile, const StormByte::Shared<Logger::Log>& logger)
+	: Database(logger), m_database_file(std::move(dbfile)), m_database(nullptr) {}
 
 SQLite3::SQLite3(SQLite3&& db) noexcept
 	: Database(std::move(db)), m_database_file(std::move(db.m_database_file)),
@@ -104,7 +129,7 @@ bool SQLite3::DoConnect() noexcept {
 
 void SQLite3::DoPreDisconnect() noexcept {
 	if (m_database)
-		m_prepared_stmts.clear();
+		ClearPreparedSTMTs();
 }
 
 void SQLite3::DoDisconnect() noexcept {
@@ -122,13 +147,16 @@ void SQLite3::DoPostDisconnect() noexcept {
 	}
 }
 
-StormByte::Database::ExpectedRows SQLite3::Query(const std::string& query) noexcept {
+StormByte::Database::ExpectedRows SQLite3::Query(std::string_view query) noexcept {
 	if (m_logger)
 		*m_logger << Logger::Level::Debug << "Executing query: " << query << std::endl;
 	if (!m_connected)
 		return Unexpected<ExecuteError>("Database not connected");
+	if (query.size() > static_cast<std::size_t>(std::numeric_limits<int>::max()))
+		return Unexpected<ExecuteError>("Query exceeds SQLite's supported length");
 	sqlite3_stmt* stmt = nullptr;
-	int rc = sqlite3_prepare_v2(m_database, query.c_str(), -1, &stmt, nullptr);
+	const char* query_data = query.empty() ? "" : query.data();
+	int rc = sqlite3_prepare_v2(m_database, query_data, static_cast<int>(query.size()), &stmt, nullptr);
 	if (rc != SQLITE_OK) {
 		const std::string errorStr = sqlite3_errmsg(m_database);
 		if (stmt)
@@ -141,17 +169,18 @@ StormByte::Database::ExpectedRows SQLite3::Query(const std::string& query) noexc
 	return result;
 }
 
-bool SQLite3::SilentQuery(const std::string& query) noexcept {
+bool SQLite3::SilentQuery(std::string_view query) noexcept {
 	return DoSilentQuery(query);
 }
 
-bool SQLite3::DoSilentQuery(const std::string& query) noexcept {
+bool SQLite3::DoSilentQuery(std::string_view query) noexcept {
 	if (m_logger)
 		*m_logger << Logger::Level::Debug << "Executing silent query: " << query << std::endl;
 	if (!m_connected)
 		return false;
+	const std::string query_text{query};
 	char* errMsg = nullptr;
-	int rc = sqlite3_exec(m_database, query.c_str(), nullptr, nullptr, &errMsg);
+	int rc = sqlite3_exec(m_database, query_text.c_str(), nullptr, nullptr, &errMsg);
 	if (rc != SQLITE_OK) {
 		if (errMsg) {
 			if (m_logger) {
@@ -172,12 +201,14 @@ void SQLite3::EnableForeignKeys() {
 	DoSilentQuery("PRAGMA foreign_keys = ON;");
 }
 
-std::unique_ptr<StormByte::Database::PreparedSTMT>
-SQLite3::CreatePreparedSTMT(std::string&& name, std::string&& query) noexcept {
-	std::unique_ptr<PreparedSTMT> stmt =
-		std::make_unique<PreparedSTMT>(PreparedSTMT(std::move(name), std::move(query), m_logger));
-	sqlite3_prepare_v2(m_database, stmt->Query().c_str(),
-					static_cast<int>(stmt->Query().length()),
+StormByte::Unique<StormByte::Database::PreparedSTMT>
+SQLite3::CreatePreparedSTMT(std::string_view name, std::string_view query) noexcept {
+	StormByte::Unique<PreparedSTMT> stmt = StormByte::Unique<PreparedSTMT>::MakePointer<PreparedSTMT>(
+		PreparedSTMT::ConstructionKey{}, name, query, m_logger);
+	if (stmt->Query().size() > static_cast<std::size_t>(std::numeric_limits<int>::max()))
+		return nullptr;
+	sqlite3_prepare_v2(m_database, stmt->Query().data(),
+					static_cast<int>(stmt->Query().size()),
 					&(stmt->m_stmt), nullptr);
 	if (!stmt->m_stmt) {
 		if (m_logger)

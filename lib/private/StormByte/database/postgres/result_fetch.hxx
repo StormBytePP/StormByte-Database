@@ -3,9 +3,29 @@
  *
  * This file is part of StormByte-Database.
  *
- * StormByte-Database is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
+ * StormByte-Database original source is dual-licensed:
+ *
+ * 1. GNU Lesser General Public License v3.0 (or later)
+ *    You may redistribute and/or modify this file under the terms of the
+ *    GNU Lesser General Public License as published by the Free Software
+ *    Foundation, either version 3 of the License, or (at your option)
+ *    any later version.
+ *
+ * 2. Commercial license
+ *    Alternatively, this file may be used under the terms of a commercial
+ *    license agreement with the copyright holder
+ *    (David C. Manuelda <StormByte@gmail.com>).
+ *
+ * Both licenses apply only to original StormByte-Database source in this
+ * repository. They do not cover other StormByte modules or any third-party
+ * material shipped with this repository (including everything under
+ * thirdparty/, and in particular the bundled StormByte-Logger tree and
+ * the PostgreSQL, MariaDB and SQLite trees), which remain under their own
+ * licenses.
+ *
+ * Neither license grants any patent rights. Any patent licenses required
+ * to use this software or third-party components must be obtained separately
+ * from the patent holders.
  *
  * StormByte-Database is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -13,125 +33,42 @@
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Database. If not, see
+ * version 3 along with StormByte-Database. If not, see
  * <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ *
+ * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
 #pragma once
 
 #include <StormByte/database/rows.hxx>
 
-#include <charconv>
 #include <cctype>
+#include <charconv>
 #include <libpq-fe.h>
 #include <limits>
 #include <string>
 #include <vector>
 
 /**
- * @brief PostgreSQL backend of the Database module.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte C++ suite.
  */
-namespace StormByte::Database::Postgres {
+namespace StormByte {
 	/**
-	 * @brief Convert a PGresult into Rows.
-	 * @param res Result (must not be null).
-	 * @return Result rows or a QueryException.
+	 * @namespace StormByte::Database
+	 * @brief Database module of the StormByte suite.
 	 */
-	inline ExpectedRows StepResults(PGresult* res) noexcept {
-		if (!res)
-			return Unexpected<QueryException>(ExecuteError("Invalid PGresult provided."));
-
-		const ExecStatusType st = PQresultStatus(res);
-		if (st != PGRES_TUPLES_OK && st != PGRES_COMMAND_OK) {
-			return Unexpected<QueryException>(ExecuteError(
-				PQresultErrorMessage(res) ? PQresultErrorMessage(res) : "Unknown PG error"));
-		}
-
-		Rows rows;
-		const int nrows = PQntuples(res);
-		const int nfields = PQnfields(res);
-
-		for (int r = 0; r < nrows; ++r) {
-			Row row;
-			for (int c = 0; c < nfields; ++c) {
-				const char* colName = PQfname(res, c);
-
-				if (PQgetisnull(res, r, c)) {
-					row.add(std::string(colName ? colName : ""), Value());
-					continue;
-				}
-
-				const Oid ftype = PQftype(res, c);
-				const char* val = PQgetvalue(res, r, c);
-				const int vall = PQgetlength(res, r, c);
-
-				switch (ftype) {
-					case 16: {
-						bool b = false;
-						if (val) {
-							if (val[0] == 't' || val[0] == '1') {
-								b = true;
-							} else {
-								std::string s(val);
-								for (auto& ch : s) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-								if (s == "true") b = true;
-							}
-						}
-						row.add(std::string(colName ? colName : ""), b);
-						break;
-					}
-
-					case 20:
-					case 21:
-					case 23: {
-						long long v = 0;
-						auto parsed = std::from_chars(val, val + vall, v);
-						if (parsed.ec != std::errc{} || parsed.ptr != val + vall)
-							return Unexpected<QueryException>(ExecuteError("Invalid integer result value."));
-						if (v > std::numeric_limits<int>::max() || v < std::numeric_limits<int>::min())
-							row.add(std::string(colName ? colName : ""), static_cast<long int>(v));
-						else
-							row.add(std::string(colName ? colName : ""), static_cast<int>(v));
-						break;
-					}
-
-					case 700:
-					case 701: {
-						double d = 0.0;
-						auto parsed = std::from_chars(val, val + vall, d);
-						if (parsed.ec != std::errc{} || parsed.ptr != val + vall)
-							return Unexpected<QueryException>(ExecuteError("Invalid floating-point result value."));
-						row.add(std::string(colName ? colName : ""), d);
-						break;
-					}
-
-					case 17: {
-						unsigned char* out = nullptr;
-						size_t outlen = 0;
-						out = PQunescapeBytea(reinterpret_cast<const unsigned char*>(val), &outlen);
-
-						std::vector<std::byte> blob;
-						if (out && outlen > 0) {
-							blob.assign(
-								reinterpret_cast<std::byte*>(out),
-								reinterpret_cast<std::byte*>(out) + outlen
-							);
-						}
-						if (out) PQfreemem(out);
-
-						row.add(std::string(colName ? colName : ""), std::move(blob));
-						break;
-					}
-
-					default: {
-						row.add(std::string(colName ? colName : ""), std::string(val ? val : "", vall));
-						break;
-					}
-				}
-			}
-			rows.add(std::move(row));
-		}
-
-		return rows;
-	}
-}
+	namespace Database {
+		/**
+		 * @namespace StormByte::Database::Postgres
+		 * @brief PostgreSQL backend of the Database module.
+		 */
+		namespace Postgres {
+			/**
+			 * @brief Convert a PGresult into Rows.
+			 * @param res Result (must not be null).
+			 * @return Result rows or a QueryException.
+			 */
+			ExpectedRows StepResults(PGresult* res) noexcept;
+		}	}}

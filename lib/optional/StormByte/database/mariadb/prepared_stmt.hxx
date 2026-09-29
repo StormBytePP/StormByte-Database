@@ -3,9 +3,29 @@
  *
  * This file is part of StormByte-Database.
  *
- * StormByte-Database is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
+ * StormByte-Database original source is dual-licensed:
+ *
+ * 1. GNU Lesser General Public License v3.0 (or later)
+ *    You may redistribute and/or modify this file under the terms of the
+ *    GNU Lesser General Public License as published by the Free Software
+ *    Foundation, either version 3 of the License, or (at your option)
+ *    any later version.
+ *
+ * 2. Commercial license
+ *    Alternatively, this file may be used under the terms of a commercial
+ *    license agreement with the copyright holder
+ *    (David C. Manuelda <StormByte@gmail.com>).
+ *
+ * Both licenses apply only to original StormByte-Database source in this
+ * repository. They do not cover other StormByte modules or any third-party
+ * material shipped with this repository (including everything under
+ * thirdparty/, and in particular the bundled StormByte-Logger tree and
+ * the PostgreSQL, MariaDB and SQLite trees), which remain under their own
+ * licenses.
+ *
+ * Neither license grants any patent rights. Any patent licenses required
+ * to use this software or third-party components must be obtained separately
+ * from the patent holders.
  *
  * StormByte-Database is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -13,14 +33,17 @@
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Database. If not, see
+ * version 3 along with StormByte-Database. If not, see
  * <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ *
+ * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
 #pragma once
 
 #include <StormByte/database/prepared_stmt.hxx>
 #include <StormByte/database/value.hxx>
+#include <StormByte/size.hxx>
 
 #include <memory>
 #include <string>
@@ -30,89 +53,106 @@ struct st_mysql;
 struct st_mysql_stmt;
 
 /**
- * @brief MariaDB backend of the Database module.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte C++ suite.
  */
-namespace StormByte::Database::MariaDB {
-	class MariaDB;
-
+namespace StormByte {
 	/**
-	 * @class PreparedSTMT
-	 * @brief MariaDB prepared statement.
+	 * @namespace StormByte::Database
+	 * @brief Database module of the StormByte suite.
 	 */
-	class STORMBYTE_DATABASE_PUBLIC PreparedSTMT final : public StormByte::Database::PreparedSTMT {
-		friend class ::StormByte::Database::MariaDB::MariaDB;
-	public:
+	namespace Database {
 		/**
-		 * @brief Copy constructor (deleted).
+		 * @namespace StormByte::Database::MariaDB
+		 * @brief MariaDB backend of the Database module.
 		 */
-		PreparedSTMT(const PreparedSTMT& other) = delete;
+		namespace MariaDB {
+			class MariaDB;
 
-		/**
-		 * @brief Move constructor.
-		 */
-		PreparedSTMT(PreparedSTMT&& other) noexcept = default;
+			/**
+			 * @class PreparedSTMT
+			 * @brief MariaDB prepared statement.
+			 */
+			class STORMBYTE_DATABASE_PUBLIC PreparedSTMT final : public StormByte::Database::PreparedSTMT {
+					friend class ::StormByte::Database::MariaDB::MariaDB;
 
-		/**
-		 * @brief Destructor.
-		 */
-		~PreparedSTMT() noexcept override;
+					struct ConstructionKey {
+						private:
+							ConstructionKey() noexcept = default;
+							friend class ::StormByte::Database::MariaDB::MariaDB;
+					};
 
-		/**
-		 * @brief Copy assignment (deleted).
-		 */
-		PreparedSTMT& operator=(const PreparedSTMT& other) = delete;
+				public:
+					/**
+					 * @brief Copy constructor (deleted).
+					 */
+					PreparedSTMT(const PreparedSTMT &other) = delete;
 
-		/**
-		 * @brief Move assignment.
-		 */
-		PreparedSTMT& operator=(PreparedSTMT&& other) noexcept = default;
+					/**
+					 * @brief Move constructor.
+					 */
+					PreparedSTMT(PreparedSTMT &&other) noexcept;
 
-	private:
-		struct st_mysql* m_conn;							///< Connection handle
-		struct st_mysql_stmt* m_stmt;						///< Statement handle
-		std::vector<StormByte::Database::Value> m_params;	///< Bound parameters
+					/**
+					 * @brief Destructor.
+					 */
+					~PreparedSTMT() noexcept override;
 
-		/**
-		 * @brief Construct from copies.
-		 * @param name Statement name.
-		 * @param query SQL text.
-		 * @param conn Connection handle.
-		 * @param logger Logger instance.
-		 */
-		PreparedSTMT(const std::string& name, const std::string& query, struct st_mysql* conn, std::shared_ptr<Logger::Log> logger);
+					/**
+					 * @brief Copy assignment (deleted).
+					 */
+					PreparedSTMT &operator=(const PreparedSTMT &other) = delete;
 
-		/**
-		 * @brief Construct from moved strings.
-		 * @param name Statement name.
-		 * @param query SQL text.
-		 * @param conn Connection handle.
-		 * @param logger Logger instance.
-		 */
-		PreparedSTMT(std::string&& name, std::string&& query, struct st_mysql* conn, std::shared_ptr<Logger::Log> logger) noexcept;
+					/**
+					 * @brief Move assignment.
+					 */
+					PreparedSTMT &operator=(PreparedSTMT &&other) noexcept;
 
-		/**
-		 * @brief Grow @p params so @p index is valid.
-		 * @param params Parameter vector.
-		 * @param index Index to ensure.
-		 */
-		static void EnsureParamSize(std::vector<StormByte::Database::Value>& params, int index) noexcept;
+					/**
+					 * @brief Construct a MariaDB statement through its backend factory.
+					 * @param key Internal construction key.
+					 * @param name Statement name.
+					 * @param query SQL text.
+					 * @param conn Connection handle.
+					 * @param logger Non-owning logger observer.
+					 */
+					PreparedSTMT(ConstructionKey key, std::string_view name, std::string_view query, struct st_mysql* conn, const StormByte::Shared<Logger::Log>& logger);
 
-		/**
-		 * @brief Store a bound value at @p index.
-		 * @param index Parameter index.
-		 * @param value Value to bind.
-		 */
-		void Binder(const int& index, Value&& value) noexcept override;
+				private:
+					struct st_mysql *m_conn;						  ///< Connection handle
+					struct st_mysql_stmt *m_stmt;					  ///< Statement handle
+					std::vector<StormByte::Database::Value> m_params; ///< Bound parameters
 
-		/**
-		 * @brief Execute and fetch rows.
-		 * @return Result rows or an error.
-		 */
-		StormByte::Database::ExpectedRows DoExecute() override;
+					/**
+					 * @brief Copy statement name and SQL text.
+					 * @param name Statement name.
+					 * @param query SQL text.
+					 * @param conn Connection handle.
+					 * @param logger Logger instance.
+					 */
+					/**
+					 * @brief Grow @p params so @p index is valid.
+					 * @param params Parameter vector.
+					 * @param index Index to ensure.
+					 */
+					static void EnsureParamSize(std::vector<StormByte::Database::Value> &params, StormByte::Size index);
 
-		/**
-		 * @brief Clear parameters and reset the statement.
-		 */
-		void Reset() noexcept override;
-	};
-}
+					/**
+					 * @brief Store a bound value at @p index.
+					 * @param index Parameter index.
+					 * @param value Value to bind.
+					 */
+					void Binder(StormByte::Size index, Value &&value) noexcept override;
+
+					/**
+					 * @brief Execute and fetch rows.
+					 * @return Result rows or an error.
+					 */
+					StormByte::Database::ExpectedRows DoExecute() override;
+
+					/**
+					 * @brief Clear parameters and reset the statement.
+					 */
+					void Reset() noexcept override;
+			};
+		}	}}

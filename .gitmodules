@@ -4,7 +4,7 @@
 [submodule "MariaDB Connector C"]
 	path = thirdparty/mariadb/mariadb-connector-c
 	url = https://github.com/mariadb-corporation/mariadb-connector-c.git
-[submodule "StormByte Build Master"]
+[submodule "Build Master"]
 	path = buildmaster
 	url = https://github.com/StormBytePP/StormByte-BuildMaster.git
 [submodule "PostgreSQL"]

@@ -3,15 +3,17 @@
 ![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS-lightgrey)
 ![C++26](https://img.shields.io/badge/C%2B%2B-26-00599C?logo=c%2B%2B&logoColor=white)
 ![CMake](https://img.shields.io/badge/CMake-3.28+-064F8C?logo=cmake&logoColor=white)
-![License: LGPL v3](https://img.shields.io/badge/License-LGPL_v3-blue.svg)
+![License: LGPL v3 or commercial](https://img.shields.io/badge/License-LGPL_v3_or_commercial-blue.svg)
 [![CI](https://github.com/StormBytePP/StormByte-Database/actions/workflows/ci.yml/badge.svg)](https://github.com/StormBytePP/StormByte-Database/actions/workflows/ci.yml)
 [![Sponsor](https://img.shields.io/badge/Sponsor-StormBytePP-ea4aaa?logo=githubsponsors)](https://github.com/sponsors/StormBytePP)
 
 This repository is **StormByte Database**: the C++26 SQL layer of the StormByte suite.
 
+It depends on StormByte-Logger 2.0.0 or newer, which vendors StormByte-String and StormByte Base. Public headers live under `StormByte/database/`.
+
 One API covers SQLite, PostgreSQL and MariaDB. You do **not** construct those backends as generic objects. They are **base classes**: derive your schema, call the backend constructor, prepare statements and hook connect/disconnect there.
 
-The suite is split on purpose. Base, Buffer, Config, Crypto, Logger, Multimedia, Network and System are **other repositories**.
+The suite is split on purpose. Base, Buffer, Config, Crypto, Logger, Multimedia, Network, String and System are **other repositories**. This repository does not implement them.
 
 ## What this module does
 
@@ -36,24 +38,27 @@ The suite is split on purpose. Base, Buffer, Config, Crypto, Logger, Multimedia,
 | [Logger](https://github.com/StormBytePP/StormByte-Logger) | Stream logger with levels, headers, human-readable sizes and redaction (`ThreadedLog`) | [/StormByte-Logger](https://dev.stormbyte.org/StormByte-Logger) |
 | [Multimedia](https://github.com/StormBytePP/StormByte-Multimedia) | Decode, encode and containers without raw FFmpeg types; codecs enabled only if present | [/StormByte-Multimedia](https://dev.stormbyte.org/StormByte-Multimedia) |
 | [Network](https://github.com/StormBytePP/StormByte-Network) | Framed packets, Client/Server, IPv4/IPv6 TCP and Buffer pipelines (compress/encrypt) | [/StormByte-Network](https://dev.stormbyte.org/StormByte-Network) |
+| [String](https://github.com/StormBytePP/StormByte-String) | Owned UTF-8 / wide text that can cross a DLL boundary | [/StormByte-String](https://dev.stormbyte.org/StormByte-String) |
 | [System](https://github.com/StormBytePP/StormByte-System) | Processes, pipes and environment variables across Linux, Windows and macOS | [/StormByte-System](https://dev.stormbyte.org/StormByte-System) |
 
 ## Table of Contents
 
 - [What this module does](#what-this-module-does)
 - [The rest of the suite](#the-rest-of-the-suite)
+- [Documentation](#documentation)
 - [Installation](#installation)
 - [Usage](#usage)
   - [Derive your database](#derive-your-database)
   - [Values and rows](#values-and-rows)
   - [Queries and statements](#queries-and-statements)
   - [Transactions](#transactions)
+- [Support](#support)
 - [Contributing](#contributing)
 - [License](#license)
 
 ## Installation
 
-Needs a C++26 compiler, CMake 3.28 or newer, [StormByte Base 1.1.0](https://github.com/StormBytePP/StormByte/releases/tag/1.1.0) and [StormByte-Logger 1.1.0](https://github.com/StormBytePP/StormByte-Logger/releases/tag/1.1.0). Database exceptions use the component-aware exception API introduced in Base 1.1.0. Enable the backends you want (`WITH_SQLITE`, `WITH_POSTGRES`, `WITH_MARIADB`: `OFF`, `SYSTEM` or `BUNDLED`); `SYSTEM` discovers installed connectors and `BUNDLED` builds them.
+Needs a C++26 compiler, CMake 3.28 or newer, and StormByte-Logger 2.0.0 or newer. Logger supplies the bundled StormByte-String and StormByte Base dependencies used by Database. Enable the backends you want (`WITH_SQLITE`, `WITH_POSTGRES`, `WITH_MARIADB`: `OFF`, `SYSTEM` or `BUNDLED`); `SYSTEM` discovers installed connectors and `BUNDLED` builds them.
 
 ```sh
 git clone https://github.com/StormBytePP/StormByte-Database.git
@@ -61,6 +66,13 @@ cd StormByte-Database
 cmake -S . -B build
 cmake --build build
 ```
+
+Shared vs static follows CMake `BUILD_SHARED_LIBS` (default ON). `-DBUILD_SHARED_LIBS=OFF` builds a static archive. In static mode BuildMaster flattens private vendor dependencies into the consumer link closure; users do not need to repack vendor archives. The shared library keeps Database replaceable as its own DLL/shared object.
+
+## Documentation
+
+- This README: build modes, backend selection, ownership and examples.
+- Doxygen class reference: [https://dev.stormbyte.org/StormByte-Database/](https://dev.stormbyte.org/StormByte-Database/).
 
 ## Usage
 
@@ -141,8 +153,12 @@ for (const auto& row : *result) {
 
 ## Contributing
 
+## Support
+
+Questions and bugs: GitHub issues on this repository. Sponsorship: [github.com/sponsors/StormBytePP](https://github.com/sponsors/StormBytePP).
+
 Issues only on this repository. Fork and open a pull request against `master`.
 
 ## License
 
-GNU Lesser General Public License version 3 or later. See [LICENSE](LICENSE) and <https://www.gnu.org/licenses/lgpl-3.0.html>.
+Dual license: GNU Lesser General Public License v3.0 or later, or a commercial license from the copyright holder. See [LICENSE](LICENSE), [COPYING.LGPLv3](COPYING.LGPLv3) and <https://www.gnu.org/licenses/lgpl-3.0.html>. Third-party trees under `thirdparty/` keep their own licenses.

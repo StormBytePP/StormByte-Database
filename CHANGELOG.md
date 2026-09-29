@@ -11,19 +11,25 @@ StormByte Database is the C++26 SQL layer of the StormByte suite.
 
 One API covers SQLite, PostgreSQL and MariaDB.
 Backends are base classes: you derive your schema, prepare statements and hook connect there.
-This repository is not Base, Buffer, Config, Crypto, Logger, Multimedia, Network or System.
-It requires [StormByte Base 1.1.0](https://github.com/StormBytePP/StormByte/releases/tag/1.1.0) and [StormByte-Logger 1.1.0](https://github.com/StormBytePP/StormByte-Logger/releases/tag/1.1.0) or newer.
+This repository is not Base, Buffer, Config, Crypto, Logger, Multimedia, Network, String or System.
+It requires StormByte-Logger 2.0.0 or newer, which vendors StormByte-String and StormByte Base.
+The original StormByte-Database source is dual-licensed under LGPL v3.0-or-later or a commercial license.
 
 If you landed here from a release link and have not read the tree:
 
 - What this module is, how to build it, and short examples: [README.md](https://github.com/StormBytePP/StormByte-Database/blob/master/README.md)
-- License: GNU Lesser General Public License version 3 or later, [LICENSE](https://github.com/StormBytePP/StormByte-Database/blob/master/LICENSE)
+- License: dual LGPL v3.0-or-later / commercial, [LICENSE](https://github.com/StormBytePP/StormByte-Database/blob/master/LICENSE) and [COPYING.LGPLv3](https://github.com/StormBytePP/StormByte-Database/blob/master/COPYING.LGPLv3)
 
 ## [Unreleased]
 
 ### Changed
 
-- Doxygen (`ENABLE_DOC`) resolves Logger and Base headers via `INCLUDE_PATH`, includes `lib/optional`, and skips `thirdparty`. No dependency pin change.
+- Ported the main library to BuildMaster 2 HOST with shared/static selection. Static consumers receive flattened private vendor dependencies; vendor archives do not need repacking.
+- **Breaking**: The public API contract changed beyond the DLL boundary fix. Inputs and storage were migrated to StormByte 2.0 types (`StormByte::String::String`, `StormByte::BinaryData`, `StormByte::Size`, `StormByte::ByteSize`, `std::string_view`), backend logger ownership is now shared (`StormByte::Shared<Logger::Log>`) instead of raw pointers, and statement/query factory signatures now accept view-based names and SQL text rather than rvalue strings. The exported layout of `Database`, `PreparedSTMT`, `Row`, `Rows`, `Value`, `NamedValue` and backend result containers was also tightened to enforce DLL-safe ownership and out-of-line heap operations; consumers must recompile against this port and update any code that relied on old string, logger, or STL-owning ABI assumptions.
+- Updated the public API to StormByte 2.0 types: `StormByte::String::String`, `StormByte::BinaryData`, `StormByte::Size`, `StormByte::ByteSize` and `std::string_view` inputs. Heap-owning DLL-boundary operations are defined out-of-line.
+- Updated tests, README and Doxygen configuration for StormByte Base/String/Logger 2.0 and the dual-license terms.
+
+[Unreleased]: https://github.com/StormBytePP/StormByte-Database/compare/1.1.0...HEAD
 
 ## [1.1.0] - 2026-09-13
 
@@ -45,6 +51,8 @@ If you landed here from a release link and have not read the tree:
 
 - Updated the minimum requirements to StormByte Base 1.1.0 and StormByte-Logger 1.1.0, including component-aware Database exceptions.
 - Adopted StormByte Base type concepts for Database value conversions.
+
+[1.1.0]: https://github.com/StormBytePP/StormByte-Database/compare/1.0.0...1.1.0
 
 ## [1.0.0] - 2026-09-05
 
@@ -68,7 +76,4 @@ Initial public release of StormByte Database.
 - First stable release of StormByte Database.
 - Not thread-safe: one connection per thread.
 - Needs a C++26 compiler and CMake ≥ 3.28.
-
-[Unreleased]: https://github.com/StormBytePP/StormByte-Database/compare/1.1.0...HEAD
-[1.1.0]: https://github.com/StormBytePP/StormByte-Database/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/StormBytePP/StormByte-Database/releases/tag/1.0.0

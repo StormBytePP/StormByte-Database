@@ -3,9 +3,29 @@
  *
  * This file is part of StormByte-Database.
  *
- * StormByte-Database is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
+ * StormByte-Database original source is dual-licensed:
+ *
+ * 1. GNU Lesser General Public License v3.0 (or later)
+ *    You may redistribute and/or modify this file under the terms of the
+ *    GNU Lesser General Public License as published by the Free Software
+ *    Foundation, either version 3 of the License, or (at your option)
+ *    any later version.
+ *
+ * 2. Commercial license
+ *    Alternatively, this file may be used under the terms of a commercial
+ *    license agreement with the copyright holder
+ *    (David C. Manuelda <StormByte@gmail.com>).
+ *
+ * Both licenses apply only to original StormByte-Database source in this
+ * repository. They do not cover other StormByte modules or any third-party
+ * material shipped with this repository (including everything under
+ * thirdparty/, and in particular the bundled StormByte-Logger tree and
+ * the PostgreSQL, MariaDB and SQLite trees), which remain under their own
+ * licenses.
+ *
+ * Neither license grants any patent rights. Any patent licenses required
+ * to use this software or third-party components must be obtained separately
+ * from the patent holders.
  *
  * StormByte-Database is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -13,16 +33,18 @@
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Database. If not, see
+ * version 3 along with StormByte-Database. If not, see
  * <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ *
+ * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
 #include <StormByte/database/sqlite/sqlite3.hxx>
 #include <StormByte/database/transaction.hxx>
 #include <StormByte/logger/log.hxx>
 #include <StormByte/logger/threaded_log.hxx>
-#include <StormByte/system.hxx>
 #include <StormByte/test_handlers.h>
+#include <StormByte/uuid.hxx>
 #include <memory>
 #include <iostream>
 #include <vector>
@@ -36,8 +58,16 @@ using StormByte::Database::IsolationLevel;
 using StormByte::Database::Transaction;
 using StormByte::Database::ColumnNotFound;
 using StormByte::Database::OutOfBounds;
-std::shared_ptr<StormByte::Logger::Log> logger =
-	std::make_shared<StormByte::Logger::ThreadedLog>(std::cout, StormByte::Logger::Level::Info);
+StormByte::Shared<StormByte::Logger::Log> logger =
+	StormByte::Shared<StormByte::Logger::Log>::MakePointer<StormByte::Logger::ThreadedLog>(std::cout, StormByte::Logger::Level::Info);
+
+namespace {
+	std::filesystem::path TemporaryDatabasePath() {
+		const std::string uuid{static_cast<std::string_view>(StormByte::GenerateUUIDv4())};
+		return std::filesystem::temp_directory_path() / ("stormbyte_sqlite_concurrent_" + uuid + ".db");
+	}
+}
+
 class TestMemoryDatabase : public SQLite3 {
 	public:
 		TestMemoryDatabase() : SQLite3(logger) {}
@@ -157,10 +187,10 @@ int verify_inserted_users() {
 	ASSERT_TRUE(fn_name, expected_rows.has_value());
 	const auto& rows = expected_rows.value();
 	ASSERT_EQUAL(fn_name, 2, rows.Count());
-	ASSERT_EQUAL(fn_name, "Alice", rows[0][0].Get<std::string>());
-	ASSERT_EQUAL(fn_name, "alice@example.com", rows[0][1].Get<std::string>());
-	ASSERT_EQUAL(fn_name, "Bob", rows[1][0].Get<std::string>());
-	ASSERT_EQUAL(fn_name, "bob@example.com", rows[1][1].Get<std::string>());
+	ASSERT_EQUAL(fn_name, "Alice", rows[0][0].Get<StormByte::String::String>());
+	ASSERT_EQUAL(fn_name, "alice@example.com", rows[0][1].Get<StormByte::String::String>());
+	ASSERT_EQUAL(fn_name, "Bob", rows[1][0].Get<StormByte::String::String>());
+	ASSERT_EQUAL(fn_name, "bob@example.com", rows[1][1].Get<StormByte::String::String>());
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -172,9 +202,9 @@ int verify_inserted_products() {
 	ASSERT_TRUE(fn_name, expected_rows.has_value());
 	const auto& rows = expected_rows.value();
 	ASSERT_EQUAL(fn_name, 2, rows.Count());
-	ASSERT_EQUAL(fn_name, "Laptop", rows[0][0].Get<std::string>());
+	ASSERT_EQUAL(fn_name, "Laptop", rows[0][0].Get<StormByte::String::String>());
 	ASSERT_EQUAL(fn_name, 999.99, rows[0][1].Get<double>());
-	ASSERT_EQUAL(fn_name, "Mouse", rows[1][0].Get<std::string>());
+	ASSERT_EQUAL(fn_name, "Mouse", rows[1][0].Get<StormByte::String::String>());
 	ASSERT_EQUAL(fn_name, 19.99, rows[1][1].Get<double>());
 	RETURN_TEST(fn_name, 0);
 }
@@ -204,11 +234,11 @@ int verify_relationships() {
 	ASSERT_TRUE(fn_name, expected_rows.has_value());
 	const auto& rows = expected_rows.value();
 	ASSERT_EQUAL(fn_name, 2, rows.Count());
-	ASSERT_EQUAL(fn_name, "Alice", rows[0][0].Get<std::string>());
-	ASSERT_EQUAL(fn_name, "Laptop", rows[0][1].Get<std::string>());
+	ASSERT_EQUAL(fn_name, "Alice", rows[0][0].Get<StormByte::String::String>());
+	ASSERT_EQUAL(fn_name, "Laptop", rows[0][1].Get<StormByte::String::String>());
 	ASSERT_EQUAL(fn_name, 1, rows[0][2].Get<int>());
-	ASSERT_EQUAL(fn_name, "Bob", rows[1][0].Get<std::string>());
-	ASSERT_EQUAL(fn_name, "Mouse", rows[1][1].Get<std::string>());
+	ASSERT_EQUAL(fn_name, "Bob", rows[1][0].Get<StormByte::String::String>());
+	ASSERT_EQUAL(fn_name, "Mouse", rows[1][1].Get<StormByte::String::String>());
 	ASSERT_EQUAL(fn_name, 2, rows[1][2].Get<int>());
 	RETURN_TEST(fn_name, 0);
 }
@@ -274,7 +304,7 @@ int unsigned_bind_preserves_value() {
 	ASSERT_TRUE(fn_name, db.ExecuteSTMT("insert_unsigned", value).has_value());
 	auto rows = db.Query("SELECT CAST(value AS TEXT) FROM unsigned_values;");
 	ASSERT_TRUE(fn_name, rows.has_value());
-	ASSERT_EQUAL(fn_name, std::to_string(value), rows.value()[0][0].Get<std::string>());
+	ASSERT_EQUAL(fn_name, StormByte::String::String{std::to_string(value)}, rows.value()[0][0].Get<StormByte::String::String>());
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -320,12 +350,12 @@ int verify_blobs() {
 	const std::string fn_name = "verify_blobs";
 	TestMemoryDatabase db;
 	db.Connect();
-	std::vector<std::byte> data{std::byte{0}, std::byte{1}, std::byte{2}, std::byte{0xFF}};
+	StormByte::BinaryData data{std::byte{0}, std::byte{1}, std::byte{2}, std::byte{0xFF}};
 	auto insert_res = db.ExecuteSTMT("insert_blob", data);
 	ASSERT_TRUE(fn_name, insert_res.has_value());
 	auto expected_rows = db.get_blob();
 	ASSERT_TRUE(fn_name, expected_rows.has_value());
-	const auto& blob = expected_rows.value()[0][0].Get<std::vector<std::byte>>();
+	const auto& blob = expected_rows.value()[0][0].Get<StormByte::BinaryData>();
 	ASSERT_EQUAL(fn_name, 4, static_cast<int>(blob.size()));
 	ASSERT_EQUAL(fn_name, 0, static_cast<int>(static_cast<unsigned char>(blob[0])));
 	ASSERT_EQUAL(fn_name, 255, static_cast<int>(static_cast<unsigned char>(blob[3])));
@@ -336,7 +366,7 @@ int empty_blob_test() {
 	const std::string fn_name = "empty_blob_test";
 	TestMemoryDatabase db;
 	db.Connect();
-	std::vector<std::byte> empty;
+	StormByte::BinaryData empty;
 	auto insert_res = db.ExecuteSTMT("insert_blob", empty);
 	ASSERT_TRUE(fn_name, insert_res.has_value());
 	RETURN_TEST(fn_name, 0);
@@ -376,8 +406,8 @@ int name_access_test() {
 	db.Connect();
 	auto expected_rows = db.get_users();
 	ASSERT_TRUE(fn_name, expected_rows.has_value());
-	ASSERT_EQUAL(fn_name, "Alice", expected_rows.value()[0]["name"].Get<std::string>());
-	ASSERT_EQUAL(fn_name, "alice@example.com", expected_rows.value()[0]["email"].Get<std::string>());
+	ASSERT_EQUAL(fn_name, "Alice", expected_rows.value()[0]["name"].Get<StormByte::String::String>());
+	ASSERT_EQUAL(fn_name, "alice@example.com", expected_rows.value()[0]["email"].Get<StormByte::String::String>());
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -478,7 +508,7 @@ int concurrent_multiple_connections() {
 	constexpr int inserts_per_thread = 40;
 	constexpr int max_attempts = 80;
 	constexpr int retry_ms = 15;
-	const std::filesystem::path db_path = StormByte::System::TempFileName("stormbyte_sqlite_concurrent");
+	const std::filesystem::path db_path = TemporaryDatabasePath();
 	std::error_code ec;
 	std::filesystem::remove(db_path, ec);
 	{

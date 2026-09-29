@@ -39,69 +39,36 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
-#pragma once
+#include <StormByte/database/named_value.hxx>
 
-#include <StormByte/binary_data.hxx>
-#include <StormByte/database/exception.hxx>
-#include <StormByte/expected.hxx>
-#include <StormByte/string/string.hxx>
+using namespace StormByte::Database;
 
-#include <variant>
+NamedValue::NamedValue(std::string_view name, const Value& value):
+	Value(value), m_name(name) {}
 
-/**
- * @namespace StormByte
- * @brief Root namespace of the StormByte C++ suite.
- */
-namespace StormByte {
-	/**
-	 * @namespace StormByte::Database
-	 * @brief Database module of the StormByte suite.
-	 */
-	namespace Database {
-		class Rows;
+NamedValue::NamedValue(std::string_view name, Value&& value):
+	Value(std::move(value)), m_name(name) {}
 
-		/**
-		 * @typedef ValuesVariant
-		 * @brief Column alternatives. `std::monostate` is SQL NULL.
-		 */
-		using ValuesVariant = std::variant<
-			std::monostate,
-			int,
-			unsigned int,
-			long int,
-			unsigned long int,
-			double,
-			StormByte::String::String,
-			bool,
-			StormByte::BinaryData>;
+NamedValue::NamedValue(const NamedValue& other):
+	Value(other), m_name(other.m_name) {}
 
-		/**
-		 * @typedef ExpectedRows
-		 * @brief Query result: Rows or QueryException.
-		 */
-		using ExpectedRows = Expected<Rows, QueryException>;
+NamedValue::NamedValue(NamedValue&& other) noexcept:
+	Value(std::move(other)), m_name(std::move(other.m_name)) {}
 
-		/**
-		 * @enum SslMode
-		 * @brief TLS policy for MariaDB / PostgreSQL. SQLite ignores it.
-		 */
-		enum class SslMode {
-			Default, ///< Driver default
-			Disable, ///< No TLS
-			Prefer,	 ///< TLS if the server offers it
-			Require	 ///< Fail if TLS cannot be used
-		};
+NamedValue::~NamedValue() noexcept = default;
 
-		/**
-		 * @enum IsolationLevel
-		 * @brief Isolation for BeginTransaction(). Mapping is backend-specific.
-		 */
-		enum class IsolationLevel {
-			Default,		 ///< Backend default
-			ReadUncommitted, ///< Dirty reads where supported
-			ReadCommitted,	 ///< Committed data only
-			RepeatableRead,	 ///< Stable reads in the transaction
-			Serializable	 ///< Full serializability where supported
-		};
+NamedValue& NamedValue::operator=(const NamedValue& other) {
+	if (this != &other) {
+		Value::operator=(other);
+		m_name = other.m_name;
 	}
+	return *this;
+}
+
+NamedValue& NamedValue::operator=(NamedValue&& other) noexcept {
+	if (this != &other) {
+		Value::operator=(std::move(other));
+		m_name = std::move(other.m_name);
+	}
+	return *this;
 }

@@ -3,9 +3,29 @@
  *
  * This file is part of StormByte-Database.
  *
- * StormByte-Database is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
+ * StormByte-Database original source is dual-licensed:
+ *
+ * 1. GNU Lesser General Public License v3.0 (or later)
+ *    You may redistribute and/or modify this file under the terms of the
+ *    GNU Lesser General Public License as published by the Free Software
+ *    Foundation, either version 3 of the License, or (at your option)
+ *    any later version.
+ *
+ * 2. Commercial license
+ *    Alternatively, this file may be used under the terms of a commercial
+ *    license agreement with the copyright holder
+ *    (David C. Manuelda <StormByte@gmail.com>).
+ *
+ * Both licenses apply only to original StormByte-Database source in this
+ * repository. They do not cover other StormByte modules or any third-party
+ * material shipped with this repository (including everything under
+ * thirdparty/, and in particular the bundled StormByte-Logger tree and
+ * the PostgreSQL, MariaDB and SQLite trees), which remain under their own
+ * licenses.
+ *
+ * Neither license grants any patent rights. Any patent licenses required
+ * to use this software or third-party components must be obtained separately
+ * from the patent holders.
  *
  * StormByte-Database is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -13,8 +33,10 @@
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Database. If not, see
+ * version 3 along with StormByte-Database. If not, see
  * <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ *
+ * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
 #include <StormByte/database/postgres/postgres.hxx>
@@ -22,7 +44,9 @@
 #include <StormByte/database/postgres/prepared_stmt.hxx>
 #include <libpq-fe.h>
 #include <cctype>
+#include <limits>
 #include <string>
+#include <string_view>
 #include <utility>
 using namespace StormByte::Database::Postgres;
 namespace {
@@ -34,18 +58,14 @@ namespace {
 		while (!msg.empty() && (msg.back() == '\n' || msg.back() == '\r'))
 			msg.pop_back();
 		if (!msg.empty())
-			*log << StormByte::Logger::Level::Notice << msg << std::endl;
+			*log << StormByte::Logger::Level::Notice << std::string_view{msg} << std::endl;
 	}
 }
 
-Postgres::Postgres(const std::string& host, const std::string& user, const std::string& password,
-				const std::string& db_name, std::shared_ptr<Logger::Log> logger)
+Postgres::Postgres(std::string_view host, std::string_view user, std::string_view password,
+				std::string_view db_name, const StormByte::Shared<Logger::Log>& logger)
 	: Database(logger), m_host(host), m_user(user), m_password(password),
 	m_dbname(db_name), m_conn(nullptr) {}
-Postgres::Postgres(std::string&& host, std::string&& user, std::string&& password,
-				std::string&& db_name, std::shared_ptr<Logger::Log> logger)
-	: Database(logger), m_host(std::move(host)), m_user(std::move(user)),
-	m_password(std::move(password)), m_dbname(std::move(db_name)), m_conn(nullptr) {}
 
 Postgres::Postgres(Postgres&& db) noexcept
 	: Database(std::move(db)), m_host(std::move(db.m_host)), m_user(std::move(db.m_user)),
@@ -134,7 +154,7 @@ bool Postgres::DoConnect() noexcept {
 }
 
 void Postgres::DoPreDisconnect() noexcept {
-	m_prepared_stmts.clear();
+	ClearPreparedSTMTs();
 }
 
 void Postgres::DoDisconnect() noexcept {
@@ -144,12 +164,15 @@ void Postgres::DoDisconnect() noexcept {
 	}
 }
 
-StormByte::Database::ExpectedRows Postgres::Query(const std::string& query) noexcept {
+StormByte::Database::ExpectedRows Postgres::Query(std::string_view query) noexcept {
 	if (m_logger)
 		*m_logger << Logger::Level::Debug << "Executing query: " << query << std::endl;
 	if (!m_connected || !m_conn)
 		return Unexpected<ExecuteError>("Database not connected");
-	PGresult* res = PQexec(static_cast<PGconn*>(m_conn), query.c_str());
+	if (query.find('\0') != std::string_view::npos)
+		return Unexpected<ExecuteError>("Query contains an embedded NUL character");
+	const std::string query_text{query};
+	PGresult* res = PQexec(static_cast<PGconn*>(m_conn), query_text.c_str());
 	if (!res)
 		return Unexpected<ExecuteError>("Null PGresult");
 	ExecStatusType st = PQresultStatus(res);
@@ -166,16 +189,19 @@ StormByte::Database::ExpectedRows Postgres::Query(const std::string& query) noex
 	return rows;
 }
 
-bool Postgres::SilentQuery(const std::string& query) noexcept {
+bool Postgres::SilentQuery(std::string_view query) noexcept {
 	return DoSilentQuery(query);
 }
 
-bool Postgres::DoSilentQuery(const std::string& query) noexcept {
+bool Postgres::DoSilentQuery(std::string_view query) noexcept {
 	if (m_logger)
 		*m_logger << Logger::Level::Debug << "Executing silent query: " << query << std::endl;
 	if (!m_connected || !m_conn)
 		return false;
-	PGresult* res = PQexec(static_cast<PGconn*>(m_conn), query.c_str());
+	if (query.find('\0') != std::string_view::npos)
+		return false;
+	const std::string query_text{query};
+	PGresult* res = PQexec(static_cast<PGconn*>(m_conn), query_text.c_str());
 	if (!res)
 		return false;
 	ExecStatusType st = PQresultStatus(res);
@@ -197,22 +223,25 @@ bool Postgres::DoSilentQuery(const std::string& query) noexcept {
 	return true;
 }
 
-std::unique_ptr<StormByte::Database::PreparedSTMT>
-Postgres::CreatePreparedSTMT(std::string&& name, std::string&& query) noexcept {
+StormByte::Unique<StormByte::Database::PreparedSTMT>
+Postgres::CreatePreparedSTMT(std::string_view name, std::string_view query) noexcept {
 	if (!m_conn)
 		return nullptr;
 	PGconn* conn = static_cast<PGconn*>(m_conn);
-	std::string qcopy = query;
+	if (name.find('\0') != std::string_view::npos || query.find('\0') != std::string_view::npos)
+		return nullptr;
+	const std::string name_copy{name};
+	std::string qcopy{query};
 	while (!qcopy.empty() &&
 		(qcopy.back() == ';' || isspace(static_cast<unsigned char>(qcopy.back())))) {
 		qcopy.pop_back();
 	}
 
-	PGresult* res = PQprepare(conn, name.c_str(), qcopy.c_str(), 0, nullptr);
+	PGresult* res = PQprepare(conn, name_copy.c_str(), qcopy.c_str(), 0, nullptr);
 	if (!res) {
 		if (m_logger) {
 			*m_logger << Logger::Level::Error
-					<< "PQprepare returned null for statement '" << name << "'"
+					<< "PQprepare returned null for statement '" << std::string_view{name_copy} << "'"
 					<< std::endl;
 		}
 
@@ -223,7 +252,7 @@ Postgres::CreatePreparedSTMT(std::string&& name, std::string&& query) noexcept {
 	if (st != PGRES_COMMAND_OK && st != PGRES_TUPLES_OK) {
 		if (m_logger) {
 			*m_logger << Logger::Level::Error
-					<< "PQprepare error for statement '" << name << "': "
+					<< "PQprepare error for statement '" << std::string_view{name_copy} << "': "
 					<< (PQresultErrorMessage(res) ? PQresultErrorMessage(res) : "Unknown")
 					<< std::endl;
 		}
@@ -233,8 +262,8 @@ Postgres::CreatePreparedSTMT(std::string&& name, std::string&& query) noexcept {
 	}
 
 	PQclear(res);
-	std::unique_ptr<PreparedSTMT> stmt =
-		std::make_unique<PreparedSTMT>(PreparedSTMT(std::move(name), std::move(query), m_logger));
+	StormByte::Unique<PreparedSTMT> stmt = StormByte::Unique<PreparedSTMT>::MakePointer<PreparedSTMT>(
+		PreparedSTMT::ConstructionKey{}, name, query, m_logger);
 	stmt->m_conn = m_conn;
 	return stmt;
 }

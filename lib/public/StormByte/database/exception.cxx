@@ -39,69 +39,47 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
-#pragma once
-
-#include <StormByte/binary_data.hxx>
 #include <StormByte/database/exception.hxx>
-#include <StormByte/expected.hxx>
-#include <StormByte/string/string.hxx>
 
-#include <variant>
+using namespace StormByte::Database;
 
-/**
- * @namespace StormByte
- * @brief Root namespace of the StormByte C++ suite.
- */
-namespace StormByte {
-	/**
-	 * @namespace StormByte::Database
-	 * @brief Database module of the StormByte suite.
-	 */
-	namespace Database {
-		class Rows;
+Exception::Exception(std::string_view message):
+	StormByte::Exception(StormByte::Exception::Path{"Database"}, "{}", message) {}
 
-		/**
-		 * @typedef ValuesVariant
-		 * @brief Column alternatives. `std::monostate` is SQL NULL.
-		 */
-		using ValuesVariant = std::variant<
-			std::monostate,
-			int,
-			unsigned int,
-			long int,
-			unsigned long int,
-			double,
-			StormByte::String::String,
-			bool,
-			StormByte::BinaryData>;
+Exception::~Exception() noexcept = default;
 
-		/**
-		 * @typedef ExpectedRows
-		 * @brief Query result: Rows or QueryException.
-		 */
-		using ExpectedRows = Expected<Rows, QueryException>;
+ConnectionError::ConnectionError(std::string_view error):
+	Exception(StormByte::Exception::Path{"Database.Connection"}, "{}", error) {}
 
-		/**
-		 * @enum SslMode
-		 * @brief TLS policy for MariaDB / PostgreSQL. SQLite ignores it.
-		 */
-		enum class SslMode {
-			Default, ///< Driver default
-			Disable, ///< No TLS
-			Prefer,	 ///< TLS if the server offers it
-			Require	 ///< Fail if TLS cannot be used
-		};
+ConnectionError::~ConnectionError() noexcept = default;
 
-		/**
-		 * @enum IsolationLevel
-		 * @brief Isolation for BeginTransaction(). Mapping is backend-specific.
-		 */
-		enum class IsolationLevel {
-			Default,		 ///< Backend default
-			ReadUncommitted, ///< Dirty reads where supported
-			ReadCommitted,	 ///< Committed data only
-			RepeatableRead,	 ///< Stable reads in the transaction
-			Serializable	 ///< Full serializability where supported
-		};
-	}
-}
+WrongValueType::WrongValueType(std::string_view error):
+	Exception(StormByte::Exception::Path{"Database.WrongValueType"}, "{}", error) {}
+
+WrongValueType::~WrongValueType() noexcept = default;
+
+ColumnNotFound::ColumnNotFound(std::string_view column):
+	Exception(StormByte::Exception::Path{"Database.ColumnNotFound"}, "Column '{}' not found", column) {}
+
+ColumnNotFound::~ColumnNotFound() noexcept = default;
+
+OutOfBounds::OutOfBounds(StormByte::Size pos, StormByte::Size size):
+	Exception(StormByte::Exception::Path{"Database.OutOfBounds"}, "Position {} is out of bounds for size {}",
+		static_cast<std::size_t>(pos), static_cast<std::size_t>(size)) {}
+
+OutOfBounds::~OutOfBounds() noexcept = default;
+
+QueryException::QueryException(std::string_view error):
+	Exception(StormByte::Exception::Path{"Database.Query"}, "{}", error) {}
+
+QueryException::~QueryException() noexcept = default;
+
+UnknownSTMT::UnknownSTMT(std::string_view name):
+	QueryException("PreparedSTMT", "Statement '{}' not found", name) {}
+
+UnknownSTMT::~UnknownSTMT() noexcept = default;
+
+ExecuteError::ExecuteError(std::string_view error):
+	QueryException("Execute", "Error executing query: {}", error) {}
+
+ExecuteError::~ExecuteError() noexcept = default;

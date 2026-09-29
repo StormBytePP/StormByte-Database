@@ -3,9 +3,29 @@
  *
  * This file is part of StormByte-Database.
  *
- * StormByte-Database is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
+ * StormByte-Database original source is dual-licensed:
+ *
+ * 1. GNU Lesser General Public License v3.0 (or later)
+ *    You may redistribute and/or modify this file under the terms of the
+ *    GNU Lesser General Public License as published by the Free Software
+ *    Foundation, either version 3 of the License, or (at your option)
+ *    any later version.
+ *
+ * 2. Commercial license
+ *    Alternatively, this file may be used under the terms of a commercial
+ *    license agreement with the copyright holder
+ *    (David C. Manuelda <StormByte@gmail.com>).
+ *
+ * Both licenses apply only to original StormByte-Database source in this
+ * repository. They do not cover other StormByte modules or any third-party
+ * material shipped with this repository (including everything under
+ * thirdparty/, and in particular the bundled StormByte-Logger tree and
+ * the PostgreSQL, MariaDB and SQLite trees), which remain under their own
+ * licenses.
+ *
+ * Neither license grants any patent rights. Any patent licenses required
+ * to use this software or third-party components must be obtained separately
+ * from the patent holders.
  *
  * StormByte-Database is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -13,228 +33,216 @@
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Database. If not, see
+ * version 3 along with StormByte-Database. If not, see
  * <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ *
+ * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
 #pragma once
 
 #include <StormByte/database/visibility.h>
 #include <StormByte/exception.hxx>
+#include <StormByte/size.hxx>
 
 #include <format>
 #include <string>
+#include <string_view>
 #include <utility>
 
 /**
- * @brief Database module of the StormByte suite.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte C++ suite.
  */
-namespace StormByte::Database {
+namespace StormByte {
 	/**
-	 * @class Exception
-	 * @brief Base exception for the Database module.
+	 * @namespace StormByte::Database
+	 * @brief Database module of the StormByte suite.
 	 */
-	class STORMBYTE_DATABASE_PUBLIC Exception: public StormByte::Exception {
-		public:
-			/**
-			 * @brief Construct with an unformatted message.
-			 * @param message Message text.
-			 */
-			explicit Exception(const std::string& message):
-				StormByte::Exception(StormByte::Component{"Database"}, "{}", message) {}
+	namespace Database {
+		/**
+		 * @class Exception
+		 * @brief Base exception for the Database module.
+		 */
+		class STORMBYTE_DATABASE_PUBLIC Exception : public StormByte::Exception {
+			public:
+				/**
+				 * @brief Construct with an unformatted message.
+				 * @param message Message text.
+				 */
+				explicit Exception(std::string_view message);
 
-			/**
-			 * @brief Construct with a moved unformatted message.
-			 * @param message Message text.
-			 */
-			explicit Exception(std::string&& message):
-				StormByte::Exception(StormByte::Component{"Database"}, "{}", std::move(message)) {}
+				/**
+				 * @brief Construct with a formatted message.
+				 * @tparam Args Format argument types.
+				 * @param fmt Format string.
+				 * @param args Format arguments.
+				 */
+				template <typename... Args>
+				Exception(std::format_string<Args...> fmt, Args &&...args) : StormByte::Exception(StormByte::Exception::Path{"Database"}, fmt, std::forward<Args>(args)...) {}
 
-			/**
-			 * @brief Construct with a formatted message.
-			 * @tparam Args Format argument types.
-			 * @param fmt Format string.
-			 * @param args Format arguments.
-			 */
-			template <typename... Args>
-			Exception(std::format_string<Args...> fmt, Args&&... args):
-				StormByte::Exception(StormByte::Component{"Database"}, fmt, std::forward<Args>(args)...) {}
+				/**
+				 * @brief Destructor.
+				 */
+				virtual ~Exception() noexcept override;
 
-			/**
-			 * @brief Destructor.
-			 */
-			virtual ~Exception() noexcept override = default;
+			protected:
+				/**
+				 * @brief Construct with a qualified database path and formatted message.
+				 * @tparam Args Format argument types.
+				 * @param path Qualified component path.
+				 * @param fmt Format string.
+				 * @param args Format arguments.
+				 */
+				template <typename... Args>
+				Exception(StormByte::Exception::Path path, std::format_string<Args...> fmt, Args &&...args) : StormByte::Exception(path, fmt, std::forward<Args>(args)...) {}
+		};
 
-		protected:
-			/**
-			 * @brief Construct with a qualified database component and formatted message.
-			 * @tparam Args Format argument types.
-			 * @param component Qualified component name.
-			 * @param fmt Format string.
-			 * @param args Format arguments.
-			 */
-			template <typename... Args>
-			Exception(StormByte::Component component, std::format_string<Args...> fmt, Args&&... args):
-				StormByte::Exception(component, fmt, std::forward<Args>(args)...) {}
-	};
+		/**
+		 * @class ConnectionError
+		 * @brief Connection failed.
+		 */
+		class STORMBYTE_DATABASE_PUBLIC ConnectionError final : public Exception {
+			public:
+				/**
+				 * @brief Construct from a backend message.
+				 * @param error Error text.
+				 */
+				ConnectionError(std::string_view error);
 
-	/**
-	 * @class ConnectionError
-	 * @brief Connection failed.
-	 */
-	class STORMBYTE_DATABASE_PUBLIC ConnectionError final: public Exception {
-		public:
-			/**
-			 * @brief Construct from a backend message.
-			 * @param error Error text.
-			 */
-			ConnectionError(const std::string& error):
-				Exception(StormByte::Component{"Database::Connection"}, "{}", error) {}
+				/**
+				 * @brief Destructor.
+				 */
+				~ConnectionError() noexcept override;
+		};
 
-			/**
-			 * @brief Construct from a moved backend message.
-			 * @param error Error text.
-			 */
-			ConnectionError(std::string&& error):
-				Exception(StormByte::Component{"Database::Connection"}, "{}", std::move(error)) {}
-	};
+		/**
+		 * @class WrongValueType
+		 * @brief Value accessed as the wrong type.
+		 */
+		class STORMBYTE_DATABASE_PUBLIC WrongValueType final : public Exception {
+			public:
+				/**
+				 * @brief Construct from an error message.
+				 * @param error Error text.
+				 */
+				WrongValueType(std::string_view error);
 
-	/**
-	 * @class WrongValueType
-	 * @brief Value accessed as the wrong type.
-	 */
-	class STORMBYTE_DATABASE_PUBLIC WrongValueType final: public Exception {
-		public:
-			/**
-			 * @brief Construct from an error message.
-			 * @param error Error text.
-			 */
-			WrongValueType(const std::string& error):
-				Exception(StormByte::Component{"Database::WrongValueType"}, "{}", error) {}
+				/**
+				 * @brief Destructor.
+				 */
+				~WrongValueType() noexcept override;
 
-			/**
-			 * @brief Construct from a moved error message.
-			 * @param error Error text.
-			 */
-			WrongValueType(std::string&& error):
-				Exception(StormByte::Component{"Database::WrongValueType"}, "{}", std::move(error)) {}
+				/**
+				 * @brief Construct with a format string.
+				 * @tparam Args Format argument types.
+				 * @param component Context label.
+				 * @param fmt Format string.
+				 * @param args Format arguments.
+				 */
+				template <typename... Args>
+				WrongValueType(std::string_view component, std::format_string<Args...> fmt, Args &&...args) : Exception(StormByte::Exception::Path{std::string{"Database.WrongValueType."}.append(component)}, fmt, std::forward<Args>(args)...) {}
+		};
 
-			/**
-			 * @brief Construct with a format string.
-			 * @tparam Args Format argument types.
-			 * @param component Context label.
-			 * @param fmt Format string.
-			 * @param args Format arguments.
-			 */
-			template <typename... Args>
-			WrongValueType(const std::string& component, std::format_string<Args...> fmt, Args&&... args):
-				Exception(StormByte::Component{std::string("Database::WrongValueType::") + component}, fmt, std::forward<Args>(args)...) {}
+		/**
+		 * @class ColumnNotFound
+		 * @brief Column name missing from a Row.
+		 */
+		class STORMBYTE_DATABASE_PUBLIC ColumnNotFound : public Exception {
+			public:
+				/**
+				 * @brief Construct from the missing name.
+				 * @param column Column name.
+				 */
+				ColumnNotFound(std::string_view column);
 
-	};
+				/**
+				 * @brief Destructor.
+				 */
+				~ColumnNotFound() noexcept override;
+		};
 
-	/**
-	 * @class ColumnNotFound
-	 * @brief Column name missing from a Row.
-	 */
-	class STORMBYTE_DATABASE_PUBLIC ColumnNotFound: public Exception {
-		public:
-			/**
-			 * @brief Construct from the missing name.
-			 * @param column Column name.
-			 */
-			ColumnNotFound(const std::string& column):
-				Exception(StormByte::Component{"Database::ColumnNotFound"}, "Column '{}' not found", column) {}
+		/**
+		 * @class OutOfBounds
+		 * @brief Column index out of range.
+		 */
+		class STORMBYTE_DATABASE_PUBLIC OutOfBounds : public Exception {
+			public:
+				/**
+				 * @brief Construct from index and size.
+				 * @param pos Requested index.
+				 * @param size Container size.
+				 */
+				OutOfBounds(StormByte::Size pos, StormByte::Size size);
 
-	};
+				/**
+				 * @brief Destructor.
+				 */
+				~OutOfBounds() noexcept override;
+		};
 
-	/**
-	 * @class OutOfBounds
-	 * @brief Column index out of range.
-	 */
-	class STORMBYTE_DATABASE_PUBLIC OutOfBounds: public Exception {
-		public:
-			/**
-			 * @brief Construct from index and size.
-			 * @param pos Requested index.
-			 * @param size Container size.
-			 */
-			OutOfBounds(int pos, std::size_t size):
-				Exception(StormByte::Component{"Database::OutOfBounds"}, "Position {} is out of bounds for size {}", pos, size) {}
+		/**
+		 * @class QueryException
+		 * @brief Base for query errors.
+		 */
+		class STORMBYTE_DATABASE_PUBLIC QueryException : public Exception {
+			public:
+				/**
+				 * @brief Construct from an error message.
+				 * @param error Error text.
+				 */
+				QueryException(std::string_view error);
 
-	};
+				/**
+				 * @brief Destructor.
+				 */
+				~QueryException() noexcept override;
 
-	/**
-	 * @class QueryException
-	 * @brief Base for query errors.
-	 */
-	class STORMBYTE_DATABASE_PUBLIC QueryException: public Exception {
-		public:
-			/**
-			 * @brief Construct from an error message.
-			 * @param error Error text.
-			 */
-			QueryException(const std::string& error):
-				Exception(StormByte::Component{"Database::Query"}, "{}", error) {}
+				/**
+				 * @brief Construct with a query subsystem prefix.
+				 * @tparam Args Format argument types.
+				 * @param component Subsystem name.
+				 * @param fmt Format string.
+				 * @param args Format arguments.
+				 */
+				template <typename... Args>
+				QueryException(std::string_view component, std::format_string<Args...> fmt, Args &&...args) : Exception(StormByte::Exception::Path{std::string{"Database.Query."}.append(component)}, fmt, std::forward<Args>(args)...) {}
+		};
 
-			/**
-			 * @brief Construct from a moved error message.
-			 * @param error Error text.
-			 */
-			QueryException(std::string&& error):
-				Exception(StormByte::Component{"Database::Query"}, "{}", std::move(error)) {}
+		/**
+		 * @class UnknownSTMT
+		 * @brief Prepared statement name is not registered.
+		 */
+		class STORMBYTE_DATABASE_PUBLIC UnknownSTMT : public QueryException {
+			public:
+				/**
+				 * @brief Construct from the statement name.
+				 * @param name Statement name.
+				 */
+				UnknownSTMT(std::string_view name);
 
-			/**
-			 * @brief Construct with a query subsystem prefix.
-			 * @tparam Args Format argument types.
-			 * @param component Subsystem name.
-			 * @param fmt Format string.
-			 * @param args Format arguments.
-			 */
-			template <typename... Args>
-			QueryException(const std::string& component, std::format_string<Args...> fmt, Args&&... args):
-				Exception(StormByte::Component{std::string("Database::Query::") + component}, fmt, std::forward<Args>(args)...) {}
+				/**
+				 * @brief Destructor.
+				 */
+				~UnknownSTMT() noexcept override;
+		};
 
-	};
+		/**
+		 * @class ExecuteError
+		 * @brief Query or statement execution failed.
+		 */
+		class STORMBYTE_DATABASE_PUBLIC ExecuteError : public QueryException {
+			public:
+				/**
+				 * @brief Construct from a backend message.
+				 * @param error Error text.
+				 */
+				ExecuteError(std::string_view error);
 
-	/**
-	 * @class UnknownSTMT
-	 * @brief Prepared statement name is not registered.
-	 */
-	class STORMBYTE_DATABASE_PUBLIC UnknownSTMT: public QueryException {
-		public:
-			/**
-			 * @brief Construct from the statement name.
-			 * @param name Statement name.
-			 */
-			UnknownSTMT(const std::string& name):
-				QueryException("PreparedSTMT", "Statement '{}' not found", name) {}
-
-			/**
-			 * @brief Construct from a moved statement name.
-			 * @param name Statement name.
-			 */
-			UnknownSTMT(std::string&& name):
-				QueryException("PreparedSTMT", "Statement '{}' not found", name) {}
-	};
-
-	/**
-	 * @class ExecuteError
-	 * @brief Query or statement execution failed.
-	 */
-	class STORMBYTE_DATABASE_PUBLIC ExecuteError: public QueryException {
-		public:
-			/**
-			 * @brief Construct from a backend message.
-			 * @param error Error text.
-			 */
-			ExecuteError(const std::string& error):
-				QueryException("Execute", "Error executing query: {}", error) {}
-
-			/**
-			 * @brief Construct from a moved backend message.
-			 * @param error Error text.
-			 */
-			ExecuteError(std::string&& error):
-				QueryException("Execute", "Error executing query: {}", std::move(error)) {}
-	};
+				/**
+				 * @brief Destructor.
+				 */
+				~ExecuteError() noexcept override;
+		};
+	}
 }

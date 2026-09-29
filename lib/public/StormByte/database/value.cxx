@@ -39,69 +39,39 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
-#pragma once
+#include <StormByte/database/value.hxx>
 
-#include <StormByte/binary_data.hxx>
-#include <StormByte/database/exception.hxx>
-#include <StormByte/expected.hxx>
-#include <StormByte/string/string.hxx>
+using namespace StormByte::Database;
 
-#include <variant>
+Value::Value(std::string_view value) noexcept:
+	m_value(StormByte::String::String{value}), m_type(Type::Text) {}
 
-/**
- * @namespace StormByte
- * @brief Root namespace of the StormByte C++ suite.
- */
-namespace StormByte {
-	/**
-	 * @namespace StormByte::Database
-	 * @brief Database module of the StormByte suite.
-	 */
-	namespace Database {
-		class Rows;
+Value::Value(const StormByte::BinaryData& value):
+	m_value(value), m_type(Type::Blob) {}
 
-		/**
-		 * @typedef ValuesVariant
-		 * @brief Column alternatives. `std::monostate` is SQL NULL.
-		 */
-		using ValuesVariant = std::variant<
-			std::monostate,
-			int,
-			unsigned int,
-			long int,
-			unsigned long int,
-			double,
-			StormByte::String::String,
-			bool,
-			StormByte::BinaryData>;
+Value::Value(StormByte::BinaryData&& value) noexcept:
+	m_value(std::move(value)), m_type(Type::Blob) {}
 
-		/**
-		 * @typedef ExpectedRows
-		 * @brief Query result: Rows or QueryException.
-		 */
-		using ExpectedRows = Expected<Rows, QueryException>;
+Value::Value(const Value& other):
+	m_value(other.m_value), m_type(other.m_type) {}
 
-		/**
-		 * @enum SslMode
-		 * @brief TLS policy for MariaDB / PostgreSQL. SQLite ignores it.
-		 */
-		enum class SslMode {
-			Default, ///< Driver default
-			Disable, ///< No TLS
-			Prefer,	 ///< TLS if the server offers it
-			Require	 ///< Fail if TLS cannot be used
-		};
+Value::Value(Value&& other) noexcept:
+	m_value(std::move(other.m_value)), m_type(other.m_type) {}
 
-		/**
-		 * @enum IsolationLevel
-		 * @brief Isolation for BeginTransaction(). Mapping is backend-specific.
-		 */
-		enum class IsolationLevel {
-			Default,		 ///< Backend default
-			ReadUncommitted, ///< Dirty reads where supported
-			ReadCommitted,	 ///< Committed data only
-			RepeatableRead,	 ///< Stable reads in the transaction
-			Serializable	 ///< Full serializability where supported
-		};
+Value& Value::operator=(const Value& other) {
+	if (this != &other) {
+		m_value = other.m_value;
+		m_type = other.m_type;
 	}
+	return *this;
 }
+
+Value& Value::operator=(Value&& other) noexcept {
+	if (this != &other) {
+		m_value = std::move(other.m_value);
+		m_type = other.m_type;
+	}
+	return *this;
+}
+
+Value::~Value() noexcept = default;

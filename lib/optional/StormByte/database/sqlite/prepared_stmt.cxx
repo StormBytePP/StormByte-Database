@@ -3,9 +3,29 @@
  *
  * This file is part of StormByte-Database.
  *
- * StormByte-Database is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
+ * StormByte-Database original source is dual-licensed:
+ *
+ * 1. GNU Lesser General Public License v3.0 (or later)
+ *    You may redistribute and/or modify this file under the terms of the
+ *    GNU Lesser General Public License as published by the Free Software
+ *    Foundation, either version 3 of the License, or (at your option)
+ *    any later version.
+ *
+ * 2. Commercial license
+ *    Alternatively, this file may be used under the terms of a commercial
+ *    license agreement with the copyright holder
+ *    (David C. Manuelda <StormByte@gmail.com>).
+ *
+ * Both licenses apply only to original StormByte-Database source in this
+ * repository. They do not cover other StormByte modules or any third-party
+ * material shipped with this repository (including everything under
+ * thirdparty/, and in particular the bundled StormByte-Logger tree and
+ * the PostgreSQL, MariaDB and SQLite trees), which remain under their own
+ * licenses.
+ *
+ * Neither license grants any patent rights. Any patent licenses required
+ * to use this software or third-party components must be obtained separately
+ * from the patent holders.
  *
  * StormByte-Database is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -13,21 +33,26 @@
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Database. If not, see
+ * version 3 along with StormByte-Database. If not, see
  * <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ *
+ * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
 #include <StormByte/database/sqlite/prepared_stmt.hxx>
 #include <StormByte/database/sqlite/result_fetch.hxx>
 
 #include <limits>
+#include <string_view>
+#include <utility>
 
 using namespace StormByte::Database::SQLite;
-PreparedSTMT::PreparedSTMT(const std::string& name, const std::string& query, std::shared_ptr<Logger::Log> logger)
-	: Database::PreparedSTMT(name, query, std::move(logger)), m_stmt(nullptr), m_bind_error(false) {}
+PreparedSTMT::PreparedSTMT(ConstructionKey, std::string_view name, std::string_view query, const StormByte::Shared<Logger::Log>& logger)
+	: Database::PreparedSTMT(name, query, logger), m_stmt(nullptr), m_bind_error(false) {}
 
-PreparedSTMT::PreparedSTMT(std::string&& name, std::string&& query, std::shared_ptr<Logger::Log> logger) noexcept
-	: Database::PreparedSTMT(std::move(name), std::move(query), std::move(logger)), m_stmt(nullptr), m_bind_error(false) {}
+PreparedSTMT::PreparedSTMT(PreparedSTMT&& other) noexcept:
+	Database::PreparedSTMT(std::move(other)), m_stmt(std::exchange(other.m_stmt, nullptr)),
+	m_bind_error(std::exchange(other.m_bind_error, false)) {}
 
 PreparedSTMT::~PreparedSTMT() noexcept {
 	if (m_stmt) {
@@ -36,9 +61,24 @@ PreparedSTMT::~PreparedSTMT() noexcept {
 	}
 }
 
-void PreparedSTMT::Binder(const int& index, Value&& value) noexcept {
+PreparedSTMT& PreparedSTMT::operator=(PreparedSTMT&& other) noexcept {
+	if (this != &other) {
+		if (m_stmt)
+			sqlite3_finalize(m_stmt);
+		Database::PreparedSTMT::operator=(std::move(other));
+		m_stmt = std::exchange(other.m_stmt, nullptr);
+		m_bind_error = std::exchange(other.m_bind_error, false);
+	}
+	return *this;
+}
+
+void PreparedSTMT::Binder(StormByte::Size index, Value&& value) noexcept {
 	if (!m_stmt) return;
-	const int col = index + 1;
+	if (index >= StormByte::Size{sqlite3_bind_parameter_count(m_stmt)}) {
+		m_bind_error = true;
+		return;
+	}
+	const int col = static_cast<int>(index) + 1;
 	int result = SQLITE_OK;
 	if (value.IsNull()) {
 		result = sqlite3_bind_null(m_stmt, col);
@@ -71,17 +111,22 @@ void PreparedSTMT::Binder(const int& index, Value&& value) noexcept {
 			result = sqlite3_bind_int(m_stmt, col, value.Get<bool>() ? 1 : 0);
 			break;
 		case Value::Type::Text: {
-			const std::string& s = value.Get<std::string>();
-			result = sqlite3_bind_text(m_stmt, col, s.c_str(), -1, SQLITE_TRANSIENT);
+			const auto text = value.Get<StormByte::String::String>();
+			const std::string_view text_view = text;
+			result = sqlite3_bind_text(m_stmt, col, text_view.data(), static_cast<int>(text_view.size()), SQLITE_TRANSIENT);
 			break;
 		}
 
 		case Value::Type::Blob: {
-			auto bv = value.Get<std::vector<std::byte>>();
-			if (bv.empty()) {
+			auto blob = value.Get<StormByte::BinaryData>();
+			if (blob.empty()) {
 				result = sqlite3_bind_blob(m_stmt, col, nullptr, 0, SQLITE_TRANSIENT);
 			} else {
-				result = sqlite3_bind_blob(m_stmt, col, reinterpret_cast<const void*>(bv.data()), static_cast<int>(bv.size()), SQLITE_TRANSIENT);
+				if (blob.size() > StormByte::ByteSize{std::numeric_limits<int>::max()}) {
+					m_bind_error = true;
+					return;
+				}
+				result = sqlite3_bind_blob(m_stmt, col, blob.data(), static_cast<int>(blob.size()), SQLITE_TRANSIENT);
 			}
 
 			break;

@@ -3,9 +3,29 @@
  *
  * This file is part of StormByte-Database.
  *
- * StormByte-Database is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
+ * StormByte-Database original source is dual-licensed:
+ *
+ * 1. GNU Lesser General Public License v3.0 (or later)
+ *    You may redistribute and/or modify this file under the terms of the
+ *    GNU Lesser General Public License as published by the Free Software
+ *    Foundation, either version 3 of the License, or (at your option)
+ *    any later version.
+ *
+ * 2. Commercial license
+ *    Alternatively, this file may be used under the terms of a commercial
+ *    license agreement with the copyright holder
+ *    (David C. Manuelda <StormByte@gmail.com>).
+ *
+ * Both licenses apply only to original StormByte-Database source in this
+ * repository. They do not cover other StormByte modules or any third-party
+ * material shipped with this repository (including everything under
+ * thirdparty/, and in particular the bundled StormByte-Logger tree and
+ * the PostgreSQL, MariaDB and SQLite trees), which remain under their own
+ * licenses.
+ *
+ * Neither license grants any patent rights. Any patent licenses required
+ * to use this software or third-party components must be obtained separately
+ * from the patent holders.
  *
  * StormByte-Database is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -13,8 +33,10 @@
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Database. If not, see
+ * version 3 along with StormByte-Database. If not, see
  * <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ *
+ * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
 #pragma once
@@ -26,267 +48,258 @@
 
 #include <cmath>
 #include <limits>
+#include <string_view>
 #include <type_traits>
 
 /**
- * @brief Database module of the StormByte suite.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte C++ suite.
  */
-namespace StormByte::Database {
+namespace StormByte {
 	/**
-	 * @class Value
-	 * @brief Type-erased SQL value (NULL, integers, double, text, blob, bool).
+	 * @namespace StormByte::Database
+	 * @brief Database module of the StormByte suite.
 	 */
-	class STORMBYTE_DATABASE_PUBLIC Value {
-		public:
-			/**
-			 * @enum Type
-			 * @brief Discriminator for the stored alternative.
-			 */
-			enum class Type: unsigned short {
-				Null = 0,				///< SQL NULL
-				Integer,				///< int
-				UnsignedInteger,		///< unsigned int
-				LongInteger,			///< long int
-				UnsignedLongInteger,	///< unsigned long int
-				Double,					///< double
-				Text,					///< std::string
-				Blob,					///< std::vector<std::byte>
-				Boolean					///< bool
-			};
+	namespace Database {
+		/**
+		 * @class Value
+		 * @brief Type-erased SQL value (NULL, integers, double, text, blob, bool).
+		 */
+		class STORMBYTE_DATABASE_PUBLIC Value {
+			public:
+				/**
+				 * @enum Type
+				 * @brief Discriminator for the stored alternative.
+				 */
+				enum class Type : unsigned short {
+					Null = 0,			 ///< SQL NULL
+					Integer,			 ///< int
+					UnsignedInteger,	 ///< unsigned int
+					LongInteger,		 ///< long int
+					UnsignedLongInteger, ///< unsigned long int
+					Double,				 ///< double
+					Text,				 ///< StormByte::String::String
+					Blob,				 ///< StormByte::BinaryData
+					Boolean				 ///< bool
+				};
 
-			/**
-			 * @name Construction
-			 * @{
-			 */
-			/**
-			 * @brief Default constructor. Stores SQL NULL.
-			 */
-			Value() noexcept:
-			m_value(std::monostate{}), m_type(Type::Null) {}
+				/**
+				 * @name Construction
+				 * @{
+				 */
+				/**
+				 * @brief Default constructor. Stores SQL NULL.
+				 */
+				Value() noexcept : m_value(std::monostate{}), m_type(Type::Null) {}
 
-			/**
-			 * @brief From a signed int.
-			 * @param value Stored value.
-			 */
-			Value(int value) noexcept:
-			m_value(value), m_type(Type::Integer) {}
+				/**
+				 * @brief From a signed int.
+				 * @param value Stored value.
+				 */
+				Value(int value) noexcept : m_value(value), m_type(Type::Integer) {}
 
-			/**
-			 * @brief From an unsigned int.
-			 * @param value Stored value.
-			 */
-			Value(unsigned int value) noexcept:
-			m_value(value), m_type(Type::UnsignedInteger) {}
+				/**
+				 * @brief From an unsigned int.
+				 * @param value Stored value.
+				 */
+				Value(unsigned int value) noexcept : m_value(value), m_type(Type::UnsignedInteger) {}
 
-			/**
-			 * @brief From a signed long int.
-			 * @param value Stored value.
-			 */
-			Value(long int value) noexcept:
-			m_value(value), m_type(Type::LongInteger) {}
+				/**
+				 * @brief From a signed long int.
+				 * @param value Stored value.
+				 */
+				Value(long int value) noexcept : m_value(value), m_type(Type::LongInteger) {}
 
-			/**
-			 * @brief From an unsigned long int.
-			 * @param value Stored value.
-			 */
-			Value(unsigned long int value) noexcept:
-			m_value(value), m_type(Type::UnsignedLongInteger) {}
+				/**
+				 * @brief From an unsigned long int.
+				 * @param value Stored value.
+				 */
+				Value(unsigned long int value) noexcept : m_value(value), m_type(Type::UnsignedLongInteger) {}
 
-			/**
-			 * @brief From a double.
-			 * @param value Stored value.
-			 */
-			Value(double value) noexcept:
-			m_value(value), m_type(Type::Double) {}
+				/**
+				 * @brief From a double.
+				 * @param value Stored value.
+				 */
+				Value(double value) noexcept : m_value(value), m_type(Type::Double) {}
 
-			/**
-			 * @brief From a string (copy).
-			 * @param value Stored text.
-			 */
-			Value(const std::string& value) noexcept:
-			m_value(value), m_type(Type::Text) {}
+				/**
+				 * @brief Copy UTF-8 text into a String-owned value.
+				 * @param value Text to store.
+				 */
+				Value(std::string_view value) noexcept;
 
-			/**
-			 * @brief From a string (move).
-			 * @param value Stored text.
-			 */
-			Value(std::string&& value) noexcept:
-			m_value(std::move(value)), m_type(Type::Text) {}
+				/**
+				 * @brief Copy a blob into Base-owned storage.
+				 * @param value Stored bytes.
+				 */
+				Value(const StormByte::BinaryData &value);
 
-			/**
-			 * @brief From a C string.
-			 * @param value Stored text.
-			 */
-			Value(const char* value) noexcept:
-			Value(std::string(value)) {}
+				/**
+				 * @brief Move a blob into this value.
+				 * @param value Stored bytes.
+				 */
+				Value(StormByte::BinaryData &&value) noexcept;
 
-			/**
-			 * @brief From a blob (copy).
-			 * @param value Stored bytes.
-			 */
-			Value(const std::vector<std::byte>& value) noexcept:
-			m_value(value), m_type(Type::Blob) {}
+				/**
+				 * @brief From a bool.
+				 * @param value Stored value.
+				 */
+				template <typename T>
+					requires StormByte::Type::SameAs<std::remove_cvref_t<T>, bool>
+				Value(T &&value) noexcept : m_value(value), m_type(Type::Boolean) {}
+				/** @} */
 
-			/**
-			 * @brief From a blob (move).
-			 * @param value Stored bytes.
-			 */
-			Value(std::vector<std::byte>&& value) noexcept:
-			m_value(std::move(value)), m_type(Type::Blob) {}
+				/**
+				 * @brief Copy constructor.
+				 */
+				Value(const Value &other);
 
-			/**
-			 * @brief From a bool.
-			 * @param value Stored value.
-			 */
-			Value(bool value) noexcept:
-			m_value(value), m_type(Type::Boolean) {}
-			/** @} */
+				/**
+				 * @brief Move constructor.
+				 */
+				Value(Value &&other) noexcept;
 
-			/**
-			 * @brief Copy constructor.
-			 */
-			Value(const Value&) = default;
+				/**
+				 * @brief Copy assignment.
+				 */
+				Value &operator=(const Value &other);
 
-			/**
-			 * @brief Move constructor.
-			 */
-			Value(Value&&) noexcept = default;
+				/**
+				 * @brief Move assignment.
+				 */
+				Value &operator=(Value &&other) noexcept;
 
-			/**
-			 * @brief Copy assignment.
-			 */
-			Value& operator=(const Value&) = default;
-
-			/**
-			 * @brief Move assignment.
-			 */
-			Value& operator=(Value&&) noexcept = default;
-
-			/**
-			 * @brief Equality of the stored alternatives.
-			 * @param other Other value.
-			 * @return true if equal.
-			 */
-			inline bool operator==(const Value& other) const noexcept {
-				return m_value == other.m_value;
-			}
-
-			/**
-			 * @brief Inequality.
-			 * @param other Other value.
-			 * @return true if not equal.
-			 */
-			inline bool operator!=(const Value& other) const noexcept {
-				return !(*this == other);
-			}
-
-			/**
-			 * @brief Destructor.
-			 */
-			virtual ~Value() noexcept = default;
-
-			/**
-			 * @brief Stored value as @p T, with safe numeric conversions.
-			 * @tparam T Requested type (must be a ValuesVariant alternative).
-			 * @return Converted value.
-			 * @throws WrongValueType on mismatch or unsafe conversion.
-			 */
-			template<typename T>
-			requires StormByte::Type::VariantHasType<ValuesVariant, std::decay_t<T>>
-			std::decay_t<T> Get() const {
-				using To = std::decay_t<T>;
-				return std::visit([](auto&& val) -> To {
-					using From = std::decay_t<decltype(val)>;
-					if constexpr (StormByte::Type::SameAs<From, std::monostate>) {
-						throw WrongValueType("Requested type does not match stored type (null).");
-					} else if constexpr (StormByte::Type::SameAs<From, To>) {
-						return val;
-					} else if constexpr (StormByte::Type::Arithmetic<From> && StormByte::Type::Arithmetic<To>) {
-						return convert_numeric<To, From>(val);
-					} else {
-						throw WrongValueType("Requested type does not match stored type.");
-					}
-				}, m_value);
-			}
-
-			/**
-			 * @brief Discriminator of the stored alternative.
-			 * @return Type.
-			 */
-			inline Type Type() const noexcept {
-				return m_type;
-			}
-
-			/**
-			 * @brief Whether the value is SQL NULL.
-			 * @return true if NULL.
-			 */
-			inline bool IsNull() const noexcept {
-				return m_type == Type::Null;
-			}
-
-		private:
-			/**
-			 * @brief Safe numeric conversion between arithmetic types.
-			 * @tparam To Destination type.
-			 * @tparam From Source type.
-			 * @param val Source value.
-			 * @return Converted value.
-			 * @throws WrongValueType on overflow, sign loss or a non-integral float.
-			 */
-			template<typename To, typename From>
-			requires (StormByte::Type::Arithmetic<To> && StormByte::Type::Arithmetic<From>)
-			static To convert_numeric(const From& val) {
-				if constexpr (StormByte::Type::Integral<From> && StormByte::Type::Integral<To>) {
-					if constexpr (StormByte::Type::Signed<From>) {
-						std::intmax_t from = static_cast<std::intmax_t>(val);
-						if constexpr (StormByte::Type::Signed<To>) {
-							if (from < static_cast<std::intmax_t>(std::numeric_limits<To>::lowest()) || from > static_cast<std::intmax_t>(std::numeric_limits<To>::max()))
-								throw WrongValueType("Integer conversion would overflow/narrow.");
-							return static_cast<To>(from);
-						} else {
-							if (from < 0) throw WrongValueType("Negative value cannot be converted to unsigned.");
-							if (static_cast<std::uintmax_t>(from) > static_cast<std::uintmax_t>(std::numeric_limits<To>::max()))
-								throw WrongValueType("Integer conversion would overflow/narrow.");
-							return static_cast<To>(from);
-						}
-					} else {
-						std::uintmax_t from = static_cast<std::uintmax_t>(val);
-						if constexpr (StormByte::Type::Signed<To>) {
-							if (from > static_cast<std::uintmax_t>(std::numeric_limits<To>::max()))
-								throw WrongValueType("Integer conversion would overflow/narrow.");
-							return static_cast<To>(from);
-						} else {
-							if (from > static_cast<std::uintmax_t>(std::numeric_limits<To>::max()))
-								throw WrongValueType("Integer conversion would overflow/narrow.");
-							return static_cast<To>(from);
-						}
-					}
-				} else if constexpr (StormByte::Type::Integral<From> && StormByte::Type::FloatingPoint<To>) {
-					return static_cast<To>(val);
-				} else if constexpr (StormByte::Type::FloatingPoint<From> && StormByte::Type::Integral<To>) {
-					long double d = static_cast<long double>(val);
-					if (!std::isfinite(d)) throw WrongValueType("Non-finite floating conversion to integer.");
-					if (std::trunc(d) != d) throw WrongValueType("Floating value has fractional part; would lose data.");
-					std::intmax_t tmp = static_cast<std::intmax_t>(d);
-					if constexpr (StormByte::Type::Signed<To>) {
-						if (tmp < static_cast<std::intmax_t>(std::numeric_limits<To>::lowest()) || tmp > static_cast<std::intmax_t>(std::numeric_limits<To>::max()))
-							throw WrongValueType("Floating to integer conversion would overflow/narrow.");
-						return static_cast<To>(tmp);
-					} else {
-						if (tmp < 0) throw WrongValueType("Negative value cannot be converted to unsigned.");
-						if (static_cast<std::uintmax_t>(tmp) > static_cast<std::uintmax_t>(std::numeric_limits<To>::max()))
-							throw WrongValueType("Floating to integer conversion would overflow/narrow.");
-						return static_cast<To>(tmp);
-					}
-				} else if constexpr (StormByte::Type::FloatingPoint<From> && StormByte::Type::FloatingPoint<To>) {
-					return static_cast<To>(val);
-				} else {
-					throw WrongValueType("Unsupported numeric conversion.");
+				/**
+				 * @brief Equality of the stored alternatives.
+				 * @param other Other value.
+				 * @return true if equal.
+				 */
+				inline bool operator==(const Value &other) const noexcept {
+					return m_value == other.m_value;
 				}
-			}
 
-			ValuesVariant m_value;	///< Internal storage
-			enum Type m_type;		///< Discriminator
-	};
+				/**
+				 * @brief Inequality.
+				 * @param other Other value.
+				 * @return true if not equal.
+				 */
+				inline bool operator!=(const Value &other) const noexcept {
+					return !(*this == other);
+				}
+
+				/**
+				 * @brief Destructor.
+				 */
+				virtual ~Value() noexcept;
+
+				/**
+				 * @brief Stored value as @p T, with safe numeric conversions.
+				 * @tparam T Requested type (must be a ValuesVariant alternative).
+				 * @return Converted value.
+				 * @throws WrongValueType on mismatch or unsafe conversion.
+				 */
+				template <typename T>
+					requires StormByte::Type::VariantHasType<ValuesVariant, std::decay_t<T>>
+				std::decay_t<T> Get() const {
+					using To = std::decay_t<T>;
+					return std::visit([](auto &&val) -> To {
+						using From = std::decay_t<decltype(val)>;
+						if constexpr (StormByte::Type::SameAs<From, std::monostate>) {
+							throw WrongValueType("Requested type does not match stored type (null).");
+						} else if constexpr (StormByte::Type::SameAs<From, To>) {
+							return val;
+						} else if constexpr (StormByte::Type::Arithmetic<From> && StormByte::Type::Arithmetic<To>) {
+							return convert_numeric<To, From>(val);
+						} else {
+							throw WrongValueType("Requested type does not match stored type.");
+						}
+					},
+									  m_value);
+				}
+
+				/**
+				 * @brief Discriminator of the stored alternative.
+				 * @return Type.
+				 */
+				inline Type Type() const noexcept {
+					return m_type;
+				}
+
+				/**
+				 * @brief Whether the value is SQL NULL.
+				 * @return true if NULL.
+				 */
+				inline bool IsNull() const noexcept {
+					return m_type == Type::Null;
+				}
+
+			private:
+				/**
+				 * @brief Safe numeric conversion between arithmetic types.
+				 * @tparam To Destination type.
+				 * @tparam From Source type.
+				 * @param val Source value.
+				 * @return Converted value.
+				 * @throws WrongValueType on overflow, sign loss or a non-integral float.
+				 */
+				template <typename To, typename From>
+					requires(StormByte::Type::Arithmetic<To> && StormByte::Type::Arithmetic<From>)
+				static To convert_numeric(const From &val) {
+					if constexpr (StormByte::Type::Integral<From> && StormByte::Type::Integral<To>) {
+						if constexpr (StormByte::Type::Signed<From>) {
+							std::intmax_t from = static_cast<std::intmax_t>(val);
+							if constexpr (StormByte::Type::Signed<To>) {
+								if (from < static_cast<std::intmax_t>(std::numeric_limits<To>::lowest()) || from > static_cast<std::intmax_t>(std::numeric_limits<To>::max()))
+									throw WrongValueType("Integer conversion would overflow/narrow.");
+								return static_cast<To>(from);
+							} else {
+								if (from < 0)
+									throw WrongValueType("Negative value cannot be converted to unsigned.");
+								if (static_cast<std::uintmax_t>(from) > static_cast<std::uintmax_t>(std::numeric_limits<To>::max()))
+									throw WrongValueType("Integer conversion would overflow/narrow.");
+								return static_cast<To>(from);
+							}
+						} else {
+							std::uintmax_t from = static_cast<std::uintmax_t>(val);
+							if constexpr (StormByte::Type::Signed<To>) {
+								if (from > static_cast<std::uintmax_t>(std::numeric_limits<To>::max()))
+									throw WrongValueType("Integer conversion would overflow/narrow.");
+								return static_cast<To>(from);
+							} else {
+								if (from > static_cast<std::uintmax_t>(std::numeric_limits<To>::max()))
+									throw WrongValueType("Integer conversion would overflow/narrow.");
+								return static_cast<To>(from);
+							}
+						}
+					} else if constexpr (StormByte::Type::Integral<From> && StormByte::Type::FloatingPoint<To>) {
+						return static_cast<To>(val);
+					} else if constexpr (StormByte::Type::FloatingPoint<From> && StormByte::Type::Integral<To>) {
+						long double d = static_cast<long double>(val);
+						if (!std::isfinite(d))
+							throw WrongValueType("Non-finite floating conversion to integer.");
+						if (std::trunc(d) != d)
+							throw WrongValueType("Floating value has fractional part; would lose data.");
+						std::intmax_t tmp = static_cast<std::intmax_t>(d);
+						if constexpr (StormByte::Type::Signed<To>) {
+							if (tmp < static_cast<std::intmax_t>(std::numeric_limits<To>::lowest()) || tmp > static_cast<std::intmax_t>(std::numeric_limits<To>::max()))
+								throw WrongValueType("Floating to integer conversion would overflow/narrow.");
+							return static_cast<To>(tmp);
+						} else {
+							if (tmp < 0)
+								throw WrongValueType("Negative value cannot be converted to unsigned.");
+							if (static_cast<std::uintmax_t>(tmp) > static_cast<std::uintmax_t>(std::numeric_limits<To>::max()))
+								throw WrongValueType("Floating to integer conversion would overflow/narrow.");
+							return static_cast<To>(tmp);
+						}
+					} else if constexpr (StormByte::Type::FloatingPoint<From> && StormByte::Type::FloatingPoint<To>) {
+						return static_cast<To>(val);
+					} else {
+						throw WrongValueType("Unsupported numeric conversion.");
+					}
+				}
+
+				ValuesVariant m_value; ///< Internal storage
+				enum Type m_type;	   ///< Discriminator
+		};
+	}
 }

@@ -3,9 +3,29 @@
  *
  * This file is part of StormByte-Database.
  *
- * StormByte-Database is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
+ * StormByte-Database original source is dual-licensed:
+ *
+ * 1. GNU Lesser General Public License v3.0 (or later)
+ *    You may redistribute and/or modify this file under the terms of the
+ *    GNU Lesser General Public License as published by the Free Software
+ *    Foundation, either version 3 of the License, or (at your option)
+ *    any later version.
+ *
+ * 2. Commercial license
+ *    Alternatively, this file may be used under the terms of a commercial
+ *    license agreement with the copyright holder
+ *    (David C. Manuelda <StormByte@gmail.com>).
+ *
+ * Both licenses apply only to original StormByte-Database source in this
+ * repository. They do not cover other StormByte modules or any third-party
+ * material shipped with this repository (including everything under
+ * thirdparty/, and in particular the bundled StormByte-Logger tree and
+ * the PostgreSQL, MariaDB and SQLite trees), which remain under their own
+ * licenses.
+ *
+ * Neither license grants any patent rights. Any patent licenses required
+ * to use this software or third-party components must be obtained separately
+ * from the patent holders.
  *
  * StormByte-Database is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -13,19 +33,23 @@
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Database. If not, see
+ * version 3 along with StormByte-Database. If not, see
  * <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ *
+ * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
 #include <StormByte/database/mariadb/mariadb.hxx>
 #include <StormByte/database/mariadb/result_fetch.hxx>
 #include <StormByte/database/mariadb/prepared_stmt.hxx>
 #include <mysql.h>
+#include <limits>
 #include <string>
+#include <string_view>
 #include <utility>
 using namespace StormByte::Database::MariaDB;
 namespace {
-	void LogMariaDBWarnings(MYSQL* conn, std::shared_ptr<StormByte::Logger::Log>& logger) {
+	void LogMariaDBWarnings(MYSQL* conn, const StormByte::Shared<StormByte::Logger::Log>& logger) {
 		if (!conn || !logger)
 			return;
 		const unsigned int count = mysql_warning_count(conn);
@@ -96,15 +120,10 @@ MariaDB::~MariaDB() noexcept {
 	Disconnect();
 }
 
-MariaDB::MariaDB(const std::string& host, const std::string& user, const std::string& password,
-				const std::string& db_name, int port, std::shared_ptr<Logger::Log> logger)
+MariaDB::MariaDB(std::string_view host, std::string_view user, std::string_view password,
+				std::string_view db_name, int port, const StormByte::Shared<Logger::Log>& logger)
 	: Database(logger), m_host(host), m_user(user), m_password(password),
 	m_dbname(db_name), m_port(port), m_conn(nullptr) {}
-MariaDB::MariaDB(std::string&& host, std::string&& user, std::string&& password,
-				std::string&& db_name, int port, std::shared_ptr<Logger::Log> logger)
-	: Database(logger), m_host(std::move(host)), m_user(std::move(user)),
-	m_password(std::move(password)), m_dbname(std::move(db_name)),
-	m_port(port), m_conn(nullptr) {}
 MariaDB::MariaDB(MariaDB&& db) noexcept
 	: Database(std::move(db)), m_host(std::move(db.m_host)), m_user(std::move(db.m_user)),
 	m_password(std::move(db.m_password)), m_dbname(std::move(db.m_dbname)),
@@ -167,7 +186,7 @@ bool MariaDB::DoConnect() noexcept {
 }
 
 void MariaDB::DoPreDisconnect() noexcept {
-	m_prepared_stmts.clear();
+	ClearPreparedSTMTs();
 }
 
 void MariaDB::DoDisconnect() noexcept {
@@ -177,12 +196,14 @@ void MariaDB::DoDisconnect() noexcept {
 	}
 }
 
-StormByte::Database::ExpectedRows MariaDB::Query(const std::string& query) noexcept {
+StormByte::Database::ExpectedRows MariaDB::Query(std::string_view query) noexcept {
 	if (m_logger)
 		*m_logger << Logger::Level::Debug << "Executing query: " << query << std::endl;
 	if (!m_connected || !m_conn)
 		return Unexpected<ExecuteError>("Database not connected");
-	if (mysql_real_query(m_conn, query.c_str(), static_cast<unsigned long>(query.size())) != 0) {
+	if (query.size() > std::numeric_limits<unsigned long>::max())
+		return Unexpected<ExecuteError>("Query exceeds MariaDB's supported length");
+	if (mysql_real_query(m_conn, query.data(), static_cast<unsigned long>(query.size())) != 0) {
 		return Unexpected<ExecuteError>(mysql_error(m_conn) ? mysql_error(m_conn) : "Unknown MySQL error");
 	}
 
@@ -199,16 +220,18 @@ StormByte::Database::ExpectedRows MariaDB::Query(const std::string& query) noexc
 	return rows;
 }
 
-bool MariaDB::SilentQuery(const std::string& query) noexcept {
+bool MariaDB::SilentQuery(std::string_view query) noexcept {
 	return DoSilentQuery(query);
 }
 
-bool MariaDB::DoSilentQuery(const std::string& query) noexcept {
+bool MariaDB::DoSilentQuery(std::string_view query) noexcept {
 	if (m_logger)
 		*m_logger << Logger::Level::Debug << "Executing silent query: " << query << std::endl;
 	if (!m_connected || !m_conn)
 		return false;
-	if (mysql_real_query(m_conn, query.c_str(), static_cast<unsigned long>(query.size())) != 0) {
+	if (query.size() > std::numeric_limits<unsigned long>::max())
+		return false;
+	if (mysql_real_query(m_conn, query.data(), static_cast<unsigned long>(query.size())) != 0) {
 		if (m_logger) {
 			*m_logger << Logger::Level::Error
 					<< "MariaDB SilentQuery error: "
@@ -223,12 +246,12 @@ bool MariaDB::DoSilentQuery(const std::string& query) noexcept {
 	return true;
 }
 
-std::unique_ptr<StormByte::Database::PreparedSTMT>
-MariaDB::CreatePreparedSTMT(std::string&& name, std::string&& query) noexcept {
+StormByte::Unique<StormByte::Database::PreparedSTMT>
+MariaDB::CreatePreparedSTMT(std::string_view name, std::string_view query) noexcept {
 	if (!m_conn)
 		return nullptr;
-	return std::unique_ptr<PreparedSTMT>(
-		new PreparedSTMT(std::move(name), std::move(query), m_conn, m_logger));
+	return StormByte::Unique<PreparedSTMT>::MakePointer<PreparedSTMT>(
+		PreparedSTMT::ConstructionKey{}, name, query, m_conn, m_logger);
 }
 
 void MariaDB::DoBeginTransaction(IsolationLevel level) {

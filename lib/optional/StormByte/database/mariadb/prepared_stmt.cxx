@@ -3,9 +3,29 @@
  *
  * This file is part of StormByte-Database.
  *
- * StormByte-Database is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
+ * StormByte-Database original source is dual-licensed:
+ *
+ * 1. GNU Lesser General Public License v3.0 (or later)
+ *    You may redistribute and/or modify this file under the terms of the
+ *    GNU Lesser General Public License as published by the Free Software
+ *    Foundation, either version 3 of the License, or (at your option)
+ *    any later version.
+ *
+ * 2. Commercial license
+ *    Alternatively, this file may be used under the terms of a commercial
+ *    license agreement with the copyright holder
+ *    (David C. Manuelda <StormByte@gmail.com>).
+ *
+ * Both licenses apply only to original StormByte-Database source in this
+ * repository. They do not cover other StormByte modules or any third-party
+ * material shipped with this repository (including everything under
+ * thirdparty/, and in particular the bundled StormByte-Logger tree and
+ * the PostgreSQL, MariaDB and SQLite trees), which remain under their own
+ * licenses.
+ *
+ * Neither license grants any patent rights. Any patent licenses required
+ * to use this software or third-party components must be obtained separately
+ * from the patent holders.
  *
  * StormByte-Database is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -13,8 +33,10 @@
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Database. If not, see
+ * version 3 along with StormByte-Database. If not, see
  * <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ *
+ * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
 #include <StormByte/database/mariadb/prepared_stmt.hxx>
@@ -24,6 +46,8 @@
 #include <limits>
 #include <mysql.h>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 using namespace StormByte::Database::MariaDB;
 static inline MYSQL* to_mysql_conn(struct st_mysql* c) noexcept {
@@ -38,13 +62,13 @@ static inline struct st_mysql_stmt* to_st_mysql_stmt(MYSQL_STMT* s) noexcept {
 	return reinterpret_cast<struct st_mysql_stmt*>(s);
 }
 
-void PreparedSTMT::EnsureParamSize(std::vector<StormByte::Database::Value>& params, int index) noexcept {
-	if (index < 0) return;
-	if (static_cast<size_t>(index) >= params.size()) params.resize(index + 1);
+void PreparedSTMT::EnsureParamSize(std::vector<StormByte::Database::Value>& params, StormByte::Size index) {
+	if (index >= StormByte::Size{params.size()})
+		params.resize(static_cast<std::size_t>(index) + 1);
 }
 
-PreparedSTMT::PreparedSTMT(const std::string& name, const std::string& query, struct st_mysql* conn, std::shared_ptr<Logger::Log> logger)
-	: Database::PreparedSTMT(name, query, std::move(logger)), m_conn(conn), m_stmt(nullptr) {
+PreparedSTMT::PreparedSTMT(ConstructionKey, std::string_view name, std::string_view query, struct st_mysql* conn, const StormByte::Shared<Logger::Log>& logger)
+	: Database::PreparedSTMT(name, query, logger), m_conn(conn), m_stmt(nullptr) {
 	MYSQL* cpp_conn = to_mysql_conn(m_conn);
 	MYSQL_STMT* stmt = mysql_stmt_init(cpp_conn);
 	if (!stmt) {
@@ -55,9 +79,13 @@ PreparedSTMT::PreparedSTMT(const std::string& name, const std::string& query, st
 		return;
 	}
 
-	std::string prepq = Query();
+	std::string prepq{Query()};
 	while (!prepq.empty() && isspace(static_cast<unsigned char>(prepq.back()))) prepq.pop_back();
 	if (!prepq.empty() && prepq.back() == ';') prepq.pop_back();
+	if (prepq.size() > std::numeric_limits<unsigned long>::max()) {
+		mysql_stmt_close(stmt);
+		return;
+	}
 	if (mysql_stmt_prepare(stmt, prepq.c_str(), static_cast<unsigned long>(prepq.size())) != 0) {
 		if (m_logger) {
 			*m_logger << Logger::Level::Error << "MariaDB: mysql_stmt_prepare error: "
@@ -72,21 +100,9 @@ PreparedSTMT::PreparedSTMT(const std::string& name, const std::string& query, st
 	m_stmt = to_st_mysql_stmt(stmt);
 }
 
-PreparedSTMT::PreparedSTMT(std::string&& name, std::string&& query, struct st_mysql* conn, std::shared_ptr<Logger::Log> logger) noexcept
-	: Database::PreparedSTMT(std::move(name), std::move(query), std::move(logger)), m_conn(conn), m_stmt(nullptr) {
-	MYSQL* cpp_conn = to_mysql_conn(m_conn);
-	MYSQL_STMT* stmt = mysql_stmt_init(cpp_conn);
-	if (!stmt) return;
-	std::string prepq = Query();
-	while (!prepq.empty() && isspace(static_cast<unsigned char>(prepq.back()))) prepq.pop_back();
-	if (!prepq.empty() && prepq.back() == ';') prepq.pop_back();
-	if (mysql_stmt_prepare(stmt, prepq.c_str(), static_cast<unsigned long>(prepq.size())) != 0) {
-		mysql_stmt_close(stmt);
-		return;
-	}
-
-	m_stmt = to_st_mysql_stmt(stmt);
-}
+PreparedSTMT::PreparedSTMT(PreparedSTMT&& other) noexcept:
+	Database::PreparedSTMT(std::move(other)), m_conn(std::exchange(other.m_conn, nullptr)),
+	m_stmt(std::exchange(other.m_stmt, nullptr)), m_params(std::move(other.m_params)) {}
 
 PreparedSTMT::~PreparedSTMT() noexcept {
 	if (m_stmt) {
@@ -96,9 +112,21 @@ PreparedSTMT::~PreparedSTMT() noexcept {
 	}
 }
 
-void PreparedSTMT::Binder(const int& index, Value&& value) noexcept {
+PreparedSTMT& PreparedSTMT::operator=(PreparedSTMT&& other) noexcept {
+	if (this != &other) {
+		if (m_stmt)
+			mysql_stmt_close(to_mysql_stmt(m_stmt));
+		Database::PreparedSTMT::operator=(std::move(other));
+		m_conn = std::exchange(other.m_conn, nullptr);
+		m_stmt = std::exchange(other.m_stmt, nullptr);
+		m_params = std::move(other.m_params);
+	}
+	return *this;
+}
+
+void PreparedSTMT::Binder(StormByte::Size index, Value&& value) noexcept {
 	EnsureParamSize(m_params, index);
-	m_params[index] = std::move(value);
+	m_params[static_cast<std::size_t>(index)] = std::move(value);
 }
 
 void PreparedSTMT::Reset() noexcept {
@@ -123,7 +151,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 	std::vector<double> dbl_buf(m_params.size());
 	std::vector<char> bool_buf(m_params.size());
 	std::vector<std::string> str_buf(m_params.size());
-	std::vector<std::vector<char>> bin_buf(m_params.size());
+	std::vector<StormByte::BinaryData> bin_buf(m_params.size());
 	std::vector<unsigned long> str_len(m_params.size());
 	std::vector<my_bool> is_null(m_params.size());
 	for (size_t i = 0; i < m_params.size(); ++i) {
@@ -190,7 +218,12 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 			}
 
 			case StormByte::Database::Value::Type::Text: {
-				str_buf[i] = p.Get<std::string>();
+				{
+					const auto text = p.Get<StormByte::String::String>();
+					str_buf[i] = static_cast<std::string_view>(text);
+				}
+				if (str_buf[i].size() > std::numeric_limits<unsigned long>::max())
+					return Unexpected<ExecuteError>("MariaDB bind text exceeds supported length");
 				bind_in[i].buffer_type = MYSQL_TYPE_STRING;
 				bind_in[i].buffer = const_cast<char*>(str_buf[i].data());
 				bind_in[i].buffer_length = static_cast<unsigned long>(str_buf[i].size());
@@ -201,12 +234,11 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 			}
 
 			case StormByte::Database::Value::Type::Blob: {
-				auto bv = p.Get<std::vector<std::byte>>();
-				bin_buf[i].resize(bv.size());
-				for (size_t k = 0; k < bv.size(); ++k)
-					bin_buf[i][k] = static_cast<char>(bv[k]);
+				bin_buf[i] = p.Get<StormByte::BinaryData>();
+				if (bin_buf[i].size() > StormByte::ByteSize{std::numeric_limits<unsigned long>::max()})
+					return Unexpected<ExecuteError>("MariaDB bind blob exceeds supported length");
 				bind_in[i].buffer_type = MYSQL_TYPE_BLOB;
-				bind_in[i].buffer = bin_buf[i].data();
+				bind_in[i].buffer = const_cast<std::byte*>(bin_buf[i].data());
 				bind_in[i].buffer_length = static_cast<unsigned long>(bin_buf[i].size());
 				str_len[i] = bind_in[i].buffer_length;
 				bind_in[i].length = &str_len[i];
@@ -358,19 +390,20 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 		for (unsigned int i = 0; i < nfields; ++i) {
 			MYSQL_FIELD* f = mysql_fetch_field_direct(meta, i);
 			const char* colName = f ? f->name : nullptr;
+			const std::string_view column_name{colName ? colName : ""};
 			if (out_is_null[i]) {
-				prow.add(std::string(colName ? colName : ""), Value());
+				prow.add(column_name, Value());
 				continue;
 			}
 
 			switch (f ? f->type : MYSQL_TYPE_STRING) {
 				case MYSQL_TYPE_TINY: {
 					if (f && (f->flags & UNSIGNED_FLAG) == 0 && f->length == 1) {
-						prow.add(std::string(colName ? colName : ""), static_cast<bool>(out_bool[i] != 0));
+						prow.add(column_name, static_cast<bool>(out_bool[i] != 0));
 					} else if (f && (f->flags & UNSIGNED_FLAG)) {
-						prow.add(std::string(colName ? colName : ""), static_cast<unsigned int>(out_uint[i]));
+						prow.add(column_name, static_cast<unsigned int>(out_uint[i]));
 					} else {
-						prow.add(std::string(colName ? colName : ""), static_cast<int>(out_int[i]));
+						prow.add(column_name, static_cast<int>(out_int[i]));
 					}
 
 					break;
@@ -379,36 +412,35 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 				case MYSQL_TYPE_SHORT:
 				case MYSQL_TYPE_LONG:
 					if (f && (f->flags & UNSIGNED_FLAG))
-						prow.add(std::string(colName ? colName : ""), static_cast<unsigned int>(out_uint[i]));
+						prow.add(column_name, static_cast<unsigned int>(out_uint[i]));
 					else
-						prow.add(std::string(colName ? colName : ""), static_cast<int>(out_int[i]));
+						prow.add(column_name, static_cast<int>(out_int[i]));
 					break;
 				case MYSQL_TYPE_LONGLONG:
 					if (f && (f->flags & UNSIGNED_FLAG))
-						prow.add(std::string(colName ? colName : ""), static_cast<unsigned long int>(out_ull[i]));
+						prow.add(column_name, static_cast<unsigned long int>(out_ull[i]));
 					else
-						prow.add(std::string(colName ? colName : ""), static_cast<long int>(out_ll[i]));
+						prow.add(column_name, static_cast<long int>(out_ll[i]));
 					break;
 				case MYSQL_TYPE_FLOAT:
 				case MYSQL_TYPE_DOUBLE:
-					prow.add(std::string(colName ? colName : ""), out_dbl[i]);
+					prow.add(column_name, out_dbl[i]);
 					break;
 				case MYSQL_TYPE_BLOB: {
 					unsigned long llen = out_len[i];
 					// 63 = binary charset; otherwise treat as text (TEXT/VARCHAR)
 					const bool is_binary = f && f->charsetnr == 63;
 					if (is_binary) {
-						std::vector<std::byte> blob;
-						if (llen > 0) {
-							blob.resize(llen);
-							for (unsigned long bi = 0; bi < llen; ++bi)
-								blob[bi] = static_cast<std::byte>(out_str[i][bi]);
-						}
-
-						prow.add(std::string(colName ? colName : ""), std::move(blob));
+						StormByte::BinaryData blob{
+							reinterpret_cast<const std::byte*>(out_str[i].data()),
+							StormByte::ByteSize{llen}
+						};
+						prow.add(column_name, Value{std::move(blob)});
 					} else {
-						std::string sval(out_str[i].data(), llen);
-						prow.add(std::string(colName ? colName : ""), std::move(sval));
+						const char* text_data = out_str[i].data();
+						if (!text_data)
+							text_data = "";
+						prow.add(column_name, std::string_view{text_data, static_cast<std::size_t>(llen)});
 					}
 
 					break;
@@ -418,8 +450,10 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 				case MYSQL_TYPE_STRING:
 				default: {
 					unsigned long llen = out_len[i];
-					std::string sval(out_str[i].data(), llen);
-					prow.add(std::string(colName ? colName : ""), std::move(sval));
+					const char* text_data = out_str[i].data();
+					if (!text_data)
+						text_data = "";
+					prow.add(column_name, std::string_view{text_data, static_cast<std::size_t>(llen)});
 					break;
 				}
 			}

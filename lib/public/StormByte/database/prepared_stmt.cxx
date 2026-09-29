@@ -39,69 +39,15 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
-#pragma once
+#include <StormByte/database/prepared_stmt.hxx>
 
-#include <StormByte/binary_data.hxx>
-#include <StormByte/database/exception.hxx>
-#include <StormByte/expected.hxx>
-#include <StormByte/string/string.hxx>
+using namespace StormByte::Database;
 
-#include <variant>
+PreparedSTMT::PreparedSTMT(std::string_view name, std::string_view query, const StormByte::Shared<Logger::Log>& logger):
+	m_logger(logger), m_name(name), m_query(query) {}
 
-/**
- * @namespace StormByte
- * @brief Root namespace of the StormByte C++ suite.
- */
-namespace StormByte {
-	/**
-	 * @namespace StormByte::Database
-	 * @brief Database module of the StormByte suite.
-	 */
-	namespace Database {
-		class Rows;
+PreparedSTMT::PreparedSTMT(PreparedSTMT&& other) noexcept = default;
 
-		/**
-		 * @typedef ValuesVariant
-		 * @brief Column alternatives. `std::monostate` is SQL NULL.
-		 */
-		using ValuesVariant = std::variant<
-			std::monostate,
-			int,
-			unsigned int,
-			long int,
-			unsigned long int,
-			double,
-			StormByte::String::String,
-			bool,
-			StormByte::BinaryData>;
+PreparedSTMT::~PreparedSTMT() noexcept = default;
 
-		/**
-		 * @typedef ExpectedRows
-		 * @brief Query result: Rows or QueryException.
-		 */
-		using ExpectedRows = Expected<Rows, QueryException>;
-
-		/**
-		 * @enum SslMode
-		 * @brief TLS policy for MariaDB / PostgreSQL. SQLite ignores it.
-		 */
-		enum class SslMode {
-			Default, ///< Driver default
-			Disable, ///< No TLS
-			Prefer,	 ///< TLS if the server offers it
-			Require	 ///< Fail if TLS cannot be used
-		};
-
-		/**
-		 * @enum IsolationLevel
-		 * @brief Isolation for BeginTransaction(). Mapping is backend-specific.
-		 */
-		enum class IsolationLevel {
-			Default,		 ///< Backend default
-			ReadUncommitted, ///< Dirty reads where supported
-			ReadCommitted,	 ///< Committed data only
-			RepeatableRead,	 ///< Stable reads in the transaction
-			Serializable	 ///< Full serializability where supported
-		};
-	}
-}
+PreparedSTMT& PreparedSTMT::operator=(PreparedSTMT&& other) noexcept = default;

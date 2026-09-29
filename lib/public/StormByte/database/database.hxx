@@ -49,6 +49,7 @@
 #include <StormByte/safe_pointers.hxx>
 
 #include <memory>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -67,7 +68,8 @@ namespace StormByte {
 		 * @class Database
 		 * @brief Abstract backend.
 		 *
-		 * @note Not thread-safe. One connection per thread.
+		 * @note Operations on one connection are serialized. A Transaction reserves its connection and must remain on its creating thread.
+		 * @note Custom backends must lock @c m_operation_mutex in public operations that access backend state.
 		 * @note Inheritance-oriented. Concrete backends expose protected constructors. Derive, call the backend constructor, override hooks if needed.
 		 */
 		class STORMBYTE_DATABASE_PUBLIC Database {
@@ -76,7 +78,7 @@ namespace StormByte {
 				 * @brief Construct with an optional logger.
 				 * @param logger Logger instance (may be null).
 				 */
-				Database(const StormByte::Shared<Logger::Log>& logger) noexcept;
+				Database(const StormByte::Shared<Logger::Log>& logger);
 
 				/**
 				 * @brief Copy constructor (deleted).
@@ -120,6 +122,7 @@ namespace StormByte {
 				 * @return true if connected.
 				 */
 				bool IsConnected() const noexcept {
+					std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
 					return m_connected;
 				}
 
@@ -128,6 +131,7 @@ namespace StormByte {
 				 * @param mode Desired SSL mode.
 				 */
 				void SetSslMode(SslMode mode) noexcept {
+					std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
 					m_ssl_mode = mode;
 				}
 
@@ -136,6 +140,7 @@ namespace StormByte {
 				 * @return Mode.
 				 */
 				SslMode GetSslMode() const noexcept {
+					std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
 					return m_ssl_mode;
 				}
 
@@ -148,6 +153,7 @@ namespace StormByte {
 				 */
 				template <typename... Args>
 				ExpectedRows ExecuteSTMT(std::string_view name, Args &&...args) {
+					std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
 					PreparedSTMT *statement = FindPreparedSTMT(name);
 					if (!statement)
 						return Unexpected<UnknownSTMT>(name);
@@ -173,7 +179,7 @@ namespace StormByte {
 				 * @param level Isolation (backend-specific mapping).
 				 * @return RAII Transaction (rollback on destruction if not committed).
 				 */
-				Transaction BeginTransaction(IsolationLevel level = IsolationLevel::Default);
+				Expected<Transaction, TransactionError> BeginTransaction(IsolationLevel level = IsolationLevel::Default);
 
 				/**
 				 * @brief Commit the current transaction.
@@ -187,6 +193,7 @@ namespace StormByte {
 
 			protected:
 				friend class Transaction;
+				StormByte::Shared<std::recursive_mutex> m_operation_mutex; ///< DLL-safe owner of the connection mutex
 
 				bool m_connected;																 ///< Connection state
 				SslMode m_ssl_mode;																 ///< TLS policy for network backends

@@ -181,15 +181,10 @@ int not_connected_execute() {
 int not_connected_transaction() {
 	const std::string fn_name = "not_connected_transaction";
 	TestDatabase db;
-	bool threw = false;
-	try {
-		auto tx = db.BeginTransaction();
-		(void)tx;
-	} catch (const StormByte::Database::ExecuteError&) {
-		threw = true;
-	}
-
-	ASSERT_TRUE(fn_name, threw);
+	auto tx = db.BeginTransaction();
+	ASSERT_FALSE(fn_name, tx.has_value());
+	ASSERT_TRUE(fn_name, tx.error() != nullptr);
+	ASSERT_TRUE(fn_name, std::string{tx.error()->what()}.find("Unable to begin transaction") != std::string::npos);
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -486,7 +481,9 @@ int transaction_commit_test() {
 	TestDatabase db;
 	db.Connect();
 	{
-		auto tx = db.BeginTransaction();
+		auto tx_result = db.BeginTransaction();
+		ASSERT_TRUE(fn_name, tx_result.has_value());
+		auto tx = std::move(*tx_result);
 		db.SilentQuery("INSERT INTO users (name, email) VALUES ('Charlie', 'charlie@example.com');");
 		tx.Commit();
 	}
@@ -502,7 +499,9 @@ int transaction_rollback_explicit() {
 	TestDatabase db;
 	db.Connect();
 	{
-		auto tx = db.BeginTransaction();
+		auto tx_result = db.BeginTransaction();
+		ASSERT_TRUE(fn_name, tx_result.has_value());
+		auto tx = std::move(*tx_result);
 		db.SilentQuery("INSERT INTO users (name, email) VALUES ('David', 'david@example.com');");
 		tx.Rollback();
 	}
@@ -518,7 +517,9 @@ int transaction_rollback_auto() {
 	TestDatabase db;
 	db.Connect();
 	{
-		auto tx = db.BeginTransaction();
+		auto tx_result = db.BeginTransaction();
+		ASSERT_TRUE(fn_name, tx_result.has_value());
+		auto tx = std::move(*tx_result);
 		db.SilentQuery("INSERT INTO users (name, email) VALUES ('Eve', 'eve@example.com');");
 	}
 
@@ -532,7 +533,9 @@ int isolation_default() {
 	const std::string fn_name = "isolation_default";
 	TestDatabase db;
 	db.Connect();
-	auto tx = db.BeginTransaction(IsolationLevel::Default);
+	auto tx_result = db.BeginTransaction(IsolationLevel::Default);
+	ASSERT_TRUE(fn_name, tx_result.has_value());
+	auto tx = std::move(*tx_result);
 	tx.Commit();
 	RETURN_TEST(fn_name, 0);
 }
@@ -541,7 +544,9 @@ int isolation_serializable() {
 	const std::string fn_name = "isolation_serializable";
 	TestDatabase db;
 	db.Connect();
-	auto tx = db.BeginTransaction(IsolationLevel::Serializable);
+	auto tx_result = db.BeginTransaction(IsolationLevel::Serializable);
+	ASSERT_TRUE(fn_name, tx_result.has_value());
+	auto tx = std::move(*tx_result);
 	tx.Commit();
 	RETURN_TEST(fn_name, 0);
 }
@@ -550,7 +555,9 @@ int isolation_repeatable_read() {
 	const std::string fn_name = "isolation_repeatable_read";
 	TestDatabase db;
 	db.Connect();
-	auto tx = db.BeginTransaction(IsolationLevel::RepeatableRead);
+	auto tx_result = db.BeginTransaction(IsolationLevel::RepeatableRead);
+	ASSERT_TRUE(fn_name, tx_result.has_value());
+	auto tx = std::move(*tx_result);
 	tx.Commit();
 	RETURN_TEST(fn_name, 0);
 }

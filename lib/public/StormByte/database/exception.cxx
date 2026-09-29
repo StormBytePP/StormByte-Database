@@ -83,3 +83,8 @@ ExecuteError::ExecuteError(std::string_view error):
 	QueryException("Execute", "Error executing query: {}", error) {}
 
 ExecuteError::~ExecuteError() noexcept = default;
+
+TransactionError::TransactionError(std::string_view error):
+	Exception(StormByte::Exception::Path{"Database.Transaction"}, "Unable to begin transaction: {}", error) {}
+
+TransactionError::~TransactionError() noexcept = default;

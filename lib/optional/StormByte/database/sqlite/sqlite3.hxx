@@ -69,7 +69,7 @@ namespace StormByte {
 			 * @class SQLite3
 			 * @brief SQLite3 backend.
 			 *
-			 * @note Not thread-safe. One instance per thread.
+				 * @note Built-in connection operations are serialized. Transactions must stay on their creating thread.
 			 * @note Inheritance-oriented. Constructors are protected. Derive and call them from your constructor.
 			 */
 			class STORMBYTE_DATABASE_PUBLIC SQLite3 : public Database {
@@ -121,7 +121,7 @@ namespace StormByte {
 					 * @brief In-memory database.
 					 * @param logger Logger instance.
 					 */
-					SQLite3(const StormByte::Shared<Logger::Log>& logger) noexcept;
+					SQLite3(const StormByte::Shared<Logger::Log>& logger);
 
 					/**
 					 * @brief File-backed database.

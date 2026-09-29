@@ -58,6 +58,7 @@ int test_component_prefixed_exceptions() {
 	ASSERT_EQUAL("test_component_prefixed_exceptions", std::string("StormByte.Database.OutOfBounds: Position 3 is out of bounds for size 2"), std::string(OutOfBounds(3, 2).what()));
 	ASSERT_EQUAL("test_component_prefixed_exceptions", std::string("StormByte.Database.Query.PreparedSTMT: Statement 'users' not found"), std::string(UnknownSTMT("users").what()));
 	ASSERT_EQUAL("test_component_prefixed_exceptions", std::string("StormByte.Database.Query.Execute: Error executing query: syntax error"), std::string(ExecuteError("syntax error").what()));
+	ASSERT_EQUAL("test_component_prefixed_exceptions", std::string("StormByte.Database.Transaction: Unable to begin transaction: disconnected"), std::string(TransactionError("disconnected").what()));
 	RETURN_TEST("test_component_prefixed_exceptions", result);
 }
 

@@ -43,6 +43,10 @@
 
 #include <StormByte/database/visibility.h>
 
+#include <StormByte/safe_pointers.hxx>
+
+#include <mutex>
+
 /**
  * @namespace StormByte
  * @brief Root namespace of the StormByte C++ suite.
@@ -58,6 +62,7 @@ namespace StormByte {
 		/**
 		 * @class Transaction
 		 * @brief RAII transaction. Rolls back if neither Commit() nor Rollback() ran before destruction.
+		 * @note Holds exclusive access to its connection and must remain on its creating thread.
 		 */
 		class STORMBYTE_DATABASE_PUBLIC Transaction {
 			public:
@@ -65,7 +70,7 @@ namespace StormByte {
 				 * @brief Bind to a database connection.
 				 * @param db Owning database.
 				 */
-				explicit Transaction(Database &db) noexcept;
+				explicit Transaction(Database &db);
 
 				/**
 				 * @brief Copy constructor (deleted).
@@ -114,8 +119,20 @@ namespace StormByte {
 				}
 
 			private:
+				/**
+				 * @class ConnectionLock
+				 * @brief Opaque RAII owner of the exclusive database connection lock.
+				 */
+				class ConnectionLock;
 				Database *m_db; ///< Owning database (nullptr after move)
 				bool m_active;	///< true until Commit / Rollback / destructor
+				StormByte::Shared<std::recursive_mutex> m_mutex; ///< Shared connection mutex
+				bool m_lock_held; ///< Whether this transaction currently owns a recursive lock
+
+				/**
+				 * @brief Release the transaction's connection lock.
+				 */
+				void ReleaseLock() noexcept;
 		};
 	}
 }

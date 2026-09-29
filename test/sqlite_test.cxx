@@ -46,12 +46,14 @@
 #include <StormByte/test_handlers.h>
 #include <StormByte/uuid.hxx>
 #include <memory>
+#include <atomic>
 #include <iostream>
 #include <vector>
 #include <thread>
 #include <chrono>
 #include <filesystem>
 #include <limits>
+#include <future>
 using ExpectedRows = StormByte::Database::ExpectedRows;
 using namespace StormByte::Database::SQLite;
 using StormByte::Database::IsolationLevel;
@@ -148,15 +150,10 @@ int not_connected_execute() {
 int not_connected_transaction() {
 	const std::string fn_name = "not_connected_transaction";
 	TestMemoryDatabase db;
-	bool threw = false;
-	try {
-		auto tx = db.BeginTransaction();
-		(void)tx;
-	} catch (const StormByte::Database::ExecuteError&) {
-		threw = true;
-	}
-
-	ASSERT_TRUE(fn_name, threw);
+	auto tx = db.BeginTransaction();
+	ASSERT_FALSE(fn_name, tx.has_value());
+	ASSERT_TRUE(fn_name, tx.error() != nullptr);
+	ASSERT_TRUE(fn_name, std::string{tx.error()->what()}.find("Unable to begin transaction") != std::string::npos);
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -433,7 +430,9 @@ int transaction_commit_test() {
 	TestMemoryDatabase db;
 	db.Connect();
 	{
-		auto tx = db.BeginTransaction();
+		auto tx_result = db.BeginTransaction();
+		ASSERT_TRUE(fn_name, tx_result.has_value());
+		auto tx = std::move(*tx_result);
 		db.SilentQuery("INSERT INTO users (name, email) VALUES ('Charlie', 'charlie@example.com');");
 		tx.Commit();
 	}
@@ -449,7 +448,9 @@ int transaction_rollback_explicit() {
 	TestMemoryDatabase db;
 	db.Connect();
 	{
-		auto tx = db.BeginTransaction();
+		auto tx_result = db.BeginTransaction();
+		ASSERT_TRUE(fn_name, tx_result.has_value());
+		auto tx = std::move(*tx_result);
 		db.SilentQuery("INSERT INTO users (name, email) VALUES ('David', 'david@example.com');");
 		tx.Rollback();
 	}
@@ -465,7 +466,9 @@ int transaction_rollback_auto() {
 	TestMemoryDatabase db;
 	db.Connect();
 	{
-		auto tx = db.BeginTransaction();
+		auto tx_result = db.BeginTransaction();
+		ASSERT_TRUE(fn_name, tx_result.has_value());
+		auto tx = std::move(*tx_result);
 		db.SilentQuery("INSERT INTO users (name, email) VALUES ('Eve', 'eve@example.com');");
 	}
 
@@ -479,7 +482,9 @@ int isolation_default() {
 	const std::string fn_name = "isolation_default";
 	TestMemoryDatabase db;
 	db.Connect();
-	auto tx = db.BeginTransaction(IsolationLevel::Default);
+	auto tx_result = db.BeginTransaction(IsolationLevel::Default);
+	ASSERT_TRUE(fn_name, tx_result.has_value());
+	auto tx = std::move(*tx_result);
 	tx.Commit();
 	RETURN_TEST(fn_name, 0);
 }
@@ -488,7 +493,9 @@ int isolation_serializable() {
 	const std::string fn_name = "isolation_serializable";
 	TestMemoryDatabase db;
 	db.Connect();
-	auto tx = db.BeginTransaction(IsolationLevel::Serializable);
+	auto tx_result = db.BeginTransaction(IsolationLevel::Serializable);
+	ASSERT_TRUE(fn_name, tx_result.has_value());
+	auto tx = std::move(*tx_result);
 	tx.Commit();
 	RETURN_TEST(fn_name, 0);
 }
@@ -497,7 +504,9 @@ int isolation_repeatable_read() {
 	const std::string fn_name = "isolation_repeatable_read";
 	TestMemoryDatabase db;
 	db.Connect();
-	auto tx = db.BeginTransaction(IsolationLevel::RepeatableRead);
+	auto tx_result = db.BeginTransaction(IsolationLevel::RepeatableRead);
+	ASSERT_TRUE(fn_name, tx_result.has_value());
+	auto tx = std::move(*tx_result);
 	tx.Commit();
 	RETURN_TEST(fn_name, 0);
 }
@@ -547,6 +556,58 @@ int concurrent_multiple_connections() {
 	}
 
 	std::filesystem::remove(db_path, ec);
+	RETURN_TEST(fn_name, 0);
+}
+
+int concurrent_shared_connection() {
+	const std::string fn_name = "concurrent_shared_connection";
+	constexpr int num_threads = 6;
+	constexpr int inserts_per_thread = 40;
+	TestMemoryDatabase db;
+	ASSERT_TRUE(fn_name, db.Connect());
+	std::atomic<int> failures{};
+	std::vector<std::thread> threads;
+	threads.reserve(static_cast<std::size_t>(num_threads));
+	for (int t = 0; t < num_threads; ++t) {
+		threads.emplace_back([t, &db, &failures]() {
+			for (int i = 0; i < inserts_per_thread; ++i) {
+				if (!db.ExecuteSTMT("insert_concurrent", t * 1000 + i).has_value())
+					++failures;
+			}
+		});
+	}
+
+	for (auto& th : threads)
+		th.join();
+	ASSERT_EQUAL(fn_name, 0, failures.load());
+	auto rows = db.ExecuteSTMT("count_concurrent");
+	ASSERT_TRUE(fn_name, rows.has_value());
+	ASSERT_EQUAL(fn_name, num_threads * inserts_per_thread, rows.value()[0][0].Get<int>());
+	RETURN_TEST(fn_name, 0);
+}
+
+int transaction_serializes_shared_connection() {
+	const std::string fn_name = "transaction_serializes_shared_connection";
+	TestMemoryDatabase db;
+	ASSERT_TRUE(fn_name, db.Connect());
+	auto tx_result = db.BeginTransaction();
+	ASSERT_TRUE(fn_name, tx_result.has_value());
+	auto tx = std::move(*tx_result);
+	ASSERT_TRUE(fn_name, db.SilentQuery("INSERT INTO concurrent (value) VALUES (1);"));
+	std::promise<void> started;
+	auto started_signal = started.get_future();
+	auto worker = std::async(std::launch::async, [&db, started = std::move(started)]() mutable {
+		started.set_value();
+		return db.SilentQuery("INSERT INTO concurrent (value) VALUES (2);");
+	});
+	started_signal.wait();
+	ASSERT_TRUE(fn_name, worker.wait_for(std::chrono::milliseconds(50)) == std::future_status::timeout);
+	tx.Rollback();
+	ASSERT_TRUE(fn_name, worker.get());
+	auto rows = db.Query("SELECT value FROM concurrent;");
+	ASSERT_TRUE(fn_name, rows.has_value());
+	ASSERT_EQUAL(fn_name, 1, rows.value().Count());
+	ASSERT_EQUAL(fn_name, 2, rows.value()[0][0].Get<int>());
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -608,6 +669,8 @@ int main() {
 	result += isolation_serializable();
 	result += isolation_repeatable_read();
 	result += concurrent_multiple_connections();
+	result += concurrent_shared_connection();
+	result += transaction_serializes_shared_connection();
 	result += connected_database_move();
 	if (result == 0) {
 		std::cout << "All tests passed successfully.\n";

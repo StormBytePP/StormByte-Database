@@ -244,5 +244,23 @@ namespace StormByte {
 				 */
 				~ExecuteError() noexcept override;
 		};
+
+		/**
+		 * @class TransactionError
+		 * @brief Beginning a database transaction failed.
+		 */
+		class STORMBYTE_DATABASE_PUBLIC TransactionError final : public Exception {
+			public:
+				/**
+				 * @brief Construct from the failure reason.
+				 * @param error Error text.
+				 */
+				TransactionError(std::string_view error);
+
+				/**
+				 * @brief Destructor.
+				 */
+				~TransactionError() noexcept override;
+		};
 	}
 }

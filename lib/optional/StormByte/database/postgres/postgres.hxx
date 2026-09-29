@@ -69,7 +69,7 @@ namespace StormByte {
 			 * @class Postgres
 			 * @brief PostgreSQL backend.
 			 *
-			 * @note Not thread-safe. One instance per thread.
+				 * @note Built-in connection operations are serialized. Transactions must stay on their creating thread.
 			 * @note Inheritance-oriented. Constructors are protected. SetSslMode() before Connect() if needed.
 			 */
 			class STORMBYTE_DATABASE_PUBLIC Postgres : public Database {

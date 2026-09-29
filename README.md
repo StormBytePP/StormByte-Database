@@ -22,9 +22,9 @@ The suite is split on purpose. Base, Buffer, Config, Crypto, Logger, Multimedia,
 - **Values** — type-erased `Value` (NULL, integers, double, text, blob, bool) with safe numeric `Get<T>()`.
 - **Rows** — ordered columns, lookup by name (`ColumnNotFound` / `OutOfBounds`).
 - **Prepared statements** — bind by position (0-based), `nullptr` is SQL NULL, `ExpectedRows` on execute.
-- **Transactions** — `BeginTransaction(IsolationLevel)` returns a `Transaction` that rolls back if you forget Commit.
+- **Transactions** — `BeginTransaction(IsolationLevel)` returns `Expected<Transaction, TransactionError>`; failed starts are reported as a value, and an uncommitted transaction rolls back on destruction.
 - **TLS** — `SslMode` for MariaDB and PostgreSQL. SQLite ignores it.
-- **Not thread-safe** — one connection per thread.
+- **Concurrent access** — operations on one connection are serialized; separate connections can run concurrently. A transaction reserves its connection until commit or rollback and must remain on the thread that created it. Custom backend implementations must lock the shared connection mutex in public operations.
 
 ## The rest of the suite
 
@@ -61,7 +61,7 @@ The suite is split on purpose. Base, Buffer, Config, Crypto, Logger, Multimedia,
 Needs a C++26 compiler, CMake 3.28 or newer, and StormByte-Logger 2.0.0 or newer. Logger supplies the bundled StormByte-String and StormByte Base dependencies used by Database. Enable the backends you want (`WITH_SQLITE`, `WITH_POSTGRES`, `WITH_MARIADB`: `OFF`, `SYSTEM` or `BUNDLED`); `SYSTEM` discovers installed connectors and `BUNDLED` builds them.
 
 ```sh
-git clone https://github.com/StormBytePP/StormByte-Database.git
+git clone --recurse-submodules https://github.com/StormBytePP/StormByte-Database.git
 cd StormByte-Database
 cmake -S . -B build
 cmake --build build
@@ -84,10 +84,11 @@ Moving a connected backend transfers ownership of its connection; the moved-from
 ```cpp
 #include <StormByte/database/sqlite/sqlite3.hxx>
 #include <StormByte/logger/log.hxx>
+#include <utility>
 
 class AppDb : public StormByte::Database::SQLite::SQLite3 {
 public:
-	AppDb(std::shared_ptr<StormByte::Logger::Log> log)
+	AppDb(StormByte::Shared<StormByte::Logger::Log> log)
 		: SQLite3(std::filesystem::path{"app.db"}, log) {}
 
 protected:
@@ -144,8 +145,13 @@ for (const auto& row : *result) {
 ### Transactions
 
 ```cpp
+#include <utility>
+
 {
-	auto tx = db.BeginTransaction(IsolationLevel::Serializable);
+	auto tx_result = db.BeginTransaction(IsolationLevel::Serializable);
+	if (!tx_result)
+		return 1;
+	auto tx = std::move(*tx_result);
 	db.SilentQuery("INSERT INTO users(name) VALUES ('ada')");
 	tx.Commit();
 } // Rollback if Commit was not called

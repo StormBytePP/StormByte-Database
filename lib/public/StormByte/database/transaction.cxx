@@ -42,10 +42,15 @@
 #include <StormByte/database/transaction.hxx>
 #include <StormByte/database/database.hxx>
 using namespace StormByte::Database;
-Transaction::Transaction(Database& db) noexcept
-	: m_db(&db), m_active(true) {}
+
+Transaction::Transaction(Database& db)
+	: m_db(&db), m_active(true), m_mutex(db.m_operation_mutex), m_lock_held(false) {
+	m_mutex->lock();
+	m_lock_held = true;
+}
 Transaction::Transaction(Transaction&& other) noexcept
-	: m_db(other.m_db), m_active(other.m_active) {
+	: m_db(other.m_db), m_active(other.m_active), m_mutex(std::move(other.m_mutex)),
+	  m_lock_held(std::exchange(other.m_lock_held, false)) {
 	other.m_db = nullptr;
 	other.m_active = false;
 }
@@ -53,9 +58,11 @@ Transaction::Transaction(Transaction&& other) noexcept
 Transaction& Transaction::operator=(Transaction&& other) noexcept {
 	if (this != &other) {
 		if (m_active && m_db)
-			m_db->RollbackTransaction();
+			Rollback();
 		m_db = other.m_db;
 		m_active = other.m_active;
+		m_mutex = std::move(other.m_mutex);
+		m_lock_held = std::exchange(other.m_lock_held, false);
 		other.m_db = nullptr;
 		other.m_active = false;
 	}
@@ -66,6 +73,14 @@ Transaction& Transaction::operator=(Transaction&& other) noexcept {
 Transaction::~Transaction() noexcept {
 	if (m_active && m_db)
 		m_db->RollbackTransaction();
+	ReleaseLock();
+}
+
+void Transaction::ReleaseLock() noexcept {
+	if (m_lock_held) {
+		m_mutex->unlock();
+		m_lock_held = false;
+	}
 }
 
 void Transaction::Commit() {
@@ -73,6 +88,7 @@ void Transaction::Commit() {
 		return;
 	m_db->CommitTransaction();
 	m_active = false;
+	ReleaseLock();
 }
 
 void Transaction::Rollback() {
@@ -80,4 +96,5 @@ void Transaction::Rollback() {
 		return;
 	m_db->RollbackTransaction();
 	m_active = false;
+	ReleaseLock();
 }

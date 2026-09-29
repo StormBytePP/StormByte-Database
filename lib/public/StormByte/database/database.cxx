@@ -40,26 +40,41 @@
  */
 
 #include <StormByte/database/database.hxx>
+#include <exception>
 #include <string_view>
 
 using namespace StormByte::Database;
 
-Database::Database(const StormByte::Shared<Logger::Log>& logger) noexcept:
-	m_logger(logger), m_connected(false), m_ssl_mode(SslMode::Default) {}
+Database::Database(const StormByte::Shared<Logger::Log>& logger):
+	m_operation_mutex(StormByte::Shared<std::recursive_mutex>::MakePointer<std::recursive_mutex>()),
+	m_connected(false), m_ssl_mode(SslMode::Default), m_logger(logger) {}
 
 Database::Database(Database&& other) noexcept:
-	m_logger(other.m_logger),
-	m_connected(std::exchange(other.m_connected, false)),
-	m_ssl_mode(other.m_ssl_mode),
-	m_prepared_stmts(std::move(other.m_prepared_stmts)) {}
+	m_operation_mutex(other.m_operation_mutex),
+	m_connected(false), m_ssl_mode(SslMode::Default) {
+	std::lock_guard<std::recursive_mutex> lock(*other.m_operation_mutex);
+	m_logger = other.m_logger;
+	m_connected = std::exchange(other.m_connected, false);
+	m_ssl_mode = other.m_ssl_mode;
+	m_prepared_stmts = std::move(other.m_prepared_stmts);
+}
 
 Database& Database::operator=(Database&& other) noexcept {
 	if (this != &other) {
-		ClearPreparedSTMTs();
-		m_logger = other.m_logger;
-		m_connected = std::exchange(other.m_connected, false);
-		m_ssl_mode = other.m_ssl_mode;
-		m_prepared_stmts = std::move(other.m_prepared_stmts);
+		auto transfer = [this, &other]() {
+			ClearPreparedSTMTs();
+			m_logger = other.m_logger;
+			m_connected = std::exchange(other.m_connected, false);
+			m_ssl_mode = other.m_ssl_mode;
+			m_prepared_stmts = std::move(other.m_prepared_stmts);
+		};
+		if (m_operation_mutex == other.m_operation_mutex) {
+			std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
+			transfer();
+		} else {
+			std::scoped_lock lock(*m_operation_mutex, *other.m_operation_mutex);
+			transfer();
+		}
 	}
 	return *this;
 }
@@ -67,6 +82,7 @@ Database& Database::operator=(Database&& other) noexcept {
 Database::~Database() noexcept = default;
 
 void Database::ClearPreparedSTMTs() noexcept {
+	std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
 	m_prepared_stmts.clear();
 }
 
@@ -75,6 +91,7 @@ PreparedSTMT* Database::FindPreparedSTMT(std::string_view name) {
 	return it == m_prepared_stmts.end() ? nullptr : it->second.get();
 }
 bool Database::Connect() noexcept {
+	std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
 	if (m_logger)
 		*m_logger << Logger::Level::LowLevel << "Connect enter" << std::endl;
 	DoPreConnect();
@@ -90,6 +107,7 @@ bool Database::Connect() noexcept {
 }
 
 void Database::Disconnect() noexcept {
+	std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
 	if (!m_connected)
 		return;
 	if (m_logger)
@@ -107,6 +125,7 @@ void Database::PrepareSTMT(std::string_view name, std::string_view query) noexce
 }
 
 void Database::DoPrepareSTMT(std::string_view name, std::string_view query) noexcept {
+	std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
 	if (m_logger)
 		*m_logger << Logger::Level::Debug << "Preparing statement '" << name << "': " << query << std::endl;
 	StormByte::Unique<PreparedSTMT> prepared = CreatePreparedSTMT(name, query);
@@ -114,14 +133,29 @@ void Database::DoPrepareSTMT(std::string_view name, std::string_view query) noex
 		m_prepared_stmts.emplace(std::string{prepared->Name()}, std::move(prepared));
 }
 
-Transaction Database::BeginTransaction(IsolationLevel level) {
-	if (m_logger)
-		*m_logger << Logger::Level::Debug << "BeginTransaction" << std::endl;
-	DoBeginTransaction(level);
-	return Transaction(*this);
+StormByte::Expected<Transaction, TransactionError> Database::BeginTransaction(IsolationLevel level) {
+	bool begun = false;
+	std::unique_lock<std::recursive_mutex> lock;
+	try {
+		lock = std::unique_lock<std::recursive_mutex>(*m_operation_mutex);
+		if (m_logger)
+			*m_logger << Logger::Level::Debug << "BeginTransaction" << std::endl;
+		DoBeginTransaction(level);
+		begun = true;
+		return Transaction(*this);
+	} catch (const std::exception& error) {
+		if (begun && lock.owns_lock())
+			DoSilentQuery("ROLLBACK;");
+		return Unexpected<TransactionError>(error.what());
+	} catch (...) {
+		if (begun && lock.owns_lock())
+			DoSilentQuery("ROLLBACK;");
+		return Unexpected<TransactionError>("Unknown backend failure");
+	}
 }
 
 void Database::CommitTransaction() {
+	std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
 	if (m_logger)
 		*m_logger << Logger::Level::Debug << "CommitTransaction" << std::endl;
 	if (!DoSilentQuery("COMMIT;"))
@@ -129,6 +163,7 @@ void Database::CommitTransaction() {
 }
 
 void Database::RollbackTransaction() {
+	std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
 	if (m_logger)
 		*m_logger << Logger::Level::Debug << "RollbackTransaction" << std::endl;
 	DoSilentQuery("ROLLBACK;");

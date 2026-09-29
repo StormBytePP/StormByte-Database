@@ -55,7 +55,7 @@ namespace {
 	std::mutex g_sqlite_init_mutex;
 }
 
-SQLite3::SQLite3(const StormByte::Shared<Logger::Log>& logger) noexcept
+SQLite3::SQLite3(const StormByte::Shared<Logger::Log>& logger)
 	: SQLite3(":memory:", logger) {}
 SQLite3::SQLite3(const std::filesystem::path& dbfile, const StormByte::Shared<Logger::Log>& logger)
 	: Database(logger), m_database_file(dbfile), m_database(nullptr) {}
@@ -148,6 +148,7 @@ void SQLite3::DoPostDisconnect() noexcept {
 }
 
 StormByte::Database::ExpectedRows SQLite3::Query(std::string_view query) noexcept {
+	std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
 	if (m_logger)
 		*m_logger << Logger::Level::Debug << "Executing query: " << query << std::endl;
 	if (!m_connected)
@@ -170,10 +171,12 @@ StormByte::Database::ExpectedRows SQLite3::Query(std::string_view query) noexcep
 }
 
 bool SQLite3::SilentQuery(std::string_view query) noexcept {
+	std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
 	return DoSilentQuery(query);
 }
 
 bool SQLite3::DoSilentQuery(std::string_view query) noexcept {
+	std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
 	if (m_logger)
 		*m_logger << Logger::Level::Debug << "Executing silent query: " << query << std::endl;
 	if (!m_connected)

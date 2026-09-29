@@ -197,6 +197,7 @@ void MariaDB::DoDisconnect() noexcept {
 }
 
 StormByte::Database::ExpectedRows MariaDB::Query(std::string_view query) noexcept {
+	std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
 	if (m_logger)
 		*m_logger << Logger::Level::Debug << "Executing query: " << query << std::endl;
 	if (!m_connected || !m_conn)
@@ -221,10 +222,12 @@ StormByte::Database::ExpectedRows MariaDB::Query(std::string_view query) noexcep
 }
 
 bool MariaDB::SilentQuery(std::string_view query) noexcept {
+	std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
 	return DoSilentQuery(query);
 }
 
 bool MariaDB::DoSilentQuery(std::string_view query) noexcept {
+	std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
 	if (m_logger)
 		*m_logger << Logger::Level::Debug << "Executing silent query: " << query << std::endl;
 	if (!m_connected || !m_conn)

@@ -43,6 +43,7 @@
 
 #include <StormByte/database/prepared_stmt.hxx>
 #include <StormByte/database/rows.hxx>
+#include <StormByte/database/telemetry.hxx>
 #include <StormByte/database/transaction.hxx>
 #include <StormByte/database/typedefs.hxx>
 #include <StormByte/logger/log.hxx>
@@ -106,6 +107,12 @@ namespace StormByte {
 				virtual ~Database() noexcept;
 
 				/**
+				 * @brief Obtain the cumulative connection telemetry handle.
+				 * @return Shared counters that remain valid after close or Database destruction.
+				 */
+				StormByte::Shared<Telemetry> GetTelemetry() const noexcept;
+
+				/**
 				 * @brief Connect.
 				 * @return true on success.
 				 */
@@ -153,11 +160,14 @@ namespace StormByte {
 				 */
 				template <typename... Args>
 				ExpectedRows ExecuteSTMT(std::string_view name, Args &&...args) {
+					auto telemetry = TrackOperation(Operation::PreparedStatement);
 					std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
 					PreparedSTMT *statement = FindPreparedSTMT(name);
 					if (!statement)
 						return Unexpected<UnknownSTMT>(name);
-					return statement->Execute(std::forward<Args>(args)...);
+					ExpectedRows result = statement->Execute(std::forward<Args>(args)...);
+					telemetry.Complete(result.has_value(), result ? static_cast<std::uint64_t>(result->Count()) : std::uint64_t{0});
+					return result;
 				}
 
 				/**
@@ -194,6 +204,30 @@ namespace StormByte {
 			protected:
 				friend class Transaction;
 				StormByte::Shared<std::recursive_mutex> m_operation_mutex; ///< DLL-safe owner of the connection mutex
+				StormByte::Shared<Telemetry> m_telemetry; ///< Shared cumulative counters for this connection.
+
+				/**
+				 * @brief Replace the telemetry implementation, normally in a concrete backend constructor.
+				 * @param telemetry Backend-specific telemetry allocated on Base's heap.
+				 */
+				void SetTelemetry(StormByte::Shared<Telemetry> telemetry) noexcept;
+
+				/**
+				 * @brief Record a categorized event reported by the active backend.
+				 * @param event Backend event category.
+				 */
+				void RecordBackendEvent(BackendEvent event) noexcept {
+					m_telemetry->RecordEvent(event);
+				}
+
+				/**
+				 * @brief Start timing a Database operation without invoking user callbacks.
+				 * @param operation Operation category.
+				 * @return Scope that records failure unless Complete() reports otherwise.
+				 */
+				Telemetry::OperationScope TrackOperation(Operation operation) const noexcept {
+					return Telemetry::OperationScope{m_telemetry, operation};
+				}
 
 				bool m_connected;																 ///< Connection state
 				SslMode m_ssl_mode;																 ///< TLS policy for network backends

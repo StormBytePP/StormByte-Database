@@ -41,6 +41,7 @@
 
 #include <StormByte/database/postgres/prepared_stmt.hxx>
 #include <StormByte/database/postgres/result_fetch.hxx>
+#include <StormByte/database/postgres/telemetry.hxx>
 #include <libpq-fe.h>
 #include <limits>
 #include <string_view>
@@ -48,8 +49,10 @@
 
 using namespace StormByte::Database::Postgres;
 
-PreparedSTMT::PreparedSTMT(ConstructionKey, std::string_view name, std::string_view query, const StormByte::Shared<Logger::Log>& logger)
-	: Database::PreparedSTMT(name, query, logger), m_conn(nullptr), m_stmt_name(name) {}
+PreparedSTMT::PreparedSTMT(ConstructionKey, std::string_view name, std::string_view query,
+		const StormByte::Shared<Logger::Log>& logger,
+		const StormByte::Shared<StormByte::Database::Telemetry>& telemetry)
+	: Database::PreparedSTMT(name, query, logger, telemetry), m_conn(nullptr), m_stmt_name(name) {}
 
 PreparedSTMT::PreparedSTMT(PreparedSTMT&& other) noexcept:
 	Database::PreparedSTMT(std::move(other)), m_conn(std::exchange(other.m_conn, nullptr)),
@@ -144,11 +147,15 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 
 	PGresult* res = PQexecPrepared(m_conn, m_stmt_name.c_str(), parameter_count_int, params.data(), lengths.data(), formats.data(), 0);
 	if (!res) {
+		RecordBackendEvent(BackendEvent::Connection);
 		return Unexpected<ExecuteError>("Null PGresult from PQexecPrepared");
 	}
 
 	ExecStatusType st = PQresultStatus(res);
 	if (st != PGRES_TUPLES_OK && st != PGRES_COMMAND_OK) {
+		const char* sql_state = PQresultErrorField(res, PG_DIAG_SQLSTATE);
+		if (auto* postgres_telemetry = dynamic_cast<Telemetry*>(m_telemetry.get()))
+			postgres_telemetry->RecordSqlState(sql_state ? std::string_view{sql_state} : std::string_view{});
 		std::string err = PQerrorMessage(m_conn) ? PQerrorMessage(m_conn) : "Unknown Postgres error";
 		PQclear(res);
 		return Unexpected<ExecuteError>(err);

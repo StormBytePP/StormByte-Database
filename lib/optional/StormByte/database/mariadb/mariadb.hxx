@@ -43,6 +43,7 @@
 
 #include <StormByte/database/database.hxx>
 #include <StormByte/database/mariadb/prepared_stmt.hxx>
+#include <StormByte/database/mariadb/telemetry.hxx>
 
 #include <memory>
 #include <string>

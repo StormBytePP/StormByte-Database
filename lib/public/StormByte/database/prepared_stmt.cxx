@@ -46,6 +46,10 @@ using namespace StormByte::Database;
 PreparedSTMT::PreparedSTMT(std::string_view name, std::string_view query, const StormByte::Shared<Logger::Log>& logger):
 	m_logger(logger), m_name(name), m_query(query) {}
 
+PreparedSTMT::PreparedSTMT(std::string_view name, std::string_view query,
+		const StormByte::Shared<Logger::Log>& logger, const StormByte::Shared<Telemetry>& telemetry):
+	m_logger(logger), m_telemetry(telemetry), m_name(name), m_query(query) {}
+
 PreparedSTMT::PreparedSTMT(PreparedSTMT&& other) noexcept = default;
 
 PreparedSTMT::~PreparedSTMT() noexcept = default;

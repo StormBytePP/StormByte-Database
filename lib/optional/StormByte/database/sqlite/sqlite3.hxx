@@ -43,6 +43,7 @@
 
 #include <StormByte/database/database.hxx>
 #include <StormByte/database/sqlite/prepared_stmt.hxx>
+#include <StormByte/database/sqlite/telemetry.hxx>
 
 #include <filesystem>
 #include <memory>

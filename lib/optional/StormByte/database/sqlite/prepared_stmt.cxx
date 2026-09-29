@@ -41,14 +41,17 @@
 
 #include <StormByte/database/sqlite/prepared_stmt.hxx>
 #include <StormByte/database/sqlite/result_fetch.hxx>
+#include <StormByte/database/sqlite/telemetry.hxx>
 
 #include <limits>
 #include <string_view>
 #include <utility>
 
 using namespace StormByte::Database::SQLite;
-PreparedSTMT::PreparedSTMT(ConstructionKey, std::string_view name, std::string_view query, const StormByte::Shared<Logger::Log>& logger)
-	: Database::PreparedSTMT(name, query, logger), m_stmt(nullptr), m_bind_error(false) {}
+PreparedSTMT::PreparedSTMT(ConstructionKey, std::string_view name, std::string_view query,
+		const StormByte::Shared<Logger::Log>& logger,
+		const StormByte::Shared<StormByte::Database::Telemetry>& telemetry)
+	: Database::PreparedSTMT(name, query, logger, telemetry), m_stmt(nullptr), m_bind_error(false) {}
 
 PreparedSTMT::PreparedSTMT(PreparedSTMT&& other) noexcept:
 	Database::PreparedSTMT(std::move(other)), m_stmt(std::exchange(other.m_stmt, nullptr)),
@@ -149,7 +152,18 @@ void PreparedSTMT::Reset() noexcept {
 }
 
 StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
-	if (m_bind_error)
+	if (m_bind_error) {
+		const int result_code = sqlite3_errcode(sqlite3_db_handle(m_stmt));
+		if (result_code != SQLITE_OK) {
+			if (auto* sqlite_telemetry = dynamic_cast<Telemetry*>(m_telemetry.get()))
+				sqlite_telemetry->RecordSQLiteResult(result_code);
+		}
 		return Unexpected<ExecuteError>("Invalid SQLite statement bind.");
-	return StepResults(m_stmt);
+	}
+	ExpectedRows result = StepResults(m_stmt);
+	if (!result) {
+		if (auto* sqlite_telemetry = dynamic_cast<Telemetry*>(m_telemetry.get()))
+			sqlite_telemetry->RecordSQLiteResult(sqlite3_errcode(sqlite3_db_handle(m_stmt)));
+	}
+	return result;
 }

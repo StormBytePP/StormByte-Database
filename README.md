@@ -23,6 +23,7 @@ The suite is split on purpose. Base, Buffer, Config, Crypto, Logger, Multimedia,
 - **Rows** — ordered columns, lookup by name (`ColumnNotFound` / `OutOfBounds`).
 - **Prepared statements** — bind by position (0-based), `nullptr` is SQL NULL, `ExpectedRows` on execute.
 - **Transactions** — `BeginTransaction(IsolationLevel)` returns `Expected<Transaction, TransactionError>`; failed starts are reported as a value, and an uncommitted transaction rolls back on destruction.
+- **Telemetry** — `GetTelemetry()` returns a thread-safe, cumulative `StormByte::Shared` handle with operation counts, outcomes, rows and latency min/mean/max. SQLite, PostgreSQL and MariaDB provide derived telemetry with backend-specific error counters; retained handles remain readable after disconnect/destruction.
 - **TLS** — `SslMode` for MariaDB and PostgreSQL. SQLite ignores it.
 - **Concurrent access** — operations on one connection are serialized; separate connections can run concurrently. A transaction reserves its connection until commit or rollback and must remain on the thread that created it. Custom backend implementations must lock the shared connection mutex in public operations.
 
@@ -52,6 +53,7 @@ The suite is split on purpose. Base, Buffer, Config, Crypto, Logger, Multimedia,
   - [Values and rows](#values-and-rows)
   - [Queries and statements](#queries-and-statements)
   - [Transactions](#transactions)
+- [Telemetry](#telemetry)
 - [Support](#support)
 - [Contributing](#contributing)
 - [License](#license)
@@ -156,6 +158,29 @@ for (const auto& row : *result) {
 	tx.Commit();
 } // Rollback if Commit was not called
 ```
+
+### Telemetry
+
+```cpp
+#include <StormByte/database/sqlite/sqlite3.hxx>
+
+#include <iostream>
+#include <string>
+
+auto telemetry = db.GetTelemetry();
+const auto query_metrics = telemetry->Metrics(StormByte::Database::Operation::Query);
+std::cout << "queries=" << query_metrics.Attempts
+		  << " failures=" << query_metrics.Failures
+		  << " mean_ns=" << query_metrics.MeanNanoseconds() << '\n';
+
+if (const auto* sqlite = dynamic_cast<const StormByte::Database::SQLite::Telemetry*>(telemetry.get()))
+	std::cout << "sqlite_busy=" << sqlite->BusyErrors()
+			  << " constraints=" << sqlite->ConstraintErrors() << '\n';
+
+std::string snapshot = static_cast<std::string>(*telemetry);
+```
+
+Telemetry records operation attempts, successes/failures, total/minimum/mean/maximum latency, rows returned, and categorized backend events. It does not retain SQL text or bind values. Its getters are safe to call while operations run; snapshots may reflect updates that complete during the read. The `Shared` handle owns the same cumulative telemetry object and remains valid after the database is disconnected or destroyed.
 
 ## Contributing
 

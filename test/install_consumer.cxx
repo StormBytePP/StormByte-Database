@@ -1,5 +1,7 @@
 #include <StormByte/database/value.hxx>
 
+#include <string>
+
 #if defined(STORMBYTE_TEST_SQLITE)
 #include <StormByte/database/sqlite/sqlite3.hxx>
 #endif
@@ -27,9 +29,17 @@ int main() {
 	const auto rows = db.Query("SELECT 42;");
 	if (!rows || rows->Count() != 1 || rows->operator[](0)[0].Get<int>() != 42)
 		return 3;
+	const auto telemetry = db.GetTelemetry();
+	if (!telemetry || telemetry->Metrics(StormByte::Database::Operation::Query).Successes != 1)
+		return 4;
+	const auto* sqlite_telemetry = dynamic_cast<const StormByte::Database::SQLite::Telemetry*>(telemetry.get());
+	if (!sqlite_telemetry || static_cast<std::string>(*telemetry).find("SQLite{") == std::string::npos)
+		return 5;
+	if (sqlite_telemetry->Metrics(StormByte::Database::Operation::Query).Attempts != 1)
+		return 6;
 	auto transaction = db.BeginTransaction();
 	if (!transaction)
-		return 4;
+		return 7;
 	transaction->Rollback();
 #endif
 	return 0;

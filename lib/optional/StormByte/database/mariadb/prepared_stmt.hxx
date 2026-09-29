@@ -116,7 +116,9 @@ namespace StormByte {
 					 * @param conn Connection handle.
 					 * @param logger Non-owning logger observer.
 					 */
-					PreparedSTMT(ConstructionKey key, std::string_view name, std::string_view query, struct st_mysql* conn, const StormByte::Shared<Logger::Log>& logger);
+					PreparedSTMT(ConstructionKey key, std::string_view name, std::string_view query, struct st_mysql* conn,
+						const StormByte::Shared<Logger::Log>& logger,
+						const StormByte::Shared<StormByte::Database::Telemetry>& telemetry);
 
 				private:
 					struct st_mysql *m_conn;						  ///< Connection handle

@@ -42,6 +42,7 @@
 #include <StormByte/database/exception.hxx>
 #include <StormByte/database/row.hxx>
 #include <StormByte/database/rows.hxx>
+#include <StormByte/database/telemetry.hxx>
 #include <StormByte/database/value.hxx>
 #include <StormByte/test_handlers.h>
 
@@ -49,9 +50,16 @@
 #include <cmath>
 #include <limits>
 #include <string>
+#include <thread>
 #include <utility>
+#include <vector>
 
 using namespace StormByte::Database;
+
+class TestTelemetry : public Telemetry {
+	public:
+		TestTelemetry() noexcept = default;
+};
 
 int test_component_prefixed_exceptions() {
 	int result = 0;
@@ -221,12 +229,54 @@ int test_row_and_rows_value_semantics() {
 	RETURN_TEST(fn_name, 0);
 }
 
+int test_telemetry_operation_metrics() {
+	constexpr std::string_view fn_name = "test_telemetry_operation_metrics";
+	auto telemetry = StormByte::Shared<TestTelemetry>::MakePointer<TestTelemetry>();
+	{
+		Telemetry::OperationScope operation{telemetry, Operation::Query};
+		operation.Complete(true, 3);
+	}
+	{
+		Telemetry::OperationScope operation{telemetry, Operation::Query};
+		operation.Complete(false);
+	}
+	const OperationMetrics metrics = telemetry->Metrics(Operation::Query);
+	ASSERT_EQUAL(fn_name, 2, metrics.Attempts);
+	ASSERT_EQUAL(fn_name, 1, metrics.Successes);
+	ASSERT_EQUAL(fn_name, 1, metrics.Failures);
+	ASSERT_TRUE(fn_name, metrics.MinimumNanoseconds <= metrics.MeanNanoseconds());
+	ASSERT_TRUE(fn_name, metrics.MeanNanoseconds() <= metrics.MaximumNanoseconds);
+	ASSERT_EQUAL(fn_name, 3, telemetry->RowsReturned());
+	ASSERT_TRUE(fn_name, static_cast<std::string>(*telemetry).find("Query{calls=2") != std::string::npos);
+
+	auto concurrent_telemetry = StormByte::Shared<TestTelemetry>::MakePointer<TestTelemetry>();
+	constexpr int thread_count = 8;
+	constexpr int operations_per_thread = 500;
+	std::vector<std::thread> threads;
+	for (int thread_index{}; thread_index < thread_count; ++thread_index) {
+		threads.emplace_back([&concurrent_telemetry]() {
+			for (int operation_index{}; operation_index < operations_per_thread; ++operation_index) {
+				Telemetry::OperationScope operation{concurrent_telemetry, Operation::PreparedStatement};
+				operation.Complete(true, 1);
+			}
+		});
+	}
+	for (auto& thread : threads)
+		thread.join();
+	const OperationMetrics concurrent_metrics = concurrent_telemetry->Metrics(Operation::PreparedStatement);
+	ASSERT_EQUAL(fn_name, thread_count * operations_per_thread, concurrent_metrics.Attempts);
+	ASSERT_EQUAL(fn_name, thread_count * operations_per_thread, concurrent_metrics.Successes);
+	ASSERT_EQUAL(fn_name, thread_count * operations_per_thread, concurrent_telemetry->RowsReturned());
+	RETURN_TEST(fn_name, 0);
+}
+
 int main() {
 	int result = 0;
 	result += test_component_prefixed_exceptions();
 	result += test_invalid_value_conversions_throw();
 	result += test_value_variants_and_numeric_boundaries();
 	result += test_row_and_rows_value_semantics();
+	result += test_telemetry_operation_metrics();
 	if (result == 0) {
 		std::cout << "All tests passed successfully.\n";
 	} else {

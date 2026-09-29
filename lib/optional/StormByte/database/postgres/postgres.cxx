@@ -65,7 +65,9 @@ namespace {
 Postgres::Postgres(std::string_view host, std::string_view user, std::string_view password,
 				std::string_view db_name, const StormByte::Shared<Logger::Log>& logger)
 	: Database(logger), m_host(host), m_user(user), m_password(password),
-	m_dbname(db_name), m_conn(nullptr) {}
+	m_dbname(db_name), m_conn(nullptr) {
+	SetTelemetry(StormByte::Shared<StormByte::Database::Telemetry>::MakePointer<StormByte::Database::Postgres::Telemetry>());
+}
 
 Postgres::Postgres(Postgres&& db) noexcept
 	: Database(std::move(db)), m_host(std::move(db.m_host)), m_user(std::move(db.m_user)),
@@ -165,19 +167,31 @@ void Postgres::DoDisconnect() noexcept {
 }
 
 StormByte::Database::ExpectedRows Postgres::Query(std::string_view query) noexcept {
+	auto telemetry = TrackOperation(Operation::Query);
 	std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
 	if (m_logger)
 		*m_logger << Logger::Level::Debug << "Executing query: " << query << std::endl;
-	if (!m_connected || !m_conn)
+	if (!m_connected || !m_conn) {
+		RecordBackendEvent(BackendEvent::Connection);
+		telemetry.Complete(false);
 		return Unexpected<ExecuteError>("Database not connected");
-	if (query.find('\0') != std::string_view::npos)
+	}
+	if (query.find('\0') != std::string_view::npos) {
+		telemetry.Complete(false);
 		return Unexpected<ExecuteError>("Query contains an embedded NUL character");
+	}
 	const std::string query_text{query};
 	PGresult* res = PQexec(static_cast<PGconn*>(m_conn), query_text.c_str());
-	if (!res)
+	if (!res) {
+		RecordBackendEvent(BackendEvent::Connection);
+		telemetry.Complete(false);
 		return Unexpected<ExecuteError>("Null PGresult");
+	}
 	ExecStatusType st = PQresultStatus(res);
 	if (st != PGRES_TUPLES_OK && st != PGRES_COMMAND_OK) {
+		const char* sql_state = PQresultErrorField(res, PG_DIAG_SQLSTATE);
+		if (auto* postgres_telemetry = dynamic_cast<Telemetry*>(m_telemetry.get()))
+			postgres_telemetry->RecordSqlState(sql_state ? std::string_view{sql_state} : std::string_view{});
 		std::string err = PQerrorMessage(static_cast<PGconn*>(m_conn))
 						? PQerrorMessage(static_cast<PGconn*>(m_conn))
 						: "Unknown Postgres error";
@@ -187,28 +201,39 @@ StormByte::Database::ExpectedRows Postgres::Query(std::string_view query) noexce
 
 	ExpectedRows rows = StepResults(res);
 	PQclear(res);
+	telemetry.Complete(rows.has_value(), rows ? static_cast<std::uint64_t>(rows->Count()) : 0);
 	return rows;
 }
 
 bool Postgres::SilentQuery(std::string_view query) noexcept {
+	auto telemetry = TrackOperation(Operation::SilentQuery);
 	std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
-	return DoSilentQuery(query);
+	const bool result = DoSilentQuery(query);
+	telemetry.Complete(result);
+	return result;
 }
 
 bool Postgres::DoSilentQuery(std::string_view query) noexcept {
 	std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
 	if (m_logger)
 		*m_logger << Logger::Level::Debug << "Executing silent query: " << query << std::endl;
-	if (!m_connected || !m_conn)
+	if (!m_connected || !m_conn) {
+		RecordBackendEvent(BackendEvent::Connection);
 		return false;
+	}
 	if (query.find('\0') != std::string_view::npos)
 		return false;
 	const std::string query_text{query};
 	PGresult* res = PQexec(static_cast<PGconn*>(m_conn), query_text.c_str());
-	if (!res)
+	if (!res) {
+		RecordBackendEvent(BackendEvent::Connection);
 		return false;
+	}
 	ExecStatusType st = PQresultStatus(res);
 	if (st != PGRES_COMMAND_OK && st != PGRES_TUPLES_OK) {
+		const char* sql_state = PQresultErrorField(res, PG_DIAG_SQLSTATE);
+		if (auto* postgres_telemetry = dynamic_cast<Telemetry*>(m_telemetry.get()))
+			postgres_telemetry->RecordSqlState(sql_state ? std::string_view{sql_state} : std::string_view{});
 		if (m_logger) {
 			*m_logger << Logger::Level::Error
 					<< "Postgres SilentQuery error: "
@@ -266,7 +291,7 @@ Postgres::CreatePreparedSTMT(std::string_view name, std::string_view query) noex
 
 	PQclear(res);
 	StormByte::Unique<PreparedSTMT> stmt = StormByte::Unique<PreparedSTMT>::MakePointer<PreparedSTMT>(
-		PreparedSTMT::ConstructionKey{}, name, query, m_logger);
+		PreparedSTMT::ConstructionKey{}, name, query, m_logger, m_telemetry);
 	stmt->m_conn = m_conn;
 	return stmt;
 }

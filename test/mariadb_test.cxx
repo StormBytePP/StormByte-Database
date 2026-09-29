@@ -144,6 +144,9 @@ int not_connected_query() {
 	TestDatabase db;
 	auto res = db.Query("SELECT 1;");
 	ASSERT_FALSE(fn_name, res.has_value());
+	auto telemetry = db.GetTelemetry();
+	ASSERT_EQUAL(fn_name, 1, telemetry->Metrics(StormByte::Database::Operation::Query).Failures);
+	ASSERT_EQUAL(fn_name, 1, telemetry->Events(StormByte::Database::BackendEvent::Connection));
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -708,6 +711,59 @@ int concurrent_shared_connection_and_transaction() {
 	RETURN_TEST(fn_name, 0);
 }
 
+int telemetry_tracks_mariadb_operations_and_survives_database() {
+	const std::string fn_name = "telemetry_tracks_mariadb_operations_and_survives_database";
+	StormByte::Shared<StormByte::Database::Telemetry> retained;
+	std::uint64_t warnings_before{};
+	{
+		TestDatabase db;
+		retained = db.GetTelemetry();
+		ASSERT_TRUE(fn_name, retained != nullptr);
+		ASSERT_TRUE(fn_name, dynamic_cast<StormByte::Database::MariaDB::Telemetry*>(retained.get()) != nullptr);
+		ASSERT_TRUE(fn_name, db.Connect());
+		warnings_before = dynamic_cast<StormByte::Database::MariaDB::Telemetry*>(retained.get())->Warnings();
+		ASSERT_TRUE(fn_name, db.Query("SELECT 1;").has_value());
+		ASSERT_FALSE(fn_name, db.Query("SELEC 1;").has_value());
+		ASSERT_TRUE(fn_name, db.ExecuteSTMT("select_users").has_value());
+		ASSERT_FALSE(fn_name, db.ExecuteSTMT("missing_telemetry_statement").has_value());
+		ASSERT_FALSE(fn_name, db.SilentQuery("INSERT INTO users (name, email) VALUES ('Duplicate', 'alice@example.com');"));
+		ASSERT_TRUE(fn_name, db.SilentQuery("INSERT IGNORE INTO users (name, email) VALUES ('Duplicate', 'alice@example.com');"));
+		auto transaction = db.BeginTransaction();
+		ASSERT_TRUE(fn_name, transaction.has_value());
+		transaction->Rollback();
+		auto committed_transaction = db.BeginTransaction();
+		ASSERT_TRUE(fn_name, committed_transaction.has_value());
+		committed_transaction->Commit();
+		db.Disconnect();
+	}
+
+	const auto* telemetry = dynamic_cast<const StormByte::Database::MariaDB::Telemetry*>(retained.get());
+	ASSERT_TRUE(fn_name, telemetry != nullptr);
+	ASSERT_EQUAL(fn_name, 1, telemetry->Metrics(StormByte::Database::Operation::Connect).Successes);
+	ASSERT_EQUAL(fn_name, 2, telemetry->Metrics(StormByte::Database::Operation::Disconnect).Successes);
+	const auto query = telemetry->Metrics(StormByte::Database::Operation::Query);
+	ASSERT_EQUAL(fn_name, 2, query.Attempts);
+	ASSERT_EQUAL(fn_name, 1, query.Successes);
+	ASSERT_EQUAL(fn_name, 1, query.Failures);
+	ASSERT_TRUE(fn_name, query.MinimumNanoseconds <= query.MeanNanoseconds());
+	ASSERT_TRUE(fn_name, query.MeanNanoseconds() <= query.MaximumNanoseconds);
+	ASSERT_EQUAL(fn_name, 3, telemetry->RowsReturned());
+	ASSERT_EQUAL(fn_name, 1, telemetry->Metrics(StormByte::Database::Operation::PreparedStatement).Failures);
+	ASSERT_EQUAL(fn_name, 1, telemetry->Metrics(StormByte::Database::Operation::PreparedStatement).Successes);
+	const auto prepare_metrics = telemetry->Metrics(StormByte::Database::Operation::PrepareStatement);
+	ASSERT_TRUE(fn_name, prepare_metrics.Attempts > 0);
+	ASSERT_EQUAL(fn_name, prepare_metrics.Attempts, prepare_metrics.Successes);
+	ASSERT_EQUAL(fn_name, 1, telemetry->Metrics(StormByte::Database::Operation::SilentQuery).Failures);
+	ASSERT_EQUAL(fn_name, 2, telemetry->Metrics(StormByte::Database::Operation::BeginTransaction).Successes);
+	ASSERT_EQUAL(fn_name, 1, telemetry->Metrics(StormByte::Database::Operation::CommitTransaction).Successes);
+	ASSERT_EQUAL(fn_name, 1, telemetry->Metrics(StormByte::Database::Operation::RollbackTransaction).Successes);
+	ASSERT_EQUAL(fn_name, 1, telemetry->Events(StormByte::Database::BackendEvent::Constraint));
+	ASSERT_TRUE(fn_name, telemetry->Deadlocks() == 0);
+	ASSERT_EQUAL(fn_name, warnings_before + 1, telemetry->Warnings());
+	ASSERT_TRUE(fn_name, static_cast<std::string>(*retained).find("MariaDB{") != std::string::npos);
+	RETURN_TEST(fn_name, 0);
+}
+
 int main() {
 	int result = 0;
 	result += not_connected_query();
@@ -747,6 +803,7 @@ int main() {
 	result += isolation_repeatable_read();
 	result += concurrent_multiple_connections();
 	result += concurrent_shared_connection_and_transaction();
+	result += telemetry_tracks_mariadb_operations_and_survives_database();
 	if (result == 0) {
 		std::cout << "All tests passed successfully.\n";
 	} else {

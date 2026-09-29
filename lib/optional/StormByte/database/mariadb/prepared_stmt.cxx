@@ -41,6 +41,7 @@
 
 #include <StormByte/database/mariadb/prepared_stmt.hxx>
 #include <StormByte/database/mariadb/result_fetch.hxx>
+#include <StormByte/database/mariadb/telemetry.hxx>
 #include <cstdint>
 #include <cstring>
 #include <limits>
@@ -67,8 +68,10 @@ void PreparedSTMT::EnsureParamSize(std::vector<StormByte::Database::Value>& para
 		params.resize(static_cast<std::size_t>(index) + 1);
 }
 
-PreparedSTMT::PreparedSTMT(ConstructionKey, std::string_view name, std::string_view query, struct st_mysql* conn, const StormByte::Shared<Logger::Log>& logger)
-	: Database::PreparedSTMT(name, query, logger), m_conn(conn), m_stmt(nullptr) {
+PreparedSTMT::PreparedSTMT(ConstructionKey, std::string_view name, std::string_view query, struct st_mysql* conn,
+		const StormByte::Shared<Logger::Log>& logger,
+		const StormByte::Shared<StormByte::Database::Telemetry>& telemetry)
+	: Database::PreparedSTMT(name, query, logger, telemetry), m_conn(conn), m_stmt(nullptr) {
 	MYSQL* cpp_conn = to_mysql_conn(m_conn);
 	MYSQL_STMT* stmt = mysql_stmt_init(cpp_conn);
 	if (!stmt) {
@@ -142,6 +145,10 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 	}
 
 	MYSQL_STMT* stmt = to_mysql_stmt(m_stmt);
+	auto record_statement_error = [this, stmt]() {
+		if (auto* mariadb_telemetry = dynamic_cast<Telemetry*>(m_telemetry.get()))
+			mariadb_telemetry->RecordMariaDBError(mysql_stmt_errno(stmt));
+	};
 	if (m_params.size() != mysql_stmt_param_count(stmt))
 		return Unexpected<ExecuteError>("Prepared statement parameter count mismatch");
 	std::vector<MYSQL_BIND> bind_in;
@@ -263,12 +270,18 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 
 	if (!bind_in.empty()) {
 		if (mysql_stmt_bind_param(stmt, bind_in.data()) != 0) {
+			record_statement_error();
 			return Unexpected<ExecuteError>(mysql_stmt_error(stmt) ? mysql_stmt_error(stmt) : "Unknown MySQL stmt error");
 		}
 	}
 
 	if (mysql_stmt_execute(stmt) != 0) {
+		record_statement_error();
 		return Unexpected<ExecuteError>(mysql_stmt_error(stmt) ? mysql_stmt_error(stmt) : "Unknown MySQL stmt error");
+	}
+	if (const unsigned int warnings = mysql_warning_count(to_mysql_conn(m_conn)); warnings > 0) {
+		if (auto* mariadb_telemetry = dynamic_cast<Telemetry*>(m_telemetry.get()))
+			mariadb_telemetry->RecordMariaDBWarnings(warnings);
 	}
 
 	MYSQL_RES* meta = mysql_stmt_result_metadata(stmt);
@@ -358,11 +371,13 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 	}
 
 	if (mysql_stmt_bind_result(stmt, bind_out.data()) != 0) {
+			record_statement_error();
 		mysql_free_result(meta);
 		return Unexpected<ExecuteError>(mysql_stmt_error(stmt) ? mysql_stmt_error(stmt) : "Unknown MySQL stmt error");
 	}
 
 	if (mysql_stmt_store_result(stmt) != 0) {
+		record_statement_error();
 		mysql_free_result(meta);
 		return Unexpected<ExecuteError>(mysql_stmt_error(stmt) ? mysql_stmt_error(stmt) : "Unknown MySQL stmt error");
 	}
@@ -372,6 +387,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 		int rc = mysql_stmt_fetch(stmt);
 		if (rc == MYSQL_NO_DATA) break;
 		if (rc != 0 && rc != MYSQL_DATA_TRUNCATED) {
+			record_statement_error();
 			mysql_free_result(meta);
 			return Unexpected<ExecuteError>(mysql_stmt_error(stmt) ? mysql_stmt_error(stmt) : "Unknown MySQL stmt fetch error");
 		}
@@ -384,6 +400,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 					bind_out[ci].buffer = out_str[ci].data();
 					bind_out[ci].buffer_length = static_cast<unsigned long>(out_str[ci].size());
 					if (mysql_stmt_fetch_column(stmt, &bind_out[ci], ci, 0) != 0) {
+						record_statement_error();
 						mysql_free_result(meta);
 						return Unexpected<ExecuteError>(mysql_stmt_error(stmt) ? mysql_stmt_error(stmt) : "Unknown MySQL stmt fetch_column error");
 					}

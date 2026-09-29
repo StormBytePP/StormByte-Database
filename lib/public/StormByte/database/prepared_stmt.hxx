@@ -42,6 +42,7 @@
 #pragma once
 
 #include <StormByte/database/rows.hxx>
+#include <StormByte/database/telemetry.hxx>
 #include <StormByte/database/value.hxx>
 #include <StormByte/logger/log.hxx>
 #include <StormByte/size.hxx>
@@ -74,6 +75,16 @@ namespace StormByte {
 				 * @param logger Logger instance.
 				 */
 				PreparedSTMT(std::string_view name, std::string_view query, const StormByte::Shared<Logger::Log>& logger);
+
+				/**
+				 * @brief Copy statement metadata and share connection telemetry.
+				 * @param name Statement name.
+				 * @param query SQL text.
+				 * @param logger Logger instance.
+				 * @param telemetry Connection telemetry handle.
+				 */
+				PreparedSTMT(std::string_view name, std::string_view query, const StormByte::Shared<Logger::Log>& logger,
+					const StormByte::Shared<Telemetry>& telemetry);
 
 				/**
 				 * @brief Copy constructor (deleted).
@@ -134,6 +145,16 @@ namespace StormByte {
 
 			protected:
 				StormByte::Shared<Logger::Log> m_logger;	///< Shared logger, safe across the DLL boundary
+				StormByte::Shared<Telemetry> m_telemetry; ///< Shared connection telemetry.
+
+				/**
+				 * @brief Record a backend event against the owning connection.
+				 * @param event Backend event category.
+				 */
+				void RecordBackendEvent(BackendEvent event) noexcept {
+					if (m_telemetry)
+						m_telemetry->RecordEvent(event);
+				}
 
 				/**
 				 * @brief Bind a value at @p index.

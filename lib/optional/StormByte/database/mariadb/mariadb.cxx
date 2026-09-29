@@ -49,17 +49,19 @@
 #include <utility>
 using namespace StormByte::Database::MariaDB;
 namespace {
-	void LogMariaDBWarnings(MYSQL* conn, const StormByte::Shared<StormByte::Logger::Log>& logger) {
-		if (!conn || !logger)
-			return;
+	unsigned int LogMariaDBWarnings(MYSQL* conn, const StormByte::Shared<StormByte::Logger::Log>& logger) {
+		if (!conn)
+			return 0;
 		const unsigned int count = mysql_warning_count(conn);
 		if (count == 0)
-			return;
+			return 0;
+		if (!logger)
+			return count;
 		if (mysql_query(conn, "SHOW WARNINGS") != 0)
-			return;
+			return count;
 		MYSQL_RES* res = mysql_store_result(conn);
 		if (!res)
-			return;
+			return count;
 		MYSQL_ROW row;
 		while ((row = mysql_fetch_row(res)) != nullptr) {
 			const char* level = row[0] ? row[0] : "";
@@ -70,6 +72,7 @@ namespace {
 		}
 
 		mysql_free_result(res);
+		return count;
 	}
 
 	void ApplySslMode(MYSQL* conn, StormByte::Database::SslMode mode) {
@@ -123,7 +126,9 @@ MariaDB::~MariaDB() noexcept {
 MariaDB::MariaDB(std::string_view host, std::string_view user, std::string_view password,
 				std::string_view db_name, int port, const StormByte::Shared<Logger::Log>& logger)
 	: Database(logger), m_host(host), m_user(user), m_password(password),
-	m_dbname(db_name), m_port(port), m_conn(nullptr) {}
+	m_dbname(db_name), m_port(port), m_conn(nullptr) {
+	SetTelemetry(StormByte::Shared<StormByte::Database::Telemetry>::MakePointer<StormByte::Database::MariaDB::Telemetry>());
+}
 MariaDB::MariaDB(MariaDB&& db) noexcept
 	: Database(std::move(db)), m_host(std::move(db.m_host)), m_user(std::move(db.m_user)),
 	m_password(std::move(db.m_password)), m_dbname(std::move(db.m_dbname)),
@@ -197,44 +202,69 @@ void MariaDB::DoDisconnect() noexcept {
 }
 
 StormByte::Database::ExpectedRows MariaDB::Query(std::string_view query) noexcept {
+	auto telemetry = TrackOperation(Operation::Query);
 	std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
 	if (m_logger)
 		*m_logger << Logger::Level::Debug << "Executing query: " << query << std::endl;
-	if (!m_connected || !m_conn)
+	if (!m_connected || !m_conn) {
+		RecordBackendEvent(BackendEvent::Connection);
+		telemetry.Complete(false);
 		return Unexpected<ExecuteError>("Database not connected");
-	if (query.size() > std::numeric_limits<unsigned long>::max())
+	}
+	if (query.size() > std::numeric_limits<unsigned long>::max()) {
+		telemetry.Complete(false);
 		return Unexpected<ExecuteError>("Query exceeds MariaDB's supported length");
+	}
 	if (mysql_real_query(m_conn, query.data(), static_cast<unsigned long>(query.size())) != 0) {
+		if (auto* mariadb_telemetry = dynamic_cast<Telemetry*>(m_telemetry.get()))
+			mariadb_telemetry->RecordMariaDBError(mysql_errno(m_conn));
+		telemetry.Complete(false);
 		return Unexpected<ExecuteError>(mysql_error(m_conn) ? mysql_error(m_conn) : "Unknown MySQL error");
 	}
 
-	LogMariaDBWarnings(m_conn, m_logger);
+	if (const unsigned int warnings = LogMariaDBWarnings(m_conn, m_logger); warnings > 0) {
+		if (auto* mariadb_telemetry = dynamic_cast<Telemetry*>(m_telemetry.get()))
+			mariadb_telemetry->RecordMariaDBWarnings(warnings);
+	}
 	MYSQL_RES* res = mysql_store_result(m_conn);
 	if (!res) {
-		if (mysql_field_count(m_conn) == 0)
+		if (mysql_field_count(m_conn) == 0) {
+			telemetry.Complete(true);
 			return Rows();
+		}
+		if (auto* mariadb_telemetry = dynamic_cast<Telemetry*>(m_telemetry.get()))
+			mariadb_telemetry->RecordMariaDBError(mysql_errno(m_conn));
+		telemetry.Complete(false);
 		return Unexpected<ExecuteError>(mysql_error(m_conn) ? mysql_error(m_conn) : "Unknown MySQL error");
 	}
 
 	StormByte::Database::ExpectedRows rows = StormByte::Database::MariaDB::StepResults(res);
 	mysql_free_result(res);
+	telemetry.Complete(rows.has_value(), rows ? static_cast<std::uint64_t>(rows->Count()) : 0);
 	return rows;
 }
 
 bool MariaDB::SilentQuery(std::string_view query) noexcept {
+	auto telemetry = TrackOperation(Operation::SilentQuery);
 	std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
-	return DoSilentQuery(query);
+	const bool result = DoSilentQuery(query);
+	telemetry.Complete(result);
+	return result;
 }
 
 bool MariaDB::DoSilentQuery(std::string_view query) noexcept {
 	std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
 	if (m_logger)
 		*m_logger << Logger::Level::Debug << "Executing silent query: " << query << std::endl;
-	if (!m_connected || !m_conn)
+	if (!m_connected || !m_conn) {
+		RecordBackendEvent(BackendEvent::Connection);
 		return false;
+	}
 	if (query.size() > std::numeric_limits<unsigned long>::max())
 		return false;
 	if (mysql_real_query(m_conn, query.data(), static_cast<unsigned long>(query.size())) != 0) {
+		if (auto* mariadb_telemetry = dynamic_cast<Telemetry*>(m_telemetry.get()))
+			mariadb_telemetry->RecordMariaDBError(mysql_errno(m_conn));
 		if (m_logger) {
 			*m_logger << Logger::Level::Error
 					<< "MariaDB SilentQuery error: "
@@ -245,7 +275,10 @@ bool MariaDB::DoSilentQuery(std::string_view query) noexcept {
 		return false;
 	}
 
-	LogMariaDBWarnings(m_conn, m_logger);
+	if (const unsigned int warnings = LogMariaDBWarnings(m_conn, m_logger); warnings > 0) {
+		if (auto* mariadb_telemetry = dynamic_cast<Telemetry*>(m_telemetry.get()))
+			mariadb_telemetry->RecordMariaDBWarnings(warnings);
+	}
 	return true;
 }
 
@@ -254,7 +287,7 @@ MariaDB::CreatePreparedSTMT(std::string_view name, std::string_view query) noexc
 	if (!m_conn)
 		return nullptr;
 	return StormByte::Unique<PreparedSTMT>::MakePointer<PreparedSTMT>(
-		PreparedSTMT::ConstructionKey{}, name, query, m_conn, m_logger);
+		PreparedSTMT::ConstructionKey{}, name, query, m_conn, m_logger, m_telemetry);
 }
 
 void MariaDB::DoBeginTransaction(IsolationLevel level) {

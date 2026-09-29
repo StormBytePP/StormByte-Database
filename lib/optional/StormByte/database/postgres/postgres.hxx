@@ -43,6 +43,7 @@
 
 #include <StormByte/database/database.hxx>
 #include <StormByte/database/postgres/prepared_stmt.hxx>
+#include <StormByte/database/postgres/telemetry.hxx>
 
 #include <memory>
 #include <string>

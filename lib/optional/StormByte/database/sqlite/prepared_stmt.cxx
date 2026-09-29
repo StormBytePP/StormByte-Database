@@ -94,7 +94,7 @@ void PreparedSTMT::Binder(StormByte::Size index, Value&& value) noexcept {
 			result = sqlite3_bind_int64(m_stmt, col, static_cast<sqlite3_int64>(value.Get<unsigned int>()));
 			break;
 		case Value::Type::LongInteger:
-			sqlite3_bind_int64(m_stmt, col, value.Get<long int>());
+			result = sqlite3_bind_int64(m_stmt, col, value.Get<long int>());
 			break;
 		case Value::Type::UnsignedLongInteger:
 			if (value.Get<unsigned long int>() > static_cast<unsigned long int>(std::numeric_limits<sqlite3_int64>::max())) {
@@ -120,7 +120,7 @@ void PreparedSTMT::Binder(StormByte::Size index, Value&& value) noexcept {
 		case Value::Type::Blob: {
 			auto blob = value.Get<StormByte::BinaryData>();
 			if (blob.empty()) {
-				result = sqlite3_bind_blob(m_stmt, col, nullptr, 0, SQLITE_TRANSIENT);
+				result = sqlite3_bind_zeroblob(m_stmt, col, 0);
 			} else {
 				if (blob.size() > StormByte::ByteSize{std::numeric_limits<int>::max()}) {
 					m_bind_error = true;

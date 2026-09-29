@@ -44,12 +44,15 @@
 #include <StormByte/logger/log.hxx>
 #include <StormByte/logger/threaded_log.hxx>
 #include <StormByte/test_handlers.h>
+#include "backend_contract.hxx"
 #include <memory>
 #include <iostream>
 #include <vector>
 #include <thread>
 #include <chrono>
 #include <limits>
+#include <atomic>
+#include <future>
 using ExpectedRows = StormByte::Database::ExpectedRows;
 using namespace StormByte::Database::MariaDB;
 using StormByte::Database::IsolationLevel;
@@ -81,12 +84,14 @@ class TestDatabase : public MariaDB {
 			DoSilentQuery("CREATE TABLE IF NOT EXISTS required_values (id INT PRIMARY KEY AUTO_INCREMENT, value TEXT NOT NULL);");
 			DoSilentQuery("CREATE TABLE IF NOT EXISTS unsigned_values (id INT PRIMARY KEY AUTO_INCREMENT, value INT UNSIGNED NOT NULL);");
 			DoSilentQuery("CREATE TABLE IF NOT EXISTS concurrent (id INT PRIMARY KEY AUTO_INCREMENT, value INTEGER);");
+			DoSilentQuery("CREATE TABLE IF NOT EXISTS scalar_types (id INT PRIMARY KEY AUTO_INCREMENT, signed_integer INT NOT NULL, unsigned_integer BIGINT NOT NULL, signed_long BIGINT NOT NULL, unsigned_long BIGINT NOT NULL, real_number DOUBLE NOT NULL, text_value TEXT NOT NULL, blob_value LONGBLOB NOT NULL, flag BOOLEAN NOT NULL, nullable_value TEXT NULL);");
 			DoSilentQuery("DELETE FROM orders;");
 			DoSilentQuery("DELETE FROM blobs;");
 			DoSilentQuery("DELETE FROM nulls;");
 			DoSilentQuery("DELETE FROM required_values;");
 			DoSilentQuery("DELETE FROM unsigned_values;");
 			DoSilentQuery("DELETE FROM concurrent;");
+			DoSilentQuery("DELETE FROM scalar_types;");
 			DoSilentQuery("DELETE FROM users;");
 			DoSilentQuery("DELETE FROM products;");
 			DoSilentQuery("ALTER TABLE orders AUTO_INCREMENT=1;");
@@ -95,6 +100,7 @@ class TestDatabase : public MariaDB {
 			DoSilentQuery("ALTER TABLE required_values AUTO_INCREMENT=1;");
 			DoSilentQuery("ALTER TABLE unsigned_values AUTO_INCREMENT=1;");
 			DoSilentQuery("ALTER TABLE concurrent AUTO_INCREMENT=1;");
+			DoSilentQuery("ALTER TABLE scalar_types AUTO_INCREMENT=1;");
 			DoSilentQuery("ALTER TABLE users AUTO_INCREMENT=1;");
 			DoSilentQuery("ALTER TABLE products AUTO_INCREMENT=1;");
 			DoSilentQuery("INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com');");
@@ -109,13 +115,14 @@ class TestDatabase : public MariaDB {
 			DoPrepareSTMT("select_orders", "SELECT user_id, product_id, quantity FROM orders;");
 			DoPrepareSTMT("select_join", "SELECT users.name, products.name, orders.quantity FROM orders JOIN users ON orders.user_id = users.id JOIN products ON orders.product_id = products.id;");
 			DoPrepareSTMT("insert_blob", "INSERT INTO blobs (data) VALUES (?);");
-			DoPrepareSTMT("select_blob", "SELECT data FROM blobs WHERE id = 1;");
+			DoPrepareSTMT("select_blob", "SELECT data FROM blobs ORDER BY id DESC LIMIT 1;");
 			DoPrepareSTMT("insert_null", "INSERT INTO nulls (value) VALUES (?);");
 			DoPrepareSTMT("select_nulls", "SELECT value FROM nulls;");
 			DoPrepareSTMT("insert_required", "INSERT INTO required_values (value) VALUES (?);");
 			DoPrepareSTMT("insert_unsigned", "INSERT INTO unsigned_values (value) VALUES (?);");
 			DoPrepareSTMT("insert_concurrent", "INSERT INTO concurrent (value) VALUES (?);");
 			DoPrepareSTMT("count_concurrent", "SELECT COUNT(*) FROM concurrent;");
+			DoPrepareSTMT("insert_scalar_types", "INSERT INTO scalar_types (signed_integer, unsigned_integer, signed_long, unsigned_long, real_number, text_value, blob_value, flag, nullable_value) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);");
 		}
 };
 class ConcurrentDatabase : public MariaDB {
@@ -196,6 +203,9 @@ int is_connected_test() {
 	ASSERT_TRUE(fn_name, db.IsConnected());
 	db.Disconnect();
 	ASSERT_FALSE(fn_name, db.IsConnected());
+	db.Disconnect();
+	ASSERT_TRUE(fn_name, db.Connect());
+	db.Disconnect();
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -328,6 +338,7 @@ int missing_required_bind_is_error() {
 	ASSERT_TRUE(fn_name, db.Connect());
 	auto result = db.ExecuteSTMT("insert_required");
 	ASSERT_FALSE(fn_name, result.has_value());
+	ASSERT_FALSE(fn_name, db.ExecuteSTMT("insert_required", "extra", "argument").has_value());
 	ASSERT_TRUE(fn_name, db.ExecuteSTMT("insert_required", "valid").has_value());
 	auto rows = db.Query("SELECT COUNT(*) FROM required_values;");
 	ASSERT_TRUE(fn_name, rows.has_value());
@@ -388,6 +399,14 @@ int bool_test() {
 	RETURN_TEST(fn_name, 0);
 }
 
+int scalar_backend_contract() {
+	TestDatabase db;
+	int result = verify_scalar_backend_contract(db, "scalar_backend_contract");
+	TestDatabase binary_db;
+	result += verify_binary_backend_contract(binary_db, "binary_backend_contract");
+	return result;
+}
+
 int verify_blobs() {
 	const std::string fn_name = "verify_blobs";
 	TestDatabase db;
@@ -417,6 +436,10 @@ int empty_blob_test() {
 	StormByte::BinaryData empty;
 	auto insert_res = db.ExecuteSTMT("insert_blob", empty);
 	ASSERT_TRUE(fn_name, insert_res.has_value());
+	auto rows = db.get_blob();
+	ASSERT_TRUE(fn_name, rows.has_value());
+	ASSERT_FALSE(fn_name, rows.value()[0][0].IsNull());
+	ASSERT_TRUE(fn_name, rows.value()[0][0].Get<StormByte::BinaryData>().empty());
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -436,6 +459,10 @@ int bind_null_test() {
 	db.Connect();
 	auto res = db.ExecuteSTMT("insert_null", nullptr);
 	ASSERT_TRUE(fn_name, res.has_value());
+	auto rows = db.Query("SELECT value FROM nulls ORDER BY id DESC LIMIT 1;");
+	ASSERT_TRUE(fn_name, rows.has_value());
+	ASSERT_EQUAL(fn_name, 1, rows.value().Count());
+	ASSERT_TRUE(fn_name, rows.value()[0][0].IsNull());
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -445,6 +472,7 @@ int unknown_stmt_test() {
 	db.Connect();
 	auto res = db.ExecuteSTMT("non_existent_stmt");
 	ASSERT_FALSE(fn_name, res.has_value());
+	ASSERT_TRUE(fn_name, std::string{res.error()->what()}.find("not found") != std::string::npos);
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -484,7 +512,10 @@ int transaction_commit_test() {
 		auto tx_result = db.BeginTransaction();
 		ASSERT_TRUE(fn_name, tx_result.has_value());
 		auto tx = std::move(*tx_result);
+		ASSERT_TRUE(fn_name, tx.IsActive());
 		db.SilentQuery("INSERT INTO users (name, email) VALUES ('Charlie', 'charlie@example.com');");
+		tx.Commit();
+		ASSERT_FALSE(fn_name, tx.IsActive());
 		tx.Commit();
 	}
 
@@ -503,10 +534,32 @@ int transaction_rollback_explicit() {
 		ASSERT_TRUE(fn_name, tx_result.has_value());
 		auto tx = std::move(*tx_result);
 		db.SilentQuery("INSERT INTO users (name, email) VALUES ('David', 'david@example.com');");
+		db.SilentQuery("INSERT INTO users (name, email) VALUES ('David Two', 'david2@example.com');");
+		tx.Rollback();
+		ASSERT_FALSE(fn_name, tx.IsActive());
 		tx.Rollback();
 	}
 
 	auto rows = db.Query("SELECT COUNT(*) FROM users WHERE name = 'David';");
+	ASSERT_TRUE(fn_name, rows.has_value());
+	ASSERT_EQUAL(fn_name, 0, rows.value()[0][0].Get<long int>());
+	rows = db.Query("SELECT COUNT(*) FROM users WHERE email = 'david2@example.com';");
+	ASSERT_TRUE(fn_name, rows.has_value());
+	ASSERT_EQUAL(fn_name, 0, rows.value()[0][0].Get<long int>());
+	RETURN_TEST(fn_name, 0);
+}
+
+int transaction_rollback_after_statement_error() {
+	const std::string fn_name = "transaction_rollback_after_statement_error";
+	TestDatabase db;
+	ASSERT_TRUE(fn_name, db.Connect());
+	auto tx_result = db.BeginTransaction();
+	ASSERT_TRUE(fn_name, tx_result.has_value());
+	auto tx = std::move(*tx_result);
+	ASSERT_TRUE(fn_name, db.SilentQuery("INSERT INTO users (name, email) VALUES ('Transient', 'transient@example.com');"));
+	ASSERT_FALSE(fn_name, db.SilentQuery("INSERT INTO users (name, email) VALUES ('Conflict', 'alice@example.com');"));
+	tx.Rollback();
+	auto rows = db.Query("SELECT COUNT(*) FROM users WHERE email = 'transient@example.com';");
 	ASSERT_TRUE(fn_name, rows.has_value());
 	ASSERT_EQUAL(fn_name, 0, rows.value()[0][0].Get<long int>());
 	RETURN_TEST(fn_name, 0);
@@ -568,34 +621,90 @@ int concurrent_multiple_connections() {
 	constexpr int inserts_per_thread = 40;
 	{
 		ConcurrentDatabase setup;
-		setup.Connect();
-		setup.SilentQuery("DELETE FROM concurrent;");
+		ASSERT_TRUE(fn_name, setup.Connect());
+		ASSERT_TRUE(fn_name, setup.SilentQuery("DELETE FROM concurrent;"));
 	}
 
 	std::vector<std::thread> threads;
+	std::atomic<int> failures{};
 	for (int t = 0; t < num_threads; ++t) {
-		threads.emplace_back([t]() {
+		threads.emplace_back([t, &failures]() {
 			ConcurrentDatabase local_db;
-			local_db.Connect();
+			if (!local_db.Connect()) {
+				++failures;
+				return;
+			}
 			for (int i = 0; i < inserts_per_thread; ++i) {
+				bool inserted = false;
 				for (int attempt = 0; attempt < 50; ++attempt) {
 					auto res = local_db.ExecuteSTMT("insert_concurrent", t * 1000 + i);
-					if (res.has_value())
+					if (res.has_value()) {
+						inserted = true;
 						break;
+					}
 					std::this_thread::sleep_for(std::chrono::milliseconds(10));
 				}
+				if (!inserted)
+					++failures;
 			}
 		});
 	}
 
 	for (auto& th : threads)
 		th.join();
+	ASSERT_EQUAL(fn_name, 0, failures.load());
 	ConcurrentDatabase check_db;
-	check_db.Connect();
+	ASSERT_TRUE(fn_name, check_db.Connect());
 	auto rows = check_db.ExecuteSTMT("count_concurrent");
 	ASSERT_TRUE(fn_name, rows.has_value());
 	ASSERT_EQUAL(fn_name, num_threads * inserts_per_thread, rows.value()[0][0].Get<long int>());
 	check_db.SilentQuery("DELETE FROM concurrent;");
+	RETURN_TEST(fn_name, 0);
+}
+
+int concurrent_shared_connection_and_transaction() {
+	const std::string fn_name = "concurrent_shared_connection_and_transaction";
+	constexpr int thread_count = 4;
+	constexpr int inserts_per_thread = 50;
+	ConcurrentDatabase db;
+	ASSERT_TRUE(fn_name, db.Connect());
+	ASSERT_TRUE(fn_name, db.SilentQuery("DELETE FROM concurrent;"));
+	std::atomic<int> failures{};
+	std::vector<std::thread> threads;
+	for (int thread_index{}; thread_index < thread_count; ++thread_index) {
+		threads.emplace_back([thread_index, &db, &failures]() {
+			for (int insert_index{}; insert_index < inserts_per_thread; ++insert_index) {
+				if (!db.ExecuteSTMT("insert_concurrent", thread_index * 1000 + insert_index).has_value())
+					++failures;
+			}
+		});
+	}
+	for (auto& thread : threads)
+		thread.join();
+	ASSERT_EQUAL(fn_name, 0, failures.load());
+	auto count_rows = db.ExecuteSTMT("count_concurrent");
+	ASSERT_TRUE(fn_name, count_rows.has_value());
+	ASSERT_EQUAL(fn_name, thread_count * inserts_per_thread, count_rows.value()[0][0].Get<long int>());
+	ASSERT_TRUE(fn_name, db.SilentQuery("DELETE FROM concurrent;"));
+
+	auto tx_result = db.BeginTransaction();
+	ASSERT_TRUE(fn_name, tx_result.has_value());
+	auto tx = std::move(*tx_result);
+	ASSERT_TRUE(fn_name, db.SilentQuery("INSERT INTO concurrent (value) VALUES (1);"));
+	std::promise<void> started;
+	auto started_signal = started.get_future();
+	auto worker = std::async(std::launch::async, [&db, started = std::move(started)]() mutable {
+		started.set_value();
+		return db.SilentQuery("INSERT INTO concurrent (value) VALUES (2);");
+	});
+	started_signal.wait();
+	ASSERT_TRUE(fn_name, worker.wait_for(std::chrono::milliseconds(50)) == std::future_status::timeout);
+	tx.Rollback();
+	ASSERT_TRUE(fn_name, worker.get());
+	count_rows = db.ExecuteSTMT("count_concurrent");
+	ASSERT_TRUE(fn_name, count_rows.has_value());
+	ASSERT_EQUAL(fn_name, 1, count_rows.value()[0][0].Get<long int>());
+	ASSERT_TRUE(fn_name, db.SilentQuery("DELETE FROM concurrent;"));
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -621,6 +730,7 @@ int main() {
 	result += constraint_violation_preserves_connection();
 	result += invalid_row_index_throws();
 	result += bool_test();
+	result += scalar_backend_contract();
 	result += verify_blobs();
 	result += empty_blob_test();
 	result += null_value_test();
@@ -630,11 +740,13 @@ int main() {
 	result += name_access_missing_column();
 	result += transaction_commit_test();
 	result += transaction_rollback_explicit();
+	result += transaction_rollback_after_statement_error();
 	result += transaction_rollback_auto();
 	result += isolation_default();
 	result += isolation_serializable();
 	result += isolation_repeatable_read();
 	result += concurrent_multiple_connections();
+	result += concurrent_shared_connection_and_transaction();
 	if (result == 0) {
 		std::cout << "All tests passed successfully.\n";
 	} else {

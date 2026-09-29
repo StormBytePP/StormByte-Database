@@ -142,6 +142,8 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 	}
 
 	MYSQL_STMT* stmt = to_mysql_stmt(m_stmt);
+	if (m_params.size() != mysql_stmt_param_count(stmt))
+		return Unexpected<ExecuteError>("Prepared statement parameter count mismatch");
 	std::vector<MYSQL_BIND> bind_in;
 	bind_in.resize(m_params.size());
 	std::vector<int32_t> int_buf(m_params.size());
@@ -152,6 +154,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 	std::vector<char> bool_buf(m_params.size());
 	std::vector<std::string> str_buf(m_params.size());
 	std::vector<StormByte::BinaryData> bin_buf(m_params.size());
+	std::vector<char> empty_blob_buffer(m_params.size());
 	std::vector<unsigned long> str_len(m_params.size());
 	std::vector<my_bool> is_null(m_params.size());
 	for (size_t i = 0; i < m_params.size(); ++i) {
@@ -238,7 +241,9 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 				if (bin_buf[i].size() > StormByte::ByteSize{std::numeric_limits<unsigned long>::max()})
 					return Unexpected<ExecuteError>("MariaDB bind blob exceeds supported length");
 				bind_in[i].buffer_type = MYSQL_TYPE_BLOB;
-				bind_in[i].buffer = const_cast<std::byte*>(bin_buf[i].data());
+				bind_in[i].buffer = bin_buf[i].empty()
+					? static_cast<void*>(&empty_blob_buffer[i])
+					: const_cast<std::byte*>(bin_buf[i].data());
 				bind_in[i].buffer_length = static_cast<unsigned long>(bin_buf[i].size());
 				str_len[i] = bind_in[i].buffer_length;
 				bind_in[i].length = &str_len[i];

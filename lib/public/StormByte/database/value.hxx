@@ -279,18 +279,17 @@ namespace StormByte {
 							throw WrongValueType("Non-finite floating conversion to integer.");
 						if (std::trunc(d) != d)
 							throw WrongValueType("Floating value has fractional part; would lose data.");
-						std::intmax_t tmp = static_cast<std::intmax_t>(d);
+						const long double upper_bound = std::ldexp(1.0L, std::numeric_limits<To>::digits);
 						if constexpr (StormByte::Type::Signed<To>) {
-							if (tmp < static_cast<std::intmax_t>(std::numeric_limits<To>::lowest()) || tmp > static_cast<std::intmax_t>(std::numeric_limits<To>::max()))
+							if (d < -upper_bound || d >= upper_bound)
 								throw WrongValueType("Floating to integer conversion would overflow/narrow.");
-							return static_cast<To>(tmp);
 						} else {
-							if (tmp < 0)
+							if (d < 0)
 								throw WrongValueType("Negative value cannot be converted to unsigned.");
-							if (static_cast<std::uintmax_t>(tmp) > static_cast<std::uintmax_t>(std::numeric_limits<To>::max()))
+							if (d >= upper_bound)
 								throw WrongValueType("Floating to integer conversion would overflow/narrow.");
-							return static_cast<To>(tmp);
 						}
+						return static_cast<To>(d);
 					} else if constexpr (StormByte::Type::FloatingPoint<From> && StormByte::Type::FloatingPoint<To>) {
 						return static_cast<To>(val);
 					} else {

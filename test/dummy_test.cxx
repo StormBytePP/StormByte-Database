@@ -40,12 +40,16 @@
  */
 
 #include <StormByte/database/exception.hxx>
+#include <StormByte/database/row.hxx>
+#include <StormByte/database/rows.hxx>
 #include <StormByte/database/value.hxx>
 #include <StormByte/test_handlers.h>
 
 #include <iostream>
+#include <cmath>
 #include <limits>
 #include <string>
+#include <utility>
 
 using namespace StormByte::Database;
 
@@ -108,13 +112,121 @@ int test_invalid_value_conversions_throw() {
 	}
 
 	ASSERT_TRUE("test_invalid_value_conversions_throw", threw);
+
+	threw = false;
+	try {
+		(void)Value(std::numeric_limits<double>::max()).Get<long int>();
+	} catch (const WrongValueType&) {
+		threw = true;
+	}
+
+	ASSERT_TRUE("test_invalid_value_conversions_throw", threw);
+
+	threw = false;
+	try {
+		(void)Value(-std::numeric_limits<double>::max()).Get<unsigned long int>();
+	} catch (const WrongValueType&) {
+		threw = true;
+	}
+
+	ASSERT_TRUE("test_invalid_value_conversions_throw", threw);
+
+	threw = false;
+	try {
+		(void)Value(std::numeric_limits<double>::infinity()).Get<int>();
+	} catch (const WrongValueType&) {
+		threw = true;
+	}
+
+	ASSERT_TRUE("test_invalid_value_conversions_throw", threw);
+
+	threw = false;
+	try {
+		(void)Value(std::numeric_limits<double>::quiet_NaN()).Get<int>();
+	} catch (const WrongValueType&) {
+		threw = true;
+	}
+
+	ASSERT_TRUE("test_invalid_value_conversions_throw", threw);
 	RETURN_TEST("test_invalid_value_conversions_throw", result);
+}
+
+int test_value_variants_and_numeric_boundaries() {
+	constexpr std::string_view fn_name = "test_value_variants_and_numeric_boundaries";
+	ASSERT_EQUAL(fn_name, Value::Type::Null, Value().Type());
+	ASSERT_EQUAL(fn_name, Value::Type::Integer, Value(std::numeric_limits<int>::min()).Type());
+	ASSERT_EQUAL(fn_name, Value::Type::UnsignedInteger, Value(std::numeric_limits<unsigned int>::max()).Type());
+	ASSERT_EQUAL(fn_name, Value::Type::LongInteger, Value(std::numeric_limits<long int>::min()).Type());
+	ASSERT_EQUAL(fn_name, Value::Type::UnsignedLongInteger, Value(std::numeric_limits<unsigned long int>::max()).Type());
+	ASSERT_EQUAL(fn_name, Value::Type::Double, Value(std::numeric_limits<double>::lowest()).Type());
+	ASSERT_EQUAL(fn_name, Value::Type::Text, Value(std::string_view{}).Type());
+	ASSERT_EQUAL(fn_name, Value::Type::Blob, Value(StormByte::BinaryData{}).Type());
+	ASSERT_EQUAL(fn_name, Value::Type::Boolean, Value(true).Type());
+	ASSERT_EQUAL(fn_name, std::numeric_limits<int>::min(), Value(std::numeric_limits<int>::min()).Get<int>());
+	ASSERT_EQUAL(fn_name, std::numeric_limits<unsigned int>::max(), Value(std::numeric_limits<unsigned int>::max()).Get<unsigned int>());
+	ASSERT_EQUAL(fn_name, std::numeric_limits<long int>::min(), Value(std::numeric_limits<long int>::min()).Get<long int>());
+	ASSERT_EQUAL(fn_name, std::numeric_limits<unsigned long int>::max(), Value(std::numeric_limits<unsigned long int>::max()).Get<unsigned long int>());
+	ASSERT_EQUAL(fn_name, std::numeric_limits<int>::max(), Value(static_cast<double>(std::numeric_limits<int>::max())).Get<int>());
+	ASSERT_EQUAL(fn_name, std::numeric_limits<long int>::min(), Value(-std::ldexp(1.0, std::numeric_limits<long int>::digits)).Get<long int>());
+	ASSERT_EQUAL(fn_name, true, Value(1).Get<bool>());
+	ASSERT_EQUAL(fn_name, 0, Value(false).Get<int>());
+	ASSERT_EQUAL(fn_name, false, Value(0.0).Get<bool>());
+	RETURN_TEST(fn_name, 0);
+}
+
+int test_row_and_rows_value_semantics() {
+	constexpr std::string_view fn_name = "test_row_and_rows_value_semantics";
+	Row row;
+	ASSERT_TRUE(fn_name, row.empty());
+	ASSERT_EQUAL(fn_name, row.begin(), row.end());
+	row.add("id", Value{42});
+	row.add("name", Value{std::string_view{"Ada"}});
+	ASSERT_EQUAL(fn_name, 2, row.size());
+	ASSERT_EQUAL(fn_name, 42, row["id"].Get<int>());
+	ASSERT_EQUAL(fn_name, "Ada", row[1].Get<StormByte::String::String>());
+
+	Row copied_row{row};
+	ASSERT_TRUE(fn_name, copied_row == row);
+	Row assigned_row;
+	assigned_row = row;
+	ASSERT_TRUE(fn_name, assigned_row == row);
+	copied_row["id"] = Value{7};
+	ASSERT_EQUAL(fn_name, 42, row["id"].Get<int>());
+	ASSERT_EQUAL(fn_name, 7, copied_row["id"].Get<int>());
+	Row moved_row{std::move(copied_row)};
+	ASSERT_EQUAL(fn_name, 7, moved_row["id"].Get<int>());
+
+	Rows rows;
+	ASSERT_TRUE(fn_name, rows.empty());
+	ASSERT_EQUAL(fn_name, rows.begin(), rows.end());
+	rows.add(row);
+	rows.add(std::move(moved_row));
+	ASSERT_EQUAL(fn_name, 2, rows.size());
+	ASSERT_TRUE(fn_name, rows.has_item(row));
+	ASSERT_EQUAL(fn_name, 2, std::distance(rows.begin(), rows.end()));
+	Rows copied_rows{rows};
+	ASSERT_TRUE(fn_name, copied_rows == rows);
+	Rows assigned_rows;
+	assigned_rows = rows;
+	ASSERT_TRUE(fn_name, assigned_rows == rows);
+	Rows moved_rows{std::move(copied_rows)};
+	ASSERT_EQUAL(fn_name, 2, moved_rows.Count());
+	bool out_of_bounds = false;
+	try {
+		(void)moved_rows[2];
+	} catch (const OutOfBounds&) {
+		out_of_bounds = true;
+	}
+	ASSERT_TRUE(fn_name, out_of_bounds);
+	RETURN_TEST(fn_name, 0);
 }
 
 int main() {
 	int result = 0;
 	result += test_component_prefixed_exceptions();
 	result += test_invalid_value_conversions_throw();
+	result += test_value_variants_and_numeric_boundaries();
+	result += test_row_and_rows_value_semantics();
 	if (result == 0) {
 		std::cout << "All tests passed successfully.\n";
 	} else {

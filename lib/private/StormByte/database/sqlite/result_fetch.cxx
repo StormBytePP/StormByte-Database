@@ -63,7 +63,7 @@ StormByte::Database::ExpectedRows StormByte::Database::SQLite::StepResults(sqlit
 				case SQLITE_INTEGER: {
 					const sqlite3_int64 value = sqlite3_column_int64(stmt, column_index);
 					if (value > std::numeric_limits<int>::max() || value < std::numeric_limits<int>::min())
-						row.add(name, static_cast<long int>(value));
+						row.add(name, static_cast<long long int>(value));
 					else
 						row.add(name, static_cast<int>(value));
 					break;

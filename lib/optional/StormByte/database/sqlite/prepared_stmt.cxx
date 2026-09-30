@@ -97,15 +97,15 @@ void PreparedSTMT::Binder(StormByte::Size index, Value&& value) noexcept {
 			result = sqlite3_bind_int64(m_stmt, col, static_cast<sqlite3_int64>(value.Get<unsigned int>()));
 			break;
 		case Value::Type::LongInteger:
-			result = sqlite3_bind_int64(m_stmt, col, value.Get<long int>());
+			result = sqlite3_bind_int64(m_stmt, col, value.Get<long long int>());
 			break;
 		case Value::Type::UnsignedLongInteger:
-			if (value.Get<unsigned long int>() > static_cast<unsigned long int>(std::numeric_limits<sqlite3_int64>::max())) {
+			if (value.Get<unsigned long long int>() > static_cast<unsigned long long int>(std::numeric_limits<sqlite3_int64>::max())) {
 				m_bind_error = true;
 				return;
 			}
 
-			result = sqlite3_bind_int64(m_stmt, col, static_cast<sqlite3_int64>(value.Get<unsigned long int>()));
+			result = sqlite3_bind_int64(m_stmt, col, static_cast<sqlite3_int64>(value.Get<unsigned long long int>()));
 			break;
 		case Value::Type::Double:
 			result = sqlite3_bind_double(m_stmt, col, value.Get<double>());

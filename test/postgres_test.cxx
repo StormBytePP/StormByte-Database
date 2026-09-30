@@ -671,7 +671,7 @@ int concurrent_shared_connection_and_transaction() {
 	ASSERT_EQUAL(fn_name, 0, failures.load());
 	auto count_rows = db.ExecuteSTMT("count_concurrent");
 	ASSERT_TRUE(fn_name, count_rows.has_value());
-	ASSERT_EQUAL(fn_name, thread_count * inserts_per_thread, count_rows.value()[0][0].Get<long int>());
+	ASSERT_EQUAL(fn_name, thread_count * inserts_per_thread, count_rows.value()[0][0].Get<long long int>());
 	ASSERT_TRUE(fn_name, db.SilentQuery("DELETE FROM concurrent;"));
 
 	auto tx_result = db.BeginTransaction();
@@ -690,7 +690,7 @@ int concurrent_shared_connection_and_transaction() {
 	ASSERT_TRUE(fn_name, worker.get());
 	count_rows = db.ExecuteSTMT("count_concurrent");
 	ASSERT_TRUE(fn_name, count_rows.has_value());
-	ASSERT_EQUAL(fn_name, 1, count_rows.value()[0][0].Get<long int>());
+	ASSERT_EQUAL(fn_name, 1, count_rows.value()[0][0].Get<long long int>());
 	ASSERT_TRUE(fn_name, db.SilentQuery("DELETE FROM concurrent;"));
 	RETURN_TEST(fn_name, 0);
 }

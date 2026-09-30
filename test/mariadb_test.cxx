@@ -263,13 +263,13 @@ int verify_inserted_orders() {
 	const auto rows = expected_rows.value();
 	ASSERT_EQUAL(fn_name, 2, rows.Count());
 	ASSERT_EQUAL(fn_name, 3, rows[0].Count());
-	ASSERT_EQUAL(fn_name, 1, rows[0][0].Get<long int>());
-	ASSERT_EQUAL(fn_name, 1, rows[0][1].Get<long int>());
-	ASSERT_EQUAL(fn_name, 1, rows[0][2].Get<long int>());
+	ASSERT_EQUAL(fn_name, 1, rows[0][0].Get<long long int>());
+	ASSERT_EQUAL(fn_name, 1, rows[0][1].Get<long long int>());
+	ASSERT_EQUAL(fn_name, 1, rows[0][2].Get<long long int>());
 	ASSERT_EQUAL(fn_name, 3, rows[1].Count());
-	ASSERT_EQUAL(fn_name, 2, rows[1][0].Get<long int>());
-	ASSERT_EQUAL(fn_name, 2, rows[1][1].Get<long int>());
-	ASSERT_EQUAL(fn_name, 2, rows[1][2].Get<long int>());
+	ASSERT_EQUAL(fn_name, 2, rows[1][0].Get<long long int>());
+	ASSERT_EQUAL(fn_name, 2, rows[1][1].Get<long long int>());
+	ASSERT_EQUAL(fn_name, 2, rows[1][2].Get<long long int>());
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -284,11 +284,11 @@ int verify_relationships() {
 	ASSERT_EQUAL(fn_name, 3, rows[0].Count());
 	ASSERT_EQUAL(fn_name, "Alice", rows[0][0].Get<StormByte::String::String>());
 	ASSERT_EQUAL(fn_name, "Laptop", rows[0][1].Get<StormByte::String::String>());
-	ASSERT_EQUAL(fn_name, 1, rows[0][2].Get<long int>());
+	ASSERT_EQUAL(fn_name, 1, rows[0][2].Get<long long int>());
 	ASSERT_EQUAL(fn_name, 3, rows[1].Count());
 	ASSERT_EQUAL(fn_name, "Bob", rows[1][0].Get<StormByte::String::String>());
 	ASSERT_EQUAL(fn_name, "Mouse", rows[1][1].Get<StormByte::String::String>());
-	ASSERT_EQUAL(fn_name, 2, rows[1][2].Get<long int>());
+	ASSERT_EQUAL(fn_name, 2, rows[1][2].Get<long long int>());
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -301,7 +301,7 @@ int query_test() {
 	const auto& rows = expected_rows.value();
 	ASSERT_EQUAL(fn_name, 1, rows.Count());
 	ASSERT_EQUAL(fn_name, 1, rows[0].Count());
-	ASSERT_EQUAL(fn_name, 2, rows[0][0].Get<long int>());
+	ASSERT_EQUAL(fn_name, 2, rows[0][0].Get<long long int>());
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -331,7 +331,7 @@ int silent_syntax_error_preserves_connection() {
 	ASSERT_FALSE(fn_name, db.SilentQuery("SELEC * FROM users;"));
 	auto rows = db.Query("SELECT COUNT(*) FROM users;");
 	ASSERT_TRUE(fn_name, rows.has_value());
-	ASSERT_EQUAL(fn_name, 2, rows.value()[0][0].Get<long int>());
+	ASSERT_EQUAL(fn_name, 2, rows.value()[0][0].Get<long long int>());
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -345,7 +345,7 @@ int missing_required_bind_is_error() {
 	ASSERT_TRUE(fn_name, db.ExecuteSTMT("insert_required", "valid").has_value());
 	auto rows = db.Query("SELECT COUNT(*) FROM required_values;");
 	ASSERT_TRUE(fn_name, rows.has_value());
-	ASSERT_EQUAL(fn_name, 1, rows.value()[0][0].Get<long int>());
+	ASSERT_EQUAL(fn_name, 1, rows.value()[0][0].Get<long long int>());
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -368,7 +368,7 @@ int constraint_violation_preserves_connection() {
 	ASSERT_FALSE(fn_name, db.SilentQuery("INSERT INTO users (name, email) VALUES ('Mallory', 'alice@example.com');"));
 	auto rows = db.Query("SELECT COUNT(*) FROM users;");
 	ASSERT_TRUE(fn_name, rows.has_value());
-	ASSERT_EQUAL(fn_name, 2, rows.value()[0][0].Get<long int>());
+	ASSERT_EQUAL(fn_name, 2, rows.value()[0][0].Get<long long int>());
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -398,7 +398,7 @@ int bool_test() {
 	const auto& rows = expected_rows.value();
 	ASSERT_EQUAL(fn_name, 1, rows.Count());
 	ASSERT_EQUAL(fn_name, 1, rows[0].Count());
-	ASSERT_EQUAL(fn_name, true, rows[0][0].Get<long int>() != 0);
+	ASSERT_EQUAL(fn_name, true, rows[0][0].Get<long long int>() != 0);
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -524,7 +524,7 @@ int transaction_commit_test() {
 
 	auto rows = db.Query("SELECT COUNT(*) FROM users;");
 	ASSERT_TRUE(fn_name, rows.has_value());
-	ASSERT_EQUAL(fn_name, 3, rows.value()[0][0].Get<long int>());
+	ASSERT_EQUAL(fn_name, 3, rows.value()[0][0].Get<long long int>());
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -545,10 +545,10 @@ int transaction_rollback_explicit() {
 
 	auto rows = db.Query("SELECT COUNT(*) FROM users WHERE name = 'David';");
 	ASSERT_TRUE(fn_name, rows.has_value());
-	ASSERT_EQUAL(fn_name, 0, rows.value()[0][0].Get<long int>());
+	ASSERT_EQUAL(fn_name, 0, rows.value()[0][0].Get<long long int>());
 	rows = db.Query("SELECT COUNT(*) FROM users WHERE email = 'david2@example.com';");
 	ASSERT_TRUE(fn_name, rows.has_value());
-	ASSERT_EQUAL(fn_name, 0, rows.value()[0][0].Get<long int>());
+	ASSERT_EQUAL(fn_name, 0, rows.value()[0][0].Get<long long int>());
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -564,7 +564,7 @@ int transaction_rollback_after_statement_error() {
 	tx.Rollback();
 	auto rows = db.Query("SELECT COUNT(*) FROM users WHERE email = 'transient@example.com';");
 	ASSERT_TRUE(fn_name, rows.has_value());
-	ASSERT_EQUAL(fn_name, 0, rows.value()[0][0].Get<long int>());
+	ASSERT_EQUAL(fn_name, 0, rows.value()[0][0].Get<long long int>());
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -581,7 +581,7 @@ int transaction_rollback_auto() {
 
 	auto rows = db.Query("SELECT COUNT(*) FROM users WHERE name = 'Eve';");
 	ASSERT_TRUE(fn_name, rows.has_value());
-	ASSERT_EQUAL(fn_name, 0, rows.value()[0][0].Get<long int>());
+	ASSERT_EQUAL(fn_name, 0, rows.value()[0][0].Get<long long int>());
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -660,7 +660,7 @@ int concurrent_multiple_connections() {
 	ASSERT_TRUE(fn_name, check_db.Connect());
 	auto rows = check_db.ExecuteSTMT("count_concurrent");
 	ASSERT_TRUE(fn_name, rows.has_value());
-	ASSERT_EQUAL(fn_name, num_threads * inserts_per_thread, rows.value()[0][0].Get<long int>());
+	ASSERT_EQUAL(fn_name, num_threads * inserts_per_thread, rows.value()[0][0].Get<long long int>());
 	check_db.SilentQuery("DELETE FROM concurrent;");
 	RETURN_TEST(fn_name, 0);
 }
@@ -687,7 +687,7 @@ int concurrent_shared_connection_and_transaction() {
 	ASSERT_EQUAL(fn_name, 0, failures.load());
 	auto count_rows = db.ExecuteSTMT("count_concurrent");
 	ASSERT_TRUE(fn_name, count_rows.has_value());
-	ASSERT_EQUAL(fn_name, thread_count * inserts_per_thread, count_rows.value()[0][0].Get<long int>());
+	ASSERT_EQUAL(fn_name, thread_count * inserts_per_thread, count_rows.value()[0][0].Get<long long int>());
 	ASSERT_TRUE(fn_name, db.SilentQuery("DELETE FROM concurrent;"));
 
 	auto tx_result = db.BeginTransaction();
@@ -706,7 +706,7 @@ int concurrent_shared_connection_and_transaction() {
 	ASSERT_TRUE(fn_name, worker.get());
 	count_rows = db.ExecuteSTMT("count_concurrent");
 	ASSERT_TRUE(fn_name, count_rows.has_value());
-	ASSERT_EQUAL(fn_name, 1, count_rows.value()[0][0].Get<long int>());
+	ASSERT_EQUAL(fn_name, 1, count_rows.value()[0][0].Get<long long int>());
 	ASSERT_TRUE(fn_name, db.SilentQuery("DELETE FROM concurrent;"));
 	RETURN_TEST(fn_name, 0);
 }

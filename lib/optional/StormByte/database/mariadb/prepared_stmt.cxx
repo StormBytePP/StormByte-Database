@@ -195,7 +195,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 			}
 
 			case StormByte::Database::Value::Type::LongInteger: {
-				ll_buf[i] = p.Get<long int>();
+				ll_buf[i] = p.Get<long long int>();
 				bind_in[i].buffer_type = MYSQL_TYPE_LONGLONG;
 				bind_in[i].buffer = &ll_buf[i];
 				bind_in[i].is_null = &is_null[i];
@@ -203,7 +203,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 			}
 
 			case StormByte::Database::Value::Type::UnsignedLongInteger: {
-				ull_buf[i] = p.Get<unsigned long int>();
+				ull_buf[i] = p.Get<unsigned long long int>();
 				bind_in[i].buffer_type = MYSQL_TYPE_LONGLONG;
 				bind_in[i].buffer = &ull_buf[i];
 				bind_in[i].is_unsigned = 1;
@@ -440,9 +440,9 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 					break;
 				case MYSQL_TYPE_LONGLONG:
 					if (f && (f->flags & UNSIGNED_FLAG))
-						prow.add(column_name, static_cast<unsigned long int>(out_ull[i]));
-					else
-						prow.add(column_name, static_cast<long int>(out_ll[i]));
+					prow.add(column_name, static_cast<unsigned long long int>(out_ull[i]));
+				else
+					prow.add(column_name, static_cast<long long int>(out_ll[i]));
 					break;
 				case MYSQL_TYPE_FLOAT:
 				case MYSQL_TYPE_DOUBLE:

@@ -123,7 +123,7 @@ int test_invalid_value_conversions_throw() {
 
 	threw = false;
 	try {
-		(void)Value(std::numeric_limits<double>::max()).Get<long int>();
+		(void)Value(std::numeric_limits<double>::max()).Get<long long int>();
 	} catch (const WrongValueType&) {
 		threw = true;
 	}
@@ -132,7 +132,7 @@ int test_invalid_value_conversions_throw() {
 
 	threw = false;
 	try {
-		(void)Value(-std::numeric_limits<double>::max()).Get<unsigned long int>();
+		(void)Value(-std::numeric_limits<double>::max()).Get<unsigned long long int>();
 	} catch (const WrongValueType&) {
 		threw = true;
 	}
@@ -166,16 +166,20 @@ int test_value_variants_and_numeric_boundaries() {
 	ASSERT_EQUAL(fn_name, Value::Type::UnsignedInteger, Value(std::numeric_limits<unsigned int>::max()).Type());
 	ASSERT_EQUAL(fn_name, Value::Type::LongInteger, Value(std::numeric_limits<long int>::min()).Type());
 	ASSERT_EQUAL(fn_name, Value::Type::UnsignedLongInteger, Value(std::numeric_limits<unsigned long int>::max()).Type());
+	ASSERT_EQUAL(fn_name, Value::Type::LongInteger, Value(std::numeric_limits<long long int>::min()).Type());
+	ASSERT_EQUAL(fn_name, Value::Type::UnsignedLongInteger, Value(std::numeric_limits<unsigned long long int>::max()).Type());
 	ASSERT_EQUAL(fn_name, Value::Type::Double, Value(std::numeric_limits<double>::lowest()).Type());
 	ASSERT_EQUAL(fn_name, Value::Type::Text, Value(std::string_view{}).Type());
 	ASSERT_EQUAL(fn_name, Value::Type::Blob, Value(StormByte::BinaryData{}).Type());
 	ASSERT_EQUAL(fn_name, Value::Type::Boolean, Value(true).Type());
 	ASSERT_EQUAL(fn_name, std::numeric_limits<int>::min(), Value(std::numeric_limits<int>::min()).Get<int>());
 	ASSERT_EQUAL(fn_name, std::numeric_limits<unsigned int>::max(), Value(std::numeric_limits<unsigned int>::max()).Get<unsigned int>());
-	ASSERT_EQUAL(fn_name, std::numeric_limits<long int>::min(), Value(std::numeric_limits<long int>::min()).Get<long int>());
-	ASSERT_EQUAL(fn_name, std::numeric_limits<unsigned long int>::max(), Value(std::numeric_limits<unsigned long int>::max()).Get<unsigned long int>());
+	ASSERT_EQUAL(fn_name, static_cast<long long int>(std::numeric_limits<long int>::min()), Value(std::numeric_limits<long int>::min()).Get<long long int>());
+	ASSERT_EQUAL(fn_name, static_cast<unsigned long long int>(std::numeric_limits<unsigned long int>::max()), Value(std::numeric_limits<unsigned long int>::max()).Get<unsigned long long int>());
+	ASSERT_EQUAL(fn_name, std::numeric_limits<long long int>::min(), Value(std::numeric_limits<long long int>::min()).Get<long long int>());
+	ASSERT_EQUAL(fn_name, std::numeric_limits<unsigned long long int>::max(), Value(std::numeric_limits<unsigned long long int>::max()).Get<unsigned long long int>());
 	ASSERT_EQUAL(fn_name, std::numeric_limits<int>::max(), Value(static_cast<double>(std::numeric_limits<int>::max())).Get<int>());
-	ASSERT_EQUAL(fn_name, std::numeric_limits<long int>::min(), Value(-std::ldexp(1.0, std::numeric_limits<long int>::digits)).Get<long int>());
+	ASSERT_EQUAL(fn_name, std::numeric_limits<long long int>::min(), Value(-std::ldexp(1.0, std::numeric_limits<long long int>::digits)).Get<long long int>());
 	ASSERT_EQUAL(fn_name, true, Value(1).Get<bool>());
 	ASSERT_EQUAL(fn_name, 0, Value(false).Get<int>());
 	ASSERT_EQUAL(fn_name, false, Value(0.0).Get<bool>());

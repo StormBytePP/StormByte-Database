@@ -80,7 +80,7 @@ StormByte::Database::ExpectedRows StormByte::Database::MariaDB::StepResults(MYSQ
 						if (parsed.ec != std::errc{} || parsed.ptr != row[column_index] + length)
 							return Unexpected<QueryException>(ExecuteError("Invalid integer result value."));
 						if (value > std::numeric_limits<int>::max() || value < std::numeric_limits<int>::min())
-							output_row.add(name, static_cast<long int>(value));
+							output_row.add(name, value);
 						else
 							output_row.add(name, static_cast<int>(value));
 					}
@@ -94,7 +94,7 @@ StormByte::Database::ExpectedRows StormByte::Database::MariaDB::StepResults(MYSQ
 					if (parsed.ec != std::errc{} || parsed.ptr != row[column_index] + length)
 						return Unexpected<QueryException>(ExecuteError("Invalid integer result value."));
 					if (value > std::numeric_limits<int>::max() || value < std::numeric_limits<int>::min())
-						output_row.add(name, static_cast<long int>(value));
+						output_row.add(name, value);
 					else
 						output_row.add(name, static_cast<int>(value));
 					break;
@@ -104,7 +104,7 @@ StormByte::Database::ExpectedRows StormByte::Database::MariaDB::StepResults(MYSQ
 					const auto parsed = std::from_chars(row[column_index], row[column_index] + length, value);
 					if (parsed.ec != std::errc{} || parsed.ptr != row[column_index] + length)
 						return Unexpected<QueryException>(ExecuteError("Invalid integer result value."));
-					output_row.add(name, static_cast<long int>(value));
+					output_row.add(name, value);
 					break;
 				}
 				case MYSQL_TYPE_FLOAT:

@@ -109,10 +109,10 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 				string_storage[stl_index] = std::to_string(value.Get<unsigned int>());
 				break;
 			case Value::Type::LongInteger:
-				string_storage[stl_index] = std::to_string(value.Get<long int>());
+				string_storage[stl_index] = std::to_string(value.Get<long long int>());
 				break;
 			case Value::Type::UnsignedLongInteger:
-				string_storage[stl_index] = std::to_string(value.Get<unsigned long int>());
+				string_storage[stl_index] = std::to_string(value.Get<unsigned long long int>());
 				break;
 			case Value::Type::Double:
 				string_storage[stl_index] = std::to_string(value.Get<double>());

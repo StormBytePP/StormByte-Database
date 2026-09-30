@@ -75,8 +75,8 @@ namespace StormByte {
 					Null = 0,			 ///< SQL NULL
 					Integer,			 ///< int
 					UnsignedInteger,	 ///< unsigned int
-					LongInteger,		 ///< long int
-					UnsignedLongInteger, ///< unsigned long int
+					LongInteger,		 ///< long long int (64-bit on every platform)
+					UnsignedLongInteger, ///< unsigned long long int (64-bit on every platform)
 					Double,				 ///< double
 					Text,				 ///< StormByte::String::String
 					Blob,				 ///< StormByte::BinaryData
@@ -105,16 +105,28 @@ namespace StormByte {
 				Value(unsigned int value) noexcept : m_value(value), m_type(Type::UnsignedInteger) {}
 
 				/**
-				 * @brief From a signed long int.
+				 * @brief From a signed long int, stored as long long int.
 				 * @param value Stored value.
 				 */
-				Value(long int value) noexcept : m_value(value), m_type(Type::LongInteger) {}
+				Value(long int value) noexcept : m_value(static_cast<long long int>(value)), m_type(Type::LongInteger) {}
 
 				/**
-				 * @brief From an unsigned long int.
+				 * @brief From an unsigned long int, stored as unsigned long long int.
 				 * @param value Stored value.
 				 */
-				Value(unsigned long int value) noexcept : m_value(value), m_type(Type::UnsignedLongInteger) {}
+				Value(unsigned long int value) noexcept : m_value(static_cast<unsigned long long int>(value)), m_type(Type::UnsignedLongInteger) {}
+
+				/**
+				 * @brief From a signed long long int.
+				 * @param value Stored value.
+				 */
+				Value(long long int value) noexcept : m_value(value), m_type(Type::LongInteger) {}
+
+				/**
+				 * @brief From an unsigned long long int.
+				 * @param value Stored value.
+				 */
+				Value(unsigned long long int value) noexcept : m_value(value), m_type(Type::UnsignedLongInteger) {}
 
 				/**
 				 * @brief From a double.

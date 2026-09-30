@@ -26,8 +26,8 @@ template <typename DatabaseType>
 int verify_scalar_backend_contract(DatabaseType& db, const std::string& test_name) {
 	const int signed_int = std::numeric_limits<int>::min();
 	const unsigned int unsigned_int = std::numeric_limits<unsigned int>::max();
-	const long int signed_long = std::numeric_limits<long int>::min();
-	const unsigned long int unsigned_long = static_cast<unsigned long int>(std::numeric_limits<long int>::max());
+	const long long int signed_long = std::numeric_limits<long long int>::min();
+	const unsigned long long int unsigned_long = static_cast<unsigned long long int>(std::numeric_limits<long long int>::max());
 	const double floating = -12345.625;
 	const std::string text = "quoted ' text with \\\\ backslashes";
 	const std::array<std::byte, 5> bytes{std::byte{0}, std::byte{0xFF}, std::byte{0}, std::byte{0x7F}, std::byte{0x80}};
@@ -45,8 +45,8 @@ int verify_scalar_backend_contract(DatabaseType& db, const std::string& test_nam
 		const auto& row = result.value()[row_index];
 		ASSERT_EQUAL(test_name, signed_int, row[0].template Get<int>());
 		ASSERT_EQUAL(test_name, unsigned_int, row[1].template Get<unsigned int>());
-		ASSERT_EQUAL(test_name, signed_long, row[2].template Get<long int>());
-		ASSERT_EQUAL(test_name, unsigned_long, row[3].template Get<unsigned long int>());
+		ASSERT_EQUAL(test_name, signed_long, row[2].template Get<long long int>());
+		ASSERT_EQUAL(test_name, unsigned_long, row[3].template Get<unsigned long long int>());
 		ASSERT_EQUAL(test_name, floating, row[4].template Get<double>());
 		ASSERT_EQUAL(test_name, StormByte::String::String{text}, row[5].template Get<StormByte::String::String>());
 		const auto& returned_blob = row[6].template Get<StormByte::BinaryData>();

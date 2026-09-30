@@ -98,7 +98,7 @@ StormByte::Database::ExpectedRows StormByte::Database::Postgres::StepResults(PGr
 					if (parsed.ec != std::errc{} || parsed.ptr != value + value_length)
 						return Unexpected<QueryException>(ExecuteError("Invalid integer result value."));
 					if (integer_value > std::numeric_limits<int>::max() || integer_value < std::numeric_limits<int>::min())
-						row.add(name, static_cast<long int>(integer_value));
+						row.add(name, integer_value);
 					else
 						row.add(name, static_cast<int>(integer_value));
 					break;

@@ -21,27 +21,30 @@ If you landed here from a release link and have not read the tree:
 - License: dual LGPL v3.0-or-later / commercial, [LICENSE](https://github.com/StormBytePP/StormByte-Database/blob/master/LICENSE) and [COPYING.LGPLv3](https://github.com/StormBytePP/StormByte-Database/blob/master/COPYING.LGPLv3)
 
 ## [Unreleased]
+[Unreleased]: https://github.com/StormBytePP/StormByte-Database/compare/2.0.0...HEAD
+
+## [2.0.0] - 2026-09-30
 
 ### Changed
 
-- Serialized concurrent operations on each built-in database connection. RAII transactions retain exclusive connection access until commit or rollback and must remain on their creating thread.
-- **Breaking**: `BeginTransaction` now returns `Expected<Transaction, TransactionError>` instead of throwing when transaction start fails. `Database` construction may also report allocation failure rather than terminating from a `noexcept` constructor, and public class layouts changed; rebuild consumers against this API revision.
-- **Breaking**: Added shared telemetry state to exported `Database` and `PreparedSTMT` objects. Rebuild consumers against this ABI revision.
-- Added shared thread-safe operation/latency telemetry with backend-derived SQLite, PostgreSQL, and MariaDB counters, classified backend errors and warnings, retained snapshots, and `String` / `std::string` flattening.
-- Ported the main library to BuildMaster 2 HOST with shared/static selection. Static consumers receive flattened private vendor dependencies; vendor archives do not need repacking.
-- **Breaking**: The public API contract changed beyond the DLL boundary fix. Inputs and storage were migrated to StormByte 2.0 types (`StormByte::String::String`, `StormByte::BinaryData`, `StormByte::Size`, `StormByte::ByteSize`, `std::string_view`), backend logger ownership is now shared (`StormByte::Shared<Logger::Log>`) instead of raw pointers, and statement/query factory signatures now accept view-based names and SQL text rather than rvalue strings. The exported layout of `Database`, `PreparedSTMT`, `Row`, `Rows`, `Value`, `NamedValue` and backend result containers was also tightened to enforce DLL-safe ownership and out-of-line heap operations; consumers must recompile against this port and update any code that relied on old string, logger, or STL-owning ABI assumptions.
-- Updated the public API to StormByte 2.0 types: `StormByte::String::String`, `StormByte::BinaryData`, `StormByte::Size`, `StormByte::ByteSize` and `std::string_view` inputs. Heap-owning DLL-boundary operations are defined out-of-line.
-- Updated tests, README and Doxygen configuration for StormByte Base/String/Logger 2.0 and the dual-license terms.
-- Expanded automated coverage for numeric boundaries, Row/Rows value semantics, backend scalar and large-binary round-trips, transaction rollback, prepared-statement failures and same-connection concurrency.
+- **Database API and connection behavior**
+	- **Breaking**: `BeginTransaction` now returns `Expected<Transaction, TransactionError>` instead of throwing when transaction start fails. `Database` construction may also report allocation failure rather than terminating from a `noexcept` constructor; rebuild consumers against this API revision.
+	- **Breaking**: The public API contract changed beyond the DLL boundary fix. Inputs and storage were migrated to StormByte 2.0 types (`StormByte::String::String`, `StormByte::BinaryData`, `StormByte::Size`, `StormByte::ByteSize`, `std::string_view`), backend logger ownership is now shared (`StormByte::Shared<Logger::Log>`) instead of raw pointers, and statement/query factory signatures now accept view-based names and SQL text rather than rvalue strings. The exported layout of `Database`, `PreparedSTMT`, `Row`, `Rows`, `Value`, `NamedValue` and backend result containers was tightened to enforce DLL-safe ownership and out-of-line heap operations; consumers must recompile and update code that relied on old string, logger, or STL-owning ABI assumptions.
+	- **Breaking**: Added shared telemetry state to exported `Database` and `PreparedSTMT` objects; rebuild consumers against this ABI revision.
+	- Serialized operations on each built-in connection. RAII transactions hold exclusive connection access through commit or rollback and must remain on their creating thread.
+- **Telemetry** — Added thread-safe operation counts, success/failure totals, returned-row counts, latency aggregates, backend error/warning categories, retained `StormByte::Shared` snapshots, and `StormByte::String::String` / `std::string` flattening for SQLite, PostgreSQL and MariaDB.
+- **Build and distribution** — Ported the library to BuildMaster 2 HOST with shared/static selection. Static consumers receive flattened private vendor dependencies; vendor archives do not need repacking. Updated Doxygen configuration for StormByte Base/String/Logger 2.0 and the dual-license terms.
+- **Robustness tests** — Expanded tests for numeric boundaries, Row/Rows value semantics, backend scalar and binary round-trips, transaction rollback, prepared-statement failures, same-connection concurrency, and an installed external consumer.
 
 ### Fixed
 
-- Avoided applying `dllimport` visibility to static Windows consumers; shared/export macros remain enabled only for shared builds.
-- Reject floating-point to integer conversions outside the destination range before casting, including values that round to the unsigned or signed upper bound.
-- Preserve zero-length SQLite and MariaDB BLOB bindings as empty BLOB values rather than SQL NULL; reject excess MariaDB prepared-statement parameters consistently.
-- Preserve SQLite long-integer bind errors so failed parameter binding is reported by statement execution.
+- **Value conversion and binding correctness**
+	- Reject floating-point to integer conversions outside the destination range before casting, including values that round to the unsigned or signed upper bound.
+	- Preserve zero-length SQLite and MariaDB BLOB bindings as empty BLOB values rather than SQL NULL.
+	- Reject excess MariaDB prepared-statement parameters consistently and preserve SQLite long-integer bind errors so failed parameter binding is reported by statement execution.
+- Avoid applying `dllimport` visibility to static Windows consumers; shared/export macros remain enabled only for shared builds.
 
-[Unreleased]: https://github.com/StormBytePP/StormByte-Database/compare/1.1.0...HEAD
+[2.0.0]: https://github.com/StormBytePP/StormByte-Database/compare/1.1.0...2.0.0
 
 ## [1.1.0] - 2026-09-13
 

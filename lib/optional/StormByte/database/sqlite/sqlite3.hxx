@@ -49,7 +49,7 @@
 #include <memory>
 #include <string_view>
 
-class sqlite3;
+struct sqlite3;
 
 /**
  * @namespace StormByte

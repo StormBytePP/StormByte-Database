@@ -45,7 +45,7 @@
 #include <StormByte/database/value.hxx>
 #include <StormByte/size.hxx>
 
-class sqlite3_stmt;
+struct sqlite3_stmt;
 
 /**
  * @namespace StormByte

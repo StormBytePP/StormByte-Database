@@ -45,6 +45,7 @@ If you landed here from a release link and have not read the tree:
 - **Windows builds**
 	- Avoid applying `dllimport` visibility to static Windows consumers; shared/export macros remain enabled only for shared builds.
 	- Fixed clang-cl build failures in the SQLite, PostgreSQL and MariaDB prepared statements by fully qualifying the base `PreparedSTMT` so it is not resolved against the `Database` class.
+	- Fixed undefined SQLite symbols when linking the Windows DLL: `sqlite3` and `sqlite3_stmt` are now forward-declared as `struct`, matching SQLite's own declarations and MSVC name mangling.
 
 [2.0.0]: https://github.com/StormBytePP/StormByte-Database/compare/1.1.0...2.0.0
 

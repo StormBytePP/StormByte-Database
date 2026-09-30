@@ -52,17 +52,17 @@ using namespace StormByte::Database::Postgres;
 PreparedSTMT::PreparedSTMT(ConstructionKey, std::string_view name, std::string_view query,
 		const StormByte::Shared<Logger::Log>& logger,
 		const StormByte::Shared<StormByte::Database::Telemetry>& telemetry)
-	: Database::PreparedSTMT(name, query, logger, telemetry), m_conn(nullptr), m_stmt_name(name) {}
+	: StormByte::Database::PreparedSTMT(name, query, logger, telemetry), m_conn(nullptr), m_stmt_name(name) {}
 
 PreparedSTMT::PreparedSTMT(PreparedSTMT&& other) noexcept:
-	Database::PreparedSTMT(std::move(other)), m_conn(std::exchange(other.m_conn, nullptr)),
+	StormByte::Database::PreparedSTMT(std::move(other)), m_conn(std::exchange(other.m_conn, nullptr)),
 	m_stmt_name(std::move(other.m_stmt_name)), m_params(std::move(other.m_params)) {}
 
 PreparedSTMT::~PreparedSTMT() noexcept = default;
 
 PreparedSTMT& PreparedSTMT::operator=(PreparedSTMT&& other) noexcept {
 	if (this != &other) {
-		Database::PreparedSTMT::operator=(std::move(other));
+		StormByte::Database::PreparedSTMT::operator=(std::move(other));
 		m_conn = std::exchange(other.m_conn, nullptr);
 		m_stmt_name = std::move(other.m_stmt_name);
 		m_params = std::move(other.m_params);

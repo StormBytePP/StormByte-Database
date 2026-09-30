@@ -42,7 +42,9 @@ If you landed here from a release link and have not read the tree:
 	- Reject floating-point to integer conversions outside the destination range before casting, including values that round to the unsigned or signed upper bound.
 	- Preserve zero-length SQLite and MariaDB BLOB bindings as empty BLOB values rather than SQL NULL.
 	- Reject excess MariaDB prepared-statement parameters consistently and preserve SQLite long-integer bind errors so failed parameter binding is reported by statement execution.
-- Avoid applying `dllimport` visibility to static Windows consumers; shared/export macros remain enabled only for shared builds.
+- **Windows builds**
+	- Avoid applying `dllimport` visibility to static Windows consumers; shared/export macros remain enabled only for shared builds.
+	- Fixed clang-cl build failures in the SQLite, PostgreSQL and MariaDB prepared statements by fully qualifying the base `PreparedSTMT` so it is not resolved against the `Database` class.
 
 [2.0.0]: https://github.com/StormBytePP/StormByte-Database/compare/1.1.0...2.0.0
 

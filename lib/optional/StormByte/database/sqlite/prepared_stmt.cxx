@@ -51,10 +51,10 @@ using namespace StormByte::Database::SQLite;
 PreparedSTMT::PreparedSTMT(ConstructionKey, std::string_view name, std::string_view query,
 		const StormByte::Shared<Logger::Log>& logger,
 		const StormByte::Shared<StormByte::Database::Telemetry>& telemetry)
-	: Database::PreparedSTMT(name, query, logger, telemetry), m_stmt(nullptr), m_bind_error(false) {}
+	: StormByte::Database::PreparedSTMT(name, query, logger, telemetry), m_stmt(nullptr), m_bind_error(false) {}
 
 PreparedSTMT::PreparedSTMT(PreparedSTMT&& other) noexcept:
-	Database::PreparedSTMT(std::move(other)), m_stmt(std::exchange(other.m_stmt, nullptr)),
+	StormByte::Database::PreparedSTMT(std::move(other)), m_stmt(std::exchange(other.m_stmt, nullptr)),
 	m_bind_error(std::exchange(other.m_bind_error, false)) {}
 
 PreparedSTMT::~PreparedSTMT() noexcept {
@@ -68,7 +68,7 @@ PreparedSTMT& PreparedSTMT::operator=(PreparedSTMT&& other) noexcept {
 	if (this != &other) {
 		if (m_stmt)
 			sqlite3_finalize(m_stmt);
-		Database::PreparedSTMT::operator=(std::move(other));
+		StormByte::Database::PreparedSTMT::operator=(std::move(other));
 		m_stmt = std::exchange(other.m_stmt, nullptr);
 		m_bind_error = std::exchange(other.m_bind_error, false);
 	}

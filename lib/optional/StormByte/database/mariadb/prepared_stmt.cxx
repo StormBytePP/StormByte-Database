@@ -71,7 +71,7 @@ void PreparedSTMT::EnsureParamSize(std::vector<StormByte::Database::Value>& para
 PreparedSTMT::PreparedSTMT(ConstructionKey, std::string_view name, std::string_view query, struct st_mysql* conn,
 		const StormByte::Shared<Logger::Log>& logger,
 		const StormByte::Shared<StormByte::Database::Telemetry>& telemetry)
-	: Database::PreparedSTMT(name, query, logger, telemetry), m_conn(conn), m_stmt(nullptr) {
+	: StormByte::Database::PreparedSTMT(name, query, logger, telemetry), m_conn(conn), m_stmt(nullptr) {
 	MYSQL* cpp_conn = to_mysql_conn(m_conn);
 	MYSQL_STMT* stmt = mysql_stmt_init(cpp_conn);
 	if (!stmt) {
@@ -104,7 +104,7 @@ PreparedSTMT::PreparedSTMT(ConstructionKey, std::string_view name, std::string_v
 }
 
 PreparedSTMT::PreparedSTMT(PreparedSTMT&& other) noexcept:
-	Database::PreparedSTMT(std::move(other)), m_conn(std::exchange(other.m_conn, nullptr)),
+	StormByte::Database::PreparedSTMT(std::move(other)), m_conn(std::exchange(other.m_conn, nullptr)),
 	m_stmt(std::exchange(other.m_stmt, nullptr)), m_params(std::move(other.m_params)) {}
 
 PreparedSTMT::~PreparedSTMT() noexcept {
@@ -119,7 +119,7 @@ PreparedSTMT& PreparedSTMT::operator=(PreparedSTMT&& other) noexcept {
 	if (this != &other) {
 		if (m_stmt)
 			mysql_stmt_close(to_mysql_stmt(m_stmt));
-		Database::PreparedSTMT::operator=(std::move(other));
+		StormByte::Database::PreparedSTMT::operator=(std::move(other));
 		m_conn = std::exchange(other.m_conn, nullptr);
 		m_stmt = std::exchange(other.m_stmt, nullptr);
 		m_params = std::move(other.m_params);

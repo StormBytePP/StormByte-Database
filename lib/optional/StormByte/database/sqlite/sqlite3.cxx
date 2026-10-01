@@ -55,15 +55,15 @@ namespace {
 	std::mutex g_sqlite_init_mutex;
 }
 
-SQLite3::SQLite3(const StormByte::Shared<Logger::Log>& logger)
+SQLite3::SQLite3(const StormByte::Safe::Shared<Logger::Log>& logger)
 	: SQLite3(":memory:", logger) {}
-SQLite3::SQLite3(const std::filesystem::path& dbfile, const StormByte::Shared<Logger::Log>& logger)
+SQLite3::SQLite3(const std::filesystem::path& dbfile, const StormByte::Safe::Shared<Logger::Log>& logger)
 	: Database(logger), m_database_file(dbfile), m_database(nullptr) {
-	SetTelemetry(StormByte::Shared<StormByte::Database::Telemetry>::MakePointer<StormByte::Database::SQLite::Telemetry>());
+	SetTelemetry(StormByte::Safe::Shared<StormByte::Database::Telemetry>::MakePointer<StormByte::Database::SQLite::Telemetry>());
 }
-SQLite3::SQLite3(std::filesystem::path&& dbfile, const StormByte::Shared<Logger::Log>& logger)
+SQLite3::SQLite3(std::filesystem::path&& dbfile, const StormByte::Safe::Shared<Logger::Log>& logger)
 	: Database(logger), m_database_file(std::move(dbfile)), m_database(nullptr) {
-	SetTelemetry(StormByte::Shared<StormByte::Database::Telemetry>::MakePointer<StormByte::Database::SQLite::Telemetry>());
+	SetTelemetry(StormByte::Safe::Shared<StormByte::Database::Telemetry>::MakePointer<StormByte::Database::SQLite::Telemetry>());
 }
 
 SQLite3::SQLite3(SQLite3&& db) noexcept
@@ -229,9 +229,9 @@ void SQLite3::EnableForeignKeys() {
 	DoSilentQuery("PRAGMA foreign_keys = ON;");
 }
 
-StormByte::Unique<StormByte::Database::PreparedSTMT>
+StormByte::Safe::Unique<StormByte::Database::PreparedSTMT>
 SQLite3::CreatePreparedSTMT(std::string_view name, std::string_view query) noexcept {
-	StormByte::Unique<PreparedSTMT> stmt = StormByte::Unique<PreparedSTMT>::MakePointer<PreparedSTMT>(
+	StormByte::Safe::Unique<PreparedSTMT> stmt = StormByte::Safe::Unique<PreparedSTMT>::MakePointer<PreparedSTMT>(
 		PreparedSTMT::ConstructionKey{}, name, query, m_logger, m_telemetry);
 	if (stmt->Query().size() > static_cast<std::size_t>(std::numeric_limits<int>::max()))
 		return nullptr;

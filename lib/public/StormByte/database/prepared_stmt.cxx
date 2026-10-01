@@ -43,11 +43,11 @@
 
 using namespace StormByte::Database;
 
-PreparedSTMT::PreparedSTMT(std::string_view name, std::string_view query, const StormByte::Shared<Logger::Log>& logger):
+PreparedSTMT::PreparedSTMT(std::string_view name, std::string_view query, const StormByte::Safe::Shared<Logger::Log>& logger):
 	m_logger(logger), m_name(name), m_query(query) {}
 
 PreparedSTMT::PreparedSTMT(std::string_view name, std::string_view query,
-		const StormByte::Shared<Logger::Log>& logger, const StormByte::Shared<Telemetry>& telemetry):
+		const StormByte::Safe::Shared<Logger::Log>& logger, const StormByte::Safe::Shared<Telemetry>& telemetry):
 	m_logger(logger), m_telemetry(telemetry), m_name(name), m_query(query) {}
 
 PreparedSTMT::PreparedSTMT(PreparedSTMT&& other) noexcept = default;

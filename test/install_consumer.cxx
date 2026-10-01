@@ -13,7 +13,7 @@ class ConsumerDatabase
 {
 #if defined(STORMBYTE_TEST_SQLITE)
 	public:
-		ConsumerDatabase() : SQLite3(StormByte::Shared<StormByte::Logger::Log>{}) {}
+		ConsumerDatabase() : SQLite3(StormByte::Safe::Shared<StormByte::Logger::Log>{}) {}
 #endif
 };
 

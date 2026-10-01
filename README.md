@@ -23,7 +23,7 @@ The suite is split on purpose. Base, Buffer, Config, Crypto, Logger, Multimedia,
 - **Rows** — ordered columns, lookup by name (`ColumnNotFound` / `OutOfBounds`).
 - **Prepared statements** — bind by position (0-based), `nullptr` is SQL NULL, `ExpectedRows` on execute.
 - **Transactions** — `BeginTransaction(IsolationLevel)` returns `Expected<Transaction, TransactionError>`; failed starts are reported as a value, and an uncommitted transaction rolls back on destruction.
-- **Telemetry** — `GetTelemetry()` returns a thread-safe, cumulative `StormByte::Shared` handle with operation counts, outcomes, rows and latency min/mean/max. SQLite, PostgreSQL and MariaDB provide derived telemetry with backend-specific error counters; retained handles remain readable after disconnect/destruction.
+- **Telemetry** — `GetTelemetry()` returns a thread-safe, cumulative `StormByte::Safe::Shared` handle with operation counts, outcomes, rows and latency min/mean/max. Database telemetry extends Base telemetry and uses its named clocks; SQLite, PostgreSQL and MariaDB provide derived telemetry with backend-specific error counters. Retained handles remain readable after disconnect/destruction.
 - **TLS** — `SslMode` for MariaDB and PostgreSQL. SQLite ignores it.
 - **Concurrent access** — operations on one connection are serialized; separate connections can run concurrently. A transaction reserves its connection until commit or rollback and must remain on the thread that created it. Custom backend implementations must lock the shared connection mutex in public operations.
 
@@ -89,7 +89,7 @@ Moving a connected backend transfers ownership of its connection; the moved-from
 
 class AppDb : public StormByte::Database::SQLite::SQLite3 {
 public:
-	AppDb(StormByte::Shared<StormByte::Logger::Log> log)
+	AppDb(StormByte::Safe::Shared<StormByte::Logger::Log> log)
 		: SQLite3(std::filesystem::path{"app.db"}, log) {}
 
 protected:

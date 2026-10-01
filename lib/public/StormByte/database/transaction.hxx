@@ -43,7 +43,7 @@
 
 #include <StormByte/database/visibility.h>
 
-#include <StormByte/safe_pointers.hxx>
+#include <StormByte/safe/pointers.hxx>
 
 #include <mutex>
 
@@ -126,7 +126,7 @@ namespace StormByte {
 				class ConnectionLock;
 				Database *m_db; ///< Owning database (nullptr after move)
 				bool m_active;	///< true until Commit / Rollback / destructor
-				StormByte::Shared<std::recursive_mutex> m_mutex; ///< Shared connection mutex
+				StormByte::Safe::Shared<std::recursive_mutex> m_mutex; ///< Shared connection mutex
 				bool m_lock_held; ///< Whether this transaction currently owns a recursive lock
 
 				/**

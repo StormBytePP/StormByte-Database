@@ -38,10 +38,10 @@ void Telemetry::RecordMariaDBWarnings(const std::uint64_t count) noexcept {
 	m_warnings.fetch_add(count, std::memory_order_relaxed);
 }
 
-Telemetry::operator StormByte::String::String() const {
-	std::string text{static_cast<std::string_view>(StormByte::Database::Telemetry::operator StormByte::String::String())};
+Telemetry::operator StormByte::Safe::String() const {
+	std::string text{static_cast<std::string_view>(StormByte::Database::Telemetry::operator StormByte::Safe::String())};
 	text += " MariaDB{deadlocks=" + std::to_string(Deadlocks());
 	text += ",lock_timeouts=" + std::to_string(LockTimeouts());
 	text += ",warnings=" + std::to_string(Warnings()) + "}";
-	return StormByte::String::String(std::string_view{text});
+	return StormByte::Safe::String(std::string_view{text});
 }

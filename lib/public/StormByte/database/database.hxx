@@ -47,7 +47,7 @@
 #include <StormByte/database/transaction.hxx>
 #include <StormByte/database/typedefs.hxx>
 #include <StormByte/logger/log.hxx>
-#include <StormByte/safe_pointers.hxx>
+#include <StormByte/safe/pointers.hxx>
 
 #include <memory>
 #include <mutex>
@@ -79,7 +79,7 @@ namespace StormByte {
 				 * @brief Construct with an optional logger.
 				 * @param logger Logger instance (may be null).
 				 */
-				Database(const StormByte::Shared<Logger::Log>& logger);
+				Database(const StormByte::Safe::Shared<Logger::Log>& logger);
 
 				/**
 				 * @brief Copy constructor (deleted).
@@ -110,7 +110,7 @@ namespace StormByte {
 				 * @brief Obtain the cumulative connection telemetry handle.
 				 * @return Shared counters that remain valid after close or Database destruction.
 				 */
-				StormByte::Shared<Telemetry> GetTelemetry() const noexcept;
+				StormByte::Safe::Shared<Telemetry> GetTelemetry() const noexcept;
 
 				/**
 				 * @brief Connect.
@@ -203,14 +203,14 @@ namespace StormByte {
 
 			protected:
 				friend class Transaction;
-				StormByte::Shared<std::recursive_mutex> m_operation_mutex; ///< DLL-safe owner of the connection mutex
-				StormByte::Shared<Telemetry> m_telemetry; ///< Shared cumulative counters for this connection.
+				StormByte::Safe::Shared<std::recursive_mutex> m_operation_mutex; ///< DLL-safe owner of the connection mutex
+				StormByte::Safe::Shared<Telemetry> m_telemetry; ///< Shared cumulative counters for this connection.
 
 				/**
 				 * @brief Replace the telemetry implementation, normally in a concrete backend constructor.
 				 * @param telemetry Backend-specific telemetry allocated on Base's heap.
 				 */
-				void SetTelemetry(StormByte::Shared<Telemetry> telemetry) noexcept;
+				void SetTelemetry(StormByte::Safe::Shared<Telemetry> telemetry) noexcept;
 
 				/**
 				 * @brief Record a categorized event reported by the active backend.
@@ -232,7 +232,7 @@ namespace StormByte {
 				bool m_connected;																 ///< Connection state
 				SslMode m_ssl_mode;																 ///< TLS policy for network backends
 
-				StormByte::Shared<Logger::Log> m_logger;	///< Shared logger, safe across the DLL boundary
+				StormByte::Safe::Shared<Logger::Log> m_logger;	///< Shared logger, safe across the DLL boundary
 
 				/**
 				 * @brief Destroy all registered statements inside the Database module.
@@ -284,7 +284,7 @@ namespace StormByte {
 				 * @param query SQL text.
 				 * @return Statement or nullptr on failure.
 				 */
-				virtual StormByte::Unique<PreparedSTMT> CreatePreparedSTMT(std::string_view name, std::string_view query) noexcept = 0;
+				virtual StormByte::Safe::Unique<PreparedSTMT> CreatePreparedSTMT(std::string_view name, std::string_view query) noexcept = 0;
 
 				/**
 				 * @brief Register a prepared statement under @p name.
@@ -314,7 +314,7 @@ namespace StormByte {
 				virtual bool DoSilentQuery(std::string_view query) noexcept = 0;
 
 			private:
-				std::unordered_map<std::string, StormByte::Unique<PreparedSTMT>> m_prepared_stmts; ///< Statements owned by Database
+				std::unordered_map<std::string, StormByte::Safe::Unique<PreparedSTMT>> m_prepared_stmts; ///< Statements owned by Database
 
 				/**
 				 * @brief Find a prepared statement by name.

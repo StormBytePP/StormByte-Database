@@ -50,8 +50,8 @@
 using namespace StormByte::Database::Postgres;
 
 PreparedSTMT::PreparedSTMT(ConstructionKey, std::string_view name, std::string_view query,
-		const StormByte::Shared<Logger::Log>& logger,
-		const StormByte::Shared<StormByte::Database::Telemetry>& telemetry)
+		const StormByte::Safe::Shared<Logger::Log>& logger,
+		const StormByte::Safe::Shared<StormByte::Database::Telemetry>& telemetry)
 	: StormByte::Database::PreparedSTMT(name, query, logger, telemetry), m_conn(nullptr), m_stmt_name(name) {}
 
 PreparedSTMT::PreparedSTMT(PreparedSTMT&& other) noexcept:
@@ -121,7 +121,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 				string_storage[stl_index] = value.Get<bool>() ? "true" : "false";
 				break;
 			case Value::Type::Text: {
-				const auto text = value.Get<StormByte::String::String>();
+				const auto text = value.Get<StormByte::Safe::String>();
 				string_storage[stl_index] = static_cast<std::string_view>(text);
 				break;
 			}

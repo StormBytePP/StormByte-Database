@@ -29,7 +29,7 @@ namespace StormByte::Database::SQLite {
 			/** @brief SQLite corrupt or malformed database failures. */
 			std::uint64_t CorruptionErrors() const noexcept;
 			/** @brief Flatten common and SQLite-specific metrics. */
-			operator StormByte::String::String() const override;
+			operator StormByte::Safe::String() const override;
 		private:
 			friend class SQLite3;
 			friend class PreparedSTMT;

@@ -39,11 +39,11 @@ void Telemetry::RecordSQLiteResult(const int result_code) noexcept {
 	}
 }
 
-Telemetry::operator StormByte::String::String() const {
-	std::string text{static_cast<std::string_view>(StormByte::Database::Telemetry::operator StormByte::String::String())};
+Telemetry::operator StormByte::Safe::String() const {
+	std::string text{static_cast<std::string_view>(StormByte::Database::Telemetry::operator StormByte::Safe::String())};
 	text += " SQLite{busy=" + std::to_string(BusyErrors());
 	text += ",constraints=" + std::to_string(ConstraintErrors());
 	text += ",io=" + std::to_string(IoErrors());
 	text += ",corruption=" + std::to_string(CorruptionErrors()) + "}";
-	return StormByte::String::String(std::string_view{text});
+	return StormByte::Safe::String(std::string_view{text});
 }

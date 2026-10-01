@@ -60,8 +60,8 @@ using StormByte::Database::Transaction;
 using StormByte::Database::ColumnNotFound;
 using StormByte::Database::OutOfBounds;
 using StormByte::Database::SslMode;
-StormByte::Shared<StormByte::Logger::Log> logger =
-	StormByte::Shared<StormByte::Logger::Log>::MakePointer<StormByte::Logger::ThreadedLog>(std::cout, StormByte::Logger::Level::Info);
+StormByte::Safe::Shared<StormByte::Logger::Log> logger =
+	StormByte::Safe::Shared<StormByte::Logger::Log>::MakePointer<StormByte::Logger::ThreadedLog>(std::cout, StormByte::Logger::Level::Info);
 class TestDatabase : public MariaDB {
 	public:
 		TestDatabase()
@@ -229,11 +229,11 @@ int verify_inserted_users() {
 	const auto& rows = expected_rows.value();
 	ASSERT_EQUAL(fn_name, 2, rows.Count());
 	ASSERT_EQUAL(fn_name, 2, rows[0].Count());
-	ASSERT_EQUAL(fn_name, "Alice", rows[0][0].Get<StormByte::String::String>());
-	ASSERT_EQUAL(fn_name, "alice@example.com", rows[0][1].Get<StormByte::String::String>());
+	ASSERT_EQUAL(fn_name, "Alice", rows[0][0].Get<StormByte::Safe::String>());
+	ASSERT_EQUAL(fn_name, "alice@example.com", rows[0][1].Get<StormByte::Safe::String>());
 	ASSERT_EQUAL(fn_name, 2, rows[1].Count());
-	ASSERT_EQUAL(fn_name, "Bob", rows[1][0].Get<StormByte::String::String>());
-	ASSERT_EQUAL(fn_name, "bob@example.com", rows[1][1].Get<StormByte::String::String>());
+	ASSERT_EQUAL(fn_name, "Bob", rows[1][0].Get<StormByte::Safe::String>());
+	ASSERT_EQUAL(fn_name, "bob@example.com", rows[1][1].Get<StormByte::Safe::String>());
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -246,10 +246,10 @@ int verify_inserted_products() {
 	const auto& rows = expected_rows.value();
 	ASSERT_EQUAL(fn_name, 2, rows.Count());
 	ASSERT_EQUAL(fn_name, 2, rows[0].Count());
-	ASSERT_EQUAL(fn_name, "Laptop", rows[0][0].Get<StormByte::String::String>());
+	ASSERT_EQUAL(fn_name, "Laptop", rows[0][0].Get<StormByte::Safe::String>());
 	ASSERT_EQUAL(fn_name, 999.99, rows[0][1].Get<double>());
 	ASSERT_EQUAL(fn_name, 2, rows[1].Count());
-	ASSERT_EQUAL(fn_name, "Mouse", rows[1][0].Get<StormByte::String::String>());
+	ASSERT_EQUAL(fn_name, "Mouse", rows[1][0].Get<StormByte::Safe::String>());
 	ASSERT_EQUAL(fn_name, 19.99, rows[1][1].Get<double>());
 	RETURN_TEST(fn_name, 0);
 }
@@ -282,12 +282,12 @@ int verify_relationships() {
 	const auto& rows = expected_rows.value();
 	ASSERT_EQUAL(fn_name, 2, rows.Count());
 	ASSERT_EQUAL(fn_name, 3, rows[0].Count());
-	ASSERT_EQUAL(fn_name, "Alice", rows[0][0].Get<StormByte::String::String>());
-	ASSERT_EQUAL(fn_name, "Laptop", rows[0][1].Get<StormByte::String::String>());
+	ASSERT_EQUAL(fn_name, "Alice", rows[0][0].Get<StormByte::Safe::String>());
+	ASSERT_EQUAL(fn_name, "Laptop", rows[0][1].Get<StormByte::Safe::String>());
 	ASSERT_EQUAL(fn_name, 1, rows[0][2].Get<long long int>());
 	ASSERT_EQUAL(fn_name, 3, rows[1].Count());
-	ASSERT_EQUAL(fn_name, "Bob", rows[1][0].Get<StormByte::String::String>());
-	ASSERT_EQUAL(fn_name, "Mouse", rows[1][1].Get<StormByte::String::String>());
+	ASSERT_EQUAL(fn_name, "Bob", rows[1][0].Get<StormByte::Safe::String>());
+	ASSERT_EQUAL(fn_name, "Mouse", rows[1][1].Get<StormByte::Safe::String>());
 	ASSERT_EQUAL(fn_name, 2, rows[1][2].Get<long long int>());
 	RETURN_TEST(fn_name, 0);
 }
@@ -357,7 +357,7 @@ int unsigned_bind_preserves_value() {
 	ASSERT_TRUE(fn_name, db.ExecuteSTMT("insert_unsigned", value).has_value());
 	auto rows = db.Query("SELECT CAST(value AS CHAR) FROM unsigned_values;");
 	ASSERT_TRUE(fn_name, rows.has_value());
-	ASSERT_EQUAL(fn_name, StormByte::String::String{std::to_string(value)}, rows.value()[0][0].Get<StormByte::String::String>());
+	ASSERT_EQUAL(fn_name, StormByte::Safe::String{std::to_string(value)}, rows.value()[0][0].Get<StormByte::Safe::String>());
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -485,8 +485,8 @@ int name_access_test() {
 	db.Connect();
 	auto expected_rows = db.get_users();
 	ASSERT_TRUE(fn_name, expected_rows.has_value());
-	ASSERT_EQUAL(fn_name, "Alice", expected_rows.value()[0]["name"].Get<StormByte::String::String>());
-	ASSERT_EQUAL(fn_name, "alice@example.com", expected_rows.value()[0]["email"].Get<StormByte::String::String>());
+	ASSERT_EQUAL(fn_name, "Alice", expected_rows.value()[0]["name"].Get<StormByte::Safe::String>());
+	ASSERT_EQUAL(fn_name, "alice@example.com", expected_rows.value()[0]["email"].Get<StormByte::Safe::String>());
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -713,7 +713,7 @@ int concurrent_shared_connection_and_transaction() {
 
 int telemetry_tracks_mariadb_operations_and_survives_database() {
 	const std::string fn_name = "telemetry_tracks_mariadb_operations_and_survives_database";
-	StormByte::Shared<StormByte::Database::Telemetry> retained;
+	StormByte::Safe::Shared<StormByte::Database::Telemetry> retained;
 	std::uint64_t warnings_before{};
 	{
 		TestDatabase db;

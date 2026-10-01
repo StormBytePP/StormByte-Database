@@ -48,7 +48,7 @@ int verify_scalar_backend_contract(DatabaseType& db, const std::string& test_nam
 		ASSERT_EQUAL(test_name, signed_long, row[2].template Get<long long int>());
 		ASSERT_EQUAL(test_name, unsigned_long, row[3].template Get<unsigned long long int>());
 		ASSERT_EQUAL(test_name, floating, row[4].template Get<double>());
-		ASSERT_EQUAL(test_name, StormByte::String::String{text}, row[5].template Get<StormByte::String::String>());
+		ASSERT_EQUAL(test_name, StormByte::Safe::String{text}, row[5].template Get<StormByte::Safe::String>());
 		const auto& returned_blob = row[6].template Get<StormByte::BinaryData>();
 		ASSERT_EQUAL(test_name, bytes.size(), returned_blob.size());
 		for (std::size_t byte_index{}; byte_index < bytes.size(); ++byte_index)
@@ -57,11 +57,11 @@ int verify_scalar_backend_contract(DatabaseType& db, const std::string& test_nam
 	}
 
 	ASSERT_TRUE(test_name, result.value()[0][8].IsNull());
-	ASSERT_EQUAL(test_name, StormByte::String::String{"not null"}, result.value()[1][8].template Get<StormByte::String::String>());
+	ASSERT_EQUAL(test_name, StormByte::Safe::String{"not null"}, result.value()[1][8].template Get<StormByte::Safe::String>());
 	auto empty_text = db.Query("SELECT '' AS empty_text;");
 	ASSERT_TRUE(test_name, empty_text.has_value());
 	ASSERT_EQUAL(test_name, 1, empty_text.value().Count());
-	ASSERT_TRUE(test_name, empty_text.value()[0][0].template Get<StormByte::String::String>().empty());
+	ASSERT_TRUE(test_name, empty_text.value()[0][0].template Get<StormByte::Safe::String>().empty());
 	auto no_rows = db.Query("SELECT 1 WHERE 1 = 0;");
 	ASSERT_TRUE(test_name, no_rows.has_value());
 	ASSERT_TRUE(test_name, no_rows.value().empty());

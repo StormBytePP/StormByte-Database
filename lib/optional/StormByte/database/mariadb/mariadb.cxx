@@ -49,7 +49,7 @@
 #include <utility>
 using namespace StormByte::Database::MariaDB;
 namespace {
-	unsigned int LogMariaDBWarnings(MYSQL* conn, const StormByte::Shared<StormByte::Logger::Log>& logger) {
+	unsigned int LogMariaDBWarnings(MYSQL* conn, const StormByte::Safe::Shared<StormByte::Logger::Log>& logger) {
 		if (!conn)
 			return 0;
 		const unsigned int count = mysql_warning_count(conn);
@@ -124,10 +124,10 @@ MariaDB::~MariaDB() noexcept {
 }
 
 MariaDB::MariaDB(std::string_view host, std::string_view user, std::string_view password,
-				std::string_view db_name, int port, const StormByte::Shared<Logger::Log>& logger)
+				std::string_view db_name, int port, const StormByte::Safe::Shared<Logger::Log>& logger)
 	: Database(logger), m_host(host), m_user(user), m_password(password),
 	m_dbname(db_name), m_port(port), m_conn(nullptr) {
-	SetTelemetry(StormByte::Shared<StormByte::Database::Telemetry>::MakePointer<StormByte::Database::MariaDB::Telemetry>());
+	SetTelemetry(StormByte::Safe::Shared<StormByte::Database::Telemetry>::MakePointer<StormByte::Database::MariaDB::Telemetry>());
 }
 MariaDB::MariaDB(MariaDB&& db) noexcept
 	: Database(std::move(db)), m_host(std::move(db.m_host)), m_user(std::move(db.m_user)),
@@ -282,11 +282,11 @@ bool MariaDB::DoSilentQuery(std::string_view query) noexcept {
 	return true;
 }
 
-StormByte::Unique<StormByte::Database::PreparedSTMT>
+StormByte::Safe::Unique<StormByte::Database::PreparedSTMT>
 MariaDB::CreatePreparedSTMT(std::string_view name, std::string_view query) noexcept {
 	if (!m_conn)
 		return nullptr;
-	return StormByte::Unique<PreparedSTMT>::MakePointer<PreparedSTMT>(
+	return StormByte::Safe::Unique<PreparedSTMT>::MakePointer<PreparedSTMT>(
 		PreparedSTMT::ConstructionKey{}, name, query, m_conn, m_logger, m_telemetry);
 }
 

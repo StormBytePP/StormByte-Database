@@ -63,10 +63,10 @@ namespace {
 }
 
 Postgres::Postgres(std::string_view host, std::string_view user, std::string_view password,
-				std::string_view db_name, const StormByte::Shared<Logger::Log>& logger)
+				std::string_view db_name, const StormByte::Safe::Shared<Logger::Log>& logger)
 	: Database(logger), m_host(host), m_user(user), m_password(password),
 	m_dbname(db_name), m_conn(nullptr) {
-	SetTelemetry(StormByte::Shared<StormByte::Database::Telemetry>::MakePointer<StormByte::Database::Postgres::Telemetry>());
+	SetTelemetry(StormByte::Safe::Shared<StormByte::Database::Telemetry>::MakePointer<StormByte::Database::Postgres::Telemetry>());
 }
 
 Postgres::Postgres(Postgres&& db) noexcept
@@ -251,7 +251,7 @@ bool Postgres::DoSilentQuery(std::string_view query) noexcept {
 	return true;
 }
 
-StormByte::Unique<StormByte::Database::PreparedSTMT>
+StormByte::Safe::Unique<StormByte::Database::PreparedSTMT>
 Postgres::CreatePreparedSTMT(std::string_view name, std::string_view query) noexcept {
 	if (!m_conn)
 		return nullptr;
@@ -290,7 +290,7 @@ Postgres::CreatePreparedSTMT(std::string_view name, std::string_view query) noex
 	}
 
 	PQclear(res);
-	StormByte::Unique<PreparedSTMT> stmt = StormByte::Unique<PreparedSTMT>::MakePointer<PreparedSTMT>(
+	StormByte::Safe::Unique<PreparedSTMT> stmt = StormByte::Safe::Unique<PreparedSTMT>::MakePointer<PreparedSTMT>(
 		PreparedSTMT::ConstructionKey{}, name, query, m_logger, m_telemetry);
 	stmt->m_conn = m_conn;
 	return stmt;

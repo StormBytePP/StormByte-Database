@@ -44,7 +44,7 @@
 using namespace StormByte::Database;
 
 Value::Value(std::string_view value) noexcept:
-	m_value(StormByte::String::String{value}), m_type(Type::Text) {}
+	m_value(StormByte::Safe::String{value}), m_type(Type::Text) {}
 
 Value::Value(const StormByte::BinaryData& value):
 	m_value(value), m_type(Type::Blob) {}

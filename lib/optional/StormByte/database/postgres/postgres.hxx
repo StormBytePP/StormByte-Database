@@ -127,7 +127,7 @@ namespace StormByte {
 					 * @param logger Logger instance.
 					 */
 					Postgres(std::string_view host, std::string_view user, std::string_view password,
-									 std::string_view db_name, const StormByte::Shared<Logger::Log>& logger);
+									 std::string_view db_name, const StormByte::Safe::Shared<Logger::Log>& logger);
 
 					/**
 					 * @brief Internal silent query.
@@ -165,7 +165,7 @@ namespace StormByte {
 					 * @param query SQL text.
 					 * @return Prepared statement or nullptr.
 					 */
-					StormByte::Unique<StormByte::Database::PreparedSTMT> CreatePreparedSTMT(std::string_view name, std::string_view query) noexcept override;
+					StormByte::Safe::Unique<StormByte::Database::PreparedSTMT> CreatePreparedSTMT(std::string_view name, std::string_view query) noexcept override;
 
 					/**
 					 * @brief BEGIN with isolation.

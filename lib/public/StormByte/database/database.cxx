@@ -45,9 +45,9 @@
 
 using namespace StormByte::Database;
 
-Database::Database(const StormByte::Shared<Logger::Log>& logger):
-	m_operation_mutex(StormByte::Shared<std::recursive_mutex>::MakePointer<std::recursive_mutex>()),
-	m_telemetry(StormByte::Shared<Telemetry>::MakePointer<Telemetry>()),
+Database::Database(const StormByte::Safe::Shared<Logger::Log>& logger):
+	m_operation_mutex(StormByte::Safe::Shared<std::recursive_mutex>::MakePointer<std::recursive_mutex>()),
+	m_telemetry(StormByte::Safe::Shared<Telemetry>::MakePointer<Telemetry>()),
 	m_connected(false), m_ssl_mode(SslMode::Default), m_logger(logger) {}
 
 Database::Database(Database&& other) noexcept:
@@ -84,12 +84,12 @@ Database& Database::operator=(Database&& other) noexcept {
 
 Database::~Database() noexcept = default;
 
-StormByte::Shared<Telemetry> Database::GetTelemetry() const noexcept {
+StormByte::Safe::Shared<Telemetry> Database::GetTelemetry() const noexcept {
 	std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
 	return m_telemetry;
 }
 
-void Database::SetTelemetry(StormByte::Shared<Telemetry> telemetry) noexcept {
+void Database::SetTelemetry(StormByte::Safe::Shared<Telemetry> telemetry) noexcept {
 	std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
 	if (telemetry)
 		m_telemetry = std::move(telemetry);
@@ -151,7 +151,7 @@ void Database::DoPrepareSTMT(std::string_view name, std::string_view query) noex
 	std::lock_guard<std::recursive_mutex> lock(*m_operation_mutex);
 	if (m_logger)
 		*m_logger << Logger::Level::Debug << "Preparing statement '" << name << "': " << query << std::endl;
-	StormByte::Unique<PreparedSTMT> prepared = CreatePreparedSTMT(name, query);
+	StormByte::Safe::Unique<PreparedSTMT> prepared = CreatePreparedSTMT(name, query);
 	if (prepared) {
 		auto [position, inserted] = m_prepared_stmts.emplace(std::string{prepared->Name()}, std::move(prepared));
 		(void)position;
@@ -172,6 +172,10 @@ StormByte::Expected<Transaction, TransactionError> Database::BeginTransaction(Is
 		Transaction transaction(*this);
 		telemetry.Complete(true);
 		return transaction;
+	} catch (const StormByte::Exception& error) {
+		if (begun && lock.owns_lock())
+			DoSilentQuery("ROLLBACK;");
+		return Unexpected<TransactionError>(error.what());
 	} catch (const std::exception& error) {
 		if (begun && lock.owns_lock())
 			DoSilentQuery("ROLLBACK;");

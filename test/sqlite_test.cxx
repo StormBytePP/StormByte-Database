@@ -40,6 +40,7 @@
  */
 
 #include <StormByte/database/sqlite/sqlite3.hxx>
+#include <StormByte/exception.hxx>
 #include <StormByte/database/transaction.hxx>
 #include <StormByte/logger/log.hxx>
 #include <StormByte/logger/threaded_log.hxx>
@@ -61,8 +62,8 @@ using StormByte::Database::IsolationLevel;
 using StormByte::Database::Transaction;
 using StormByte::Database::ColumnNotFound;
 using StormByte::Database::OutOfBounds;
-StormByte::Shared<StormByte::Logger::Log> logger =
-	StormByte::Shared<StormByte::Logger::Log>::MakePointer<StormByte::Logger::ThreadedLog>(std::cout, StormByte::Logger::Level::Info);
+StormByte::Safe::Shared<StormByte::Logger::Log> logger =
+	StormByte::Safe::Shared<StormByte::Logger::Log>::MakePointer<StormByte::Logger::ThreadedLog>(std::cout, StormByte::Logger::Level::Info);
 
 namespace {
 	std::filesystem::path TemporaryDatabasePath() {
@@ -111,6 +112,16 @@ class TestMemoryDatabase : public SQLite3 {
 			DoPrepareSTMT("insert_concurrent", "INSERT INTO concurrent (value) VALUES (?);");
 			DoPrepareSTMT("count_concurrent", "SELECT COUNT(*) FROM concurrent;");
 			DoPrepareSTMT("insert_scalar_types", "INSERT INTO scalar_types (signed_integer, unsigned_integer, signed_long, unsigned_long, real_number, text_value, blob_value, flag, nullable_value) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);");
+		}
+};
+
+class ThrowingBaseExceptionDatabase final : public SQLite3 {
+	public:
+		ThrowingBaseExceptionDatabase() : SQLite3(logger) {}
+
+	private:
+		void DoBeginTransaction(IsolationLevel) override {
+			throw StormByte::Exception(std::string_view{"base begin failure"});
 		}
 };
 class TestFileDatabase : public SQLite3 {
@@ -193,10 +204,10 @@ int verify_inserted_users() {
 	ASSERT_TRUE(fn_name, expected_rows.has_value());
 	const auto& rows = expected_rows.value();
 	ASSERT_EQUAL(fn_name, 2, rows.Count());
-	ASSERT_EQUAL(fn_name, "Alice", rows[0][0].Get<StormByte::String::String>());
-	ASSERT_EQUAL(fn_name, "alice@example.com", rows[0][1].Get<StormByte::String::String>());
-	ASSERT_EQUAL(fn_name, "Bob", rows[1][0].Get<StormByte::String::String>());
-	ASSERT_EQUAL(fn_name, "bob@example.com", rows[1][1].Get<StormByte::String::String>());
+	ASSERT_EQUAL(fn_name, "Alice", rows[0][0].Get<StormByte::Safe::String>());
+	ASSERT_EQUAL(fn_name, "alice@example.com", rows[0][1].Get<StormByte::Safe::String>());
+	ASSERT_EQUAL(fn_name, "Bob", rows[1][0].Get<StormByte::Safe::String>());
+	ASSERT_EQUAL(fn_name, "bob@example.com", rows[1][1].Get<StormByte::Safe::String>());
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -208,9 +219,9 @@ int verify_inserted_products() {
 	ASSERT_TRUE(fn_name, expected_rows.has_value());
 	const auto& rows = expected_rows.value();
 	ASSERT_EQUAL(fn_name, 2, rows.Count());
-	ASSERT_EQUAL(fn_name, "Laptop", rows[0][0].Get<StormByte::String::String>());
+	ASSERT_EQUAL(fn_name, "Laptop", rows[0][0].Get<StormByte::Safe::String>());
 	ASSERT_EQUAL(fn_name, 999.99, rows[0][1].Get<double>());
-	ASSERT_EQUAL(fn_name, "Mouse", rows[1][0].Get<StormByte::String::String>());
+	ASSERT_EQUAL(fn_name, "Mouse", rows[1][0].Get<StormByte::Safe::String>());
 	ASSERT_EQUAL(fn_name, 19.99, rows[1][1].Get<double>());
 	RETURN_TEST(fn_name, 0);
 }
@@ -240,11 +251,11 @@ int verify_relationships() {
 	ASSERT_TRUE(fn_name, expected_rows.has_value());
 	const auto& rows = expected_rows.value();
 	ASSERT_EQUAL(fn_name, 2, rows.Count());
-	ASSERT_EQUAL(fn_name, "Alice", rows[0][0].Get<StormByte::String::String>());
-	ASSERT_EQUAL(fn_name, "Laptop", rows[0][1].Get<StormByte::String::String>());
+	ASSERT_EQUAL(fn_name, "Alice", rows[0][0].Get<StormByte::Safe::String>());
+	ASSERT_EQUAL(fn_name, "Laptop", rows[0][1].Get<StormByte::Safe::String>());
 	ASSERT_EQUAL(fn_name, 1, rows[0][2].Get<int>());
-	ASSERT_EQUAL(fn_name, "Bob", rows[1][0].Get<StormByte::String::String>());
-	ASSERT_EQUAL(fn_name, "Mouse", rows[1][1].Get<StormByte::String::String>());
+	ASSERT_EQUAL(fn_name, "Bob", rows[1][0].Get<StormByte::Safe::String>());
+	ASSERT_EQUAL(fn_name, "Mouse", rows[1][1].Get<StormByte::Safe::String>());
 	ASSERT_EQUAL(fn_name, 2, rows[1][2].Get<int>());
 	RETURN_TEST(fn_name, 0);
 }
@@ -311,7 +322,7 @@ int unsigned_bind_preserves_value() {
 	ASSERT_TRUE(fn_name, db.ExecuteSTMT("insert_unsigned", value).has_value());
 	auto rows = db.Query("SELECT CAST(value AS TEXT) FROM unsigned_values;");
 	ASSERT_TRUE(fn_name, rows.has_value());
-	ASSERT_EQUAL(fn_name, StormByte::String::String{std::to_string(value)}, rows.value()[0][0].Get<StormByte::String::String>());
+	ASSERT_EQUAL(fn_name, StormByte::Safe::String{std::to_string(value)}, rows.value()[0][0].Get<StormByte::Safe::String>());
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -431,8 +442,8 @@ int name_access_test() {
 	db.Connect();
 	auto expected_rows = db.get_users();
 	ASSERT_TRUE(fn_name, expected_rows.has_value());
-	ASSERT_EQUAL(fn_name, "Alice", expected_rows.value()[0]["name"].Get<StormByte::String::String>());
-	ASSERT_EQUAL(fn_name, "alice@example.com", expected_rows.value()[0]["email"].Get<StormByte::String::String>());
+	ASSERT_EQUAL(fn_name, "Alice", expected_rows.value()[0]["name"].Get<StormByte::Safe::String>());
+	ASSERT_EQUAL(fn_name, "alice@example.com", expected_rows.value()[0]["email"].Get<StormByte::Safe::String>());
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -539,6 +550,16 @@ int isolation_default() {
 	ASSERT_TRUE(fn_name, tx_result.has_value());
 	auto tx = std::move(*tx_result);
 	tx.Commit();
+	RETURN_TEST(fn_name, 0);
+}
+
+int base_exception_becomes_transaction_error() {
+	const std::string fn_name = "base_exception_becomes_transaction_error";
+	ThrowingBaseExceptionDatabase db;
+	auto result = db.BeginTransaction();
+	ASSERT_FALSE(fn_name, result.has_value());
+	ASSERT_TRUE(fn_name, result.error() != nullptr);
+	ASSERT_TRUE(fn_name, std::string{result.error()->what()}.find("base begin failure") != std::string::npos);
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -698,7 +719,7 @@ int connected_database_move() {
 
 int telemetry_tracks_sqlite_operations_and_survives_database() {
 	const std::string fn_name = "telemetry_tracks_sqlite_operations_and_survives_database";
-	StormByte::Shared<StormByte::Database::Telemetry> retained;
+	StormByte::Safe::Shared<StormByte::Database::Telemetry> retained;
 	{
 		TestMemoryDatabase db;
 		retained = db.GetTelemetry();
@@ -750,6 +771,7 @@ int main() {
 	result += not_connected_silent();
 	result += not_connected_execute();
 	result += not_connected_transaction();
+	result += base_exception_becomes_transaction_error();
 	result += is_connected_test();
 	result += double_connect();
 	result += verify_inserted_users();

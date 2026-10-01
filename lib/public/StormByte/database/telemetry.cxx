@@ -34,6 +34,7 @@ namespace {
 }
 
 Telemetry::Telemetry() noexcept:
+	StormByte::Telemetry(),
 	m_rows_returned(0) {
 	for (auto& event : m_events)
 		event.store(0, std::memory_order_relaxed);
@@ -41,9 +42,18 @@ Telemetry::Telemetry() noexcept:
 
 Telemetry::~Telemetry() noexcept = default;
 
-Telemetry::OperationScope::OperationScope(StormByte::Shared<Telemetry> telemetry, const Operation operation) noexcept:
-	m_telemetry(std::move(telemetry)), m_operation(operation), m_started(std::chrono::steady_clock::now()),
-	m_rows_returned(0), m_success(false), m_completed(false) {}
+Telemetry::OperationScope::OperationScope(StormByte::Safe::Shared<Telemetry> telemetry, const Operation operation) noexcept:
+	m_telemetry(std::move(telemetry)), m_operation(operation), m_started{}, m_clock_started(false),
+	m_rows_returned(0), m_success(false), m_completed(false) {
+	const auto index = static_cast<std::size_t>(operation);
+	if (!m_telemetry || index >= operation_names.size())
+		return;
+	m_telemetry->m_clock_locks[index].Lock();
+	StormByte::Clock& clock = m_telemetry->StormByte::Telemetry::Clock(operation_names[index]);
+	m_started = clock.Time();
+	clock.Start();
+	m_clock_started = true;
+}
 
 void Telemetry::OperationScope::Complete(const bool success, const std::uint64_t rows_returned) noexcept {
 	if (m_completed)
@@ -56,26 +66,36 @@ void Telemetry::OperationScope::Complete(const bool success, const std::uint64_t
 Telemetry::OperationScope::~OperationScope() noexcept {
 	if (!m_telemetry)
 		return;
-	const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
-		std::chrono::steady_clock::now() - m_started);
-	m_telemetry->RecordOperation(m_operation, m_success, elapsed, m_rows_returned);
+	if (m_clock_started) {
+		const auto index = static_cast<std::size_t>(m_operation);
+		StormByte::Clock& clock = m_telemetry->StormByte::Telemetry::Clock(operation_names[index]);
+		clock.Stop();
+		const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(clock.Time() - m_started);
+		m_telemetry->RecordOperation(m_operation, m_success, elapsed, m_rows_returned);
+		m_telemetry->m_clock_locks[index].Unlock();
+	}
 }
 
 OperationMetrics Telemetry::Metrics(const Operation operation) const noexcept {
 	const auto index = static_cast<std::size_t>(operation);
 	if (index >= m_operations.size())
 		return {};
+	m_clock_locks[index].Lock();
+	const StormByte::Clock& clock = StormByte::Telemetry::Clock(operation_names[index]);
+	const std::uint64_t attempts = clock.Count();
+	const auto total = std::chrono::duration_cast<std::chrono::nanoseconds>(clock.Time());
 	const Counter& counter = m_operations[index];
-	const std::uint64_t attempts = counter.attempts.load(std::memory_order_acquire);
 	const std::uint64_t minimum = counter.minimum_nanoseconds.load(std::memory_order_acquire);
-	return {
+	const OperationMetrics metrics{
 		attempts,
 		counter.successes.load(std::memory_order_acquire),
 		counter.failures.load(std::memory_order_acquire),
-		counter.total_nanoseconds.load(std::memory_order_acquire),
+		static_cast<std::uint64_t>(total.count()),
 		attempts == 0 ? 0 : minimum,
 		counter.maximum_nanoseconds.load(std::memory_order_acquire)
 	};
+	m_clock_locks[index].Unlock();
+	return metrics;
 }
 
 std::uint64_t Telemetry::RowsReturned() const noexcept {
@@ -87,7 +107,7 @@ std::uint64_t Telemetry::Events(const BackendEvent event) const noexcept {
 	return index < m_events.size() ? m_events[index].load(std::memory_order_acquire) : 0;
 }
 
-Telemetry::operator StormByte::String::String() const {
+Telemetry::operator StormByte::Safe::String() const {
 	std::string output;
 	for (std::size_t index{}; index < operation_names.size(); ++index) {
 		const OperationMetrics metrics = Metrics(static_cast<Operation>(index));
@@ -116,7 +136,7 @@ Telemetry::operator StormByte::String::String() const {
 		if (count > 0)
 			Append(output, event_names[index], count);
 	}
-	return StormByte::String::String(std::string_view{output});
+	return StormByte::Safe::String(std::string_view{output});
 }
 
 void Telemetry::RecordEvent(const BackendEvent event) noexcept {
@@ -138,9 +158,7 @@ void Telemetry::RecordOperation(const Operation operation, const bool success,
 		? static_cast<std::uint64_t>(elapsed.count())
 		: 0;
 	Counter& counter = m_operations[index];
-	counter.attempts.fetch_add(1, std::memory_order_relaxed);
 	(success ? counter.successes : counter.failures).fetch_add(1, std::memory_order_relaxed);
-	counter.total_nanoseconds.fetch_add(duration, std::memory_order_relaxed);
 	std::uint64_t minimum = counter.minimum_nanoseconds.load(std::memory_order_relaxed);
 	while (duration < minimum && !counter.minimum_nanoseconds.compare_exchange_weak(
 		minimum, duration, std::memory_order_relaxed, std::memory_order_relaxed)) {}

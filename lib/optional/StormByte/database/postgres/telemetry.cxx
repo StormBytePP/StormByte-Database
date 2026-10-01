@@ -37,10 +37,10 @@ void Telemetry::RecordSqlState(const std::string_view sql_state) noexcept {
 		RecordEvent(BackendEvent::Other);
 }
 
-Telemetry::operator StormByte::String::String() const {
-	std::string text{static_cast<std::string_view>(StormByte::Database::Telemetry::operator StormByte::String::String())};
+Telemetry::operator StormByte::Safe::String() const {
+	std::string text{static_cast<std::string_view>(StormByte::Database::Telemetry::operator StormByte::Safe::String())};
 	text += " PostgreSQL{serialization=" + std::to_string(SerializationConflicts());
 	text += ",deadlocks=" + std::to_string(Deadlocks());
 	text += ",connection_errors=" + std::to_string(ConnectionErrors()) + "}";
-	return StormByte::String::String(std::string_view{text});
+	return StormByte::Safe::String(std::string_view{text});
 }

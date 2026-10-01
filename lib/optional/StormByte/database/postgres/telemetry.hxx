@@ -29,7 +29,7 @@ namespace StormByte::Database::Postgres {
 			/** @brief Connection exception SQLSTATEs (class 08). */
 			std::uint64_t ConnectionErrors() const noexcept;
 			/** @brief Flatten common and PostgreSQL-specific metrics. */
-			operator StormByte::String::String() const override;
+			operator StormByte::Safe::String() const override;
 		private:
 			friend class Postgres;
 			friend class PreparedSTMT;

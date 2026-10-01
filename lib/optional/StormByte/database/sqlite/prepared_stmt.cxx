@@ -49,8 +49,8 @@
 
 using namespace StormByte::Database::SQLite;
 PreparedSTMT::PreparedSTMT(ConstructionKey, std::string_view name, std::string_view query,
-		const StormByte::Shared<Logger::Log>& logger,
-		const StormByte::Shared<StormByte::Database::Telemetry>& telemetry)
+		const StormByte::Safe::Shared<Logger::Log>& logger,
+		const StormByte::Safe::Shared<StormByte::Database::Telemetry>& telemetry)
 	: StormByte::Database::PreparedSTMT(name, query, logger, telemetry), m_stmt(nullptr), m_bind_error(false) {}
 
 PreparedSTMT::PreparedSTMT(PreparedSTMT&& other) noexcept:
@@ -114,7 +114,7 @@ void PreparedSTMT::Binder(StormByte::Size index, Value&& value) noexcept {
 			result = sqlite3_bind_int(m_stmt, col, value.Get<bool>() ? 1 : 0);
 			break;
 		case Value::Type::Text: {
-			const auto text = value.Get<StormByte::String::String>();
+			const auto text = value.Get<StormByte::Safe::String>();
 			const std::string_view text_view = text;
 			result = sqlite3_bind_text(m_stmt, col, text_view.data(), static_cast<int>(text_view.size()), SQLITE_TRANSIENT);
 			break;

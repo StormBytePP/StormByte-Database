@@ -69,8 +69,8 @@ void PreparedSTMT::EnsureParamSize(std::vector<StormByte::Database::Value>& para
 }
 
 PreparedSTMT::PreparedSTMT(ConstructionKey, std::string_view name, std::string_view query, struct st_mysql* conn,
-		const StormByte::Shared<Logger::Log>& logger,
-		const StormByte::Shared<StormByte::Database::Telemetry>& telemetry)
+		const StormByte::Safe::Shared<Logger::Log>& logger,
+		const StormByte::Safe::Shared<StormByte::Database::Telemetry>& telemetry)
 	: StormByte::Database::PreparedSTMT(name, query, logger, telemetry), m_conn(conn), m_stmt(nullptr) {
 	MYSQL* cpp_conn = to_mysql_conn(m_conn);
 	MYSQL_STMT* stmt = mysql_stmt_init(cpp_conn);
@@ -229,7 +229,7 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 
 			case StormByte::Database::Value::Type::Text: {
 				{
-					const auto text = p.Get<StormByte::String::String>();
+					const auto text = p.Get<StormByte::Safe::String>();
 					str_buf[i] = static_cast<std::string_view>(text);
 				}
 				if (str_buf[i].size() > std::numeric_limits<unsigned long>::max())
@@ -439,10 +439,11 @@ StormByte::Database::ExpectedRows PreparedSTMT::DoExecute() {
 						prow.add(column_name, static_cast<int>(out_int[i]));
 					break;
 				case MYSQL_TYPE_LONGLONG:
-					if (f && (f->flags & UNSIGNED_FLAG))
-					prow.add(column_name, static_cast<unsigned long long int>(out_ull[i]));
-				else
-					prow.add(column_name, static_cast<long long int>(out_ll[i]));
+					if (f && (f->flags & UNSIGNED_FLAG)) {
+						prow.add(column_name, static_cast<unsigned long long int>(out_ull[i]));
+					} else {
+						prow.add(column_name, static_cast<long long int>(out_ll[i]));
+					}
 					break;
 				case MYSQL_TYPE_FLOAT:
 				case MYSQL_TYPE_DOUBLE:

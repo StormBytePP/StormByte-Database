@@ -28,7 +28,7 @@ namespace StormByte::Database::MariaDB {
 			/** @brief MariaDB warnings reported after successful operations. */
 			std::uint64_t Warnings() const noexcept;
 			/** @brief Flatten common and MariaDB-specific metrics. */
-			operator StormByte::String::String() const override;
+			operator StormByte::Safe::String() const override;
 		private:
 			friend class MariaDB;
 			friend class PreparedSTMT;

@@ -109,8 +109,8 @@ namespace StormByte {
 					 * @param logger Non-owning logger observer.
 					 */
 					PreparedSTMT(ConstructionKey key, std::string_view name, std::string_view query,
-						const StormByte::Shared<Logger::Log>& logger,
-						const StormByte::Shared<StormByte::Database::Telemetry>& telemetry);
+						const StormByte::Safe::Shared<Logger::Log>& logger,
+						const StormByte::Safe::Shared<StormByte::Database::Telemetry>& telemetry);
 
 				private:
 					sqlite3_stmt *m_stmt; ///< SQLite statement handle

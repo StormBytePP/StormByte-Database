@@ -74,7 +74,7 @@ namespace StormByte {
 				 * @param query SQL text.
 				 * @param logger Logger instance.
 				 */
-				PreparedSTMT(std::string_view name, std::string_view query, const StormByte::Shared<Logger::Log>& logger);
+				PreparedSTMT(std::string_view name, std::string_view query, const StormByte::Safe::Shared<Logger::Log>& logger);
 
 				/**
 				 * @brief Copy statement metadata and share connection telemetry.
@@ -83,8 +83,8 @@ namespace StormByte {
 				 * @param logger Logger instance.
 				 * @param telemetry Connection telemetry handle.
 				 */
-				PreparedSTMT(std::string_view name, std::string_view query, const StormByte::Shared<Logger::Log>& logger,
-					const StormByte::Shared<Telemetry>& telemetry);
+				PreparedSTMT(std::string_view name, std::string_view query, const StormByte::Safe::Shared<Logger::Log>& logger,
+					const StormByte::Safe::Shared<Telemetry>& telemetry);
 
 				/**
 				 * @brief Copy constructor (deleted).
@@ -144,8 +144,8 @@ namespace StormByte {
 				}
 
 			protected:
-				StormByte::Shared<Logger::Log> m_logger;	///< Shared logger, safe across the DLL boundary
-				StormByte::Shared<Telemetry> m_telemetry; ///< Shared connection telemetry.
+				StormByte::Safe::Shared<Logger::Log> m_logger;	///< Shared logger, safe across the DLL boundary
+				StormByte::Safe::Shared<Telemetry> m_telemetry; ///< Shared connection telemetry.
 
 				/**
 				 * @brief Record a backend event against the owning connection.

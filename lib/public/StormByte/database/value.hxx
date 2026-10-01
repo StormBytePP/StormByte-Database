@@ -78,7 +78,7 @@ namespace StormByte {
 					LongInteger,		 ///< long long int (64-bit on every platform)
 					UnsignedLongInteger, ///< unsigned long long int (64-bit on every platform)
 					Double,				 ///< double
-					Text,				 ///< StormByte::String::String
+					Text,				 ///< StormByte::Safe::String
 					Blob,				 ///< StormByte::BinaryData
 					Boolean				 ///< bool
 				};

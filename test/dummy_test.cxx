@@ -195,7 +195,7 @@ int test_row_and_rows_value_semantics() {
 	row.add("name", Value{std::string_view{"Ada"}});
 	ASSERT_EQUAL(fn_name, 2, row.size());
 	ASSERT_EQUAL(fn_name, 42, row["id"].Get<int>());
-	ASSERT_EQUAL(fn_name, "Ada", row[1].Get<StormByte::String::String>());
+	ASSERT_EQUAL(fn_name, "Ada", row[1].Get<StormByte::Safe::String>());
 
 	Row copied_row{row};
 	ASSERT_TRUE(fn_name, copied_row == row);
@@ -235,7 +235,7 @@ int test_row_and_rows_value_semantics() {
 
 int test_telemetry_operation_metrics() {
 	constexpr std::string_view fn_name = "test_telemetry_operation_metrics";
-	auto telemetry = StormByte::Shared<TestTelemetry>::MakePointer<TestTelemetry>();
+	auto telemetry = StormByte::Safe::Shared<TestTelemetry>::MakePointer<TestTelemetry>();
 	{
 		Telemetry::OperationScope operation{telemetry, Operation::Query};
 		operation.Complete(true, 3);
@@ -253,7 +253,7 @@ int test_telemetry_operation_metrics() {
 	ASSERT_EQUAL(fn_name, 3, telemetry->RowsReturned());
 	ASSERT_TRUE(fn_name, static_cast<std::string>(*telemetry).find("Query{calls=2") != std::string::npos);
 
-	auto concurrent_telemetry = StormByte::Shared<TestTelemetry>::MakePointer<TestTelemetry>();
+	auto concurrent_telemetry = StormByte::Safe::Shared<TestTelemetry>::MakePointer<TestTelemetry>();
 	constexpr int thread_count = 8;
 	constexpr int operations_per_thread = 500;
 	std::vector<std::thread> threads;

@@ -9,8 +9,10 @@
 #pragma once
 
 #include <StormByte/database/visibility.h>
-#include <StormByte/safe_pointers.hxx>
-#include <StormByte/string/string.hxx>
+#include <StormByte/safe/pointers.hxx>
+#include <StormByte/safe/string.hxx>
+#include <StormByte/telemetry.hxx>
+#include <StormByte/thread_lock.hxx>
 
 #include <array>
 #include <atomic>
@@ -89,11 +91,11 @@ namespace StormByte {
 		 * @class Telemetry
 		 * @brief Thread-safe cumulative telemetry for one database connection.
 		 *
-		 * The owning Database exposes a @ref StormByte::Shared handle. Callers may
+		 * The owning Database exposes a @ref StormByte::Safe::Shared handle. Callers may
 		 * retain that handle after disconnect or Database destruction. Counters
 		 * are snapshots and do not expose SQL text or bound values.
 		 */
-		class STORMBYTE_DATABASE_PUBLIC Telemetry {
+		class STORMBYTE_DATABASE_PUBLIC Telemetry : public StormByte::Telemetry {
 			public:
 				/**
 				 * @class OperationScope
@@ -106,7 +108,7 @@ namespace StormByte {
 					 * @param telemetry Telemetry object that receives the measurement.
 					 * @param operation Operation category.
 					 */
-					OperationScope(StormByte::Shared<Telemetry> telemetry, Operation operation) noexcept;
+					OperationScope(StormByte::Safe::Shared<Telemetry> telemetry, Operation operation) noexcept;
 
 					/**
 					 * @brief Copy constructor is deleted.
@@ -131,9 +133,10 @@ namespace StormByte {
 					~OperationScope() noexcept;
 
 				private:
-					StormByte::Shared<Telemetry> m_telemetry; ///< Keeps the measured telemetry object alive.
+					StormByte::Safe::Shared<Telemetry> m_telemetry; ///< Keeps the measured telemetry object alive.
 					Operation m_operation; ///< Operation category.
-					std::chrono::steady_clock::time_point m_started; ///< Monotonic start time.
+					std::chrono::microseconds m_started; ///< Base clock total before this interval.
+					bool m_clock_started; ///< Whether this scope started a Base clock.
 					std::uint64_t m_rows_returned; ///< Rows reported by Complete().
 					bool m_success; ///< Result reported by Complete().
 					bool m_completed; ///< Whether Complete() has been called.
@@ -173,14 +176,14 @@ namespace StormByte {
 				 * @brief Flatten counters into an owned StormByte string.
 			 * @return Human-readable telemetry snapshot.
 			 */
-				virtual operator StormByte::String::String() const;
+				virtual operator StormByte::Safe::String() const override;
 
 				/**
 				 * @brief Flatten counters into a caller-owned standard string.
 				 * @return Human-readable telemetry snapshot.
 				 */
 				STORMBYTE_FORCE_INLINE operator std::string() const {
-					return static_cast<std::string>(static_cast<StormByte::String::String>(*this));
+						return static_cast<std::string>(static_cast<StormByte::Safe::String>(*this));
 				}
 
 			protected:
@@ -207,15 +210,15 @@ namespace StormByte {
 				friend class PreparedSTMT;
 				friend class OperationScope;
 
+				mutable std::array<StormByte::ThreadLock, static_cast<std::size_t>(Operation::Count)> m_clock_locks; ///< Protect each Base clock while an interval is active.
+
 				/**
 				 * @struct Counter
 				 * @brief Atomic aggregates for one operation category.
 				 */
 				struct Counter {
-					std::atomic<std::uint64_t> attempts{0}; ///< Attempt count.
 					std::atomic<std::uint64_t> successes{0}; ///< Success count.
 					std::atomic<std::uint64_t> failures{0}; ///< Failure count.
-					std::atomic<std::uint64_t> total_nanoseconds{0}; ///< Total duration.
 					std::atomic<std::uint64_t> minimum_nanoseconds{std::numeric_limits<std::uint64_t>::max()}; ///< Minimum duration.
 					std::atomic<std::uint64_t> maximum_nanoseconds{0}; ///< Maximum duration.
 				};

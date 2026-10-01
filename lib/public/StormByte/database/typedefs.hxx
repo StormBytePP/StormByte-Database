@@ -44,7 +44,7 @@
 #include <StormByte/binary_data.hxx>
 #include <StormByte/database/exception.hxx>
 #include <StormByte/expected.hxx>
-#include <StormByte/string/string.hxx>
+#include <StormByte/safe/string.hxx>
 
 #include <variant>
 
@@ -71,7 +71,7 @@ namespace StormByte {
 			long long int,
 			unsigned long long int,
 			double,
-			StormByte::String::String,
+			StormByte::Safe::String,
 			bool,
 			StormByte::BinaryData>;
 

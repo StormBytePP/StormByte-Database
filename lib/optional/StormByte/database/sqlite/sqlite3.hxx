@@ -122,21 +122,21 @@ namespace StormByte {
 					 * @brief In-memory database.
 					 * @param logger Logger instance.
 					 */
-					SQLite3(const StormByte::Shared<Logger::Log>& logger);
+					SQLite3(const StormByte::Safe::Shared<Logger::Log>& logger);
 
 					/**
 					 * @brief File-backed database.
 					 * @param dbfile Path to the database file.
 					 * @param logger Logger instance.
 					 */
-					SQLite3(const std::filesystem::path &dbfile, const StormByte::Shared<Logger::Log>& logger);
+					SQLite3(const std::filesystem::path &dbfile, const StormByte::Safe::Shared<Logger::Log>& logger);
 
 					/**
 					 * @brief File-backed database (moved path and logger).
 					 * @param dbfile Path to the database file.
 					 * @param logger Logger instance.
 					 */
-					SQLite3(std::filesystem::path &&dbfile, const StormByte::Shared<Logger::Log>& logger);
+					SQLite3(std::filesystem::path &&dbfile, const StormByte::Safe::Shared<Logger::Log>& logger);
 
 					/**
 					 * @brief Enable foreign keys (off by default in SQLite).
@@ -181,7 +181,7 @@ namespace StormByte {
 					 * @param query SQL text.
 					 * @return Prepared statement or nullptr.
 					 */
-					StormByte::Unique<StormByte::Database::PreparedSTMT> CreatePreparedSTMT(std::string_view name, std::string_view query) noexcept override;
+					StormByte::Safe::Unique<StormByte::Database::PreparedSTMT> CreatePreparedSTMT(std::string_view name, std::string_view query) noexcept override;
 
 					/**
 					 * @brief Map IsolationLevel to BEGIN DEFERRED/IMMEDIATE/EXCLUSIVE.

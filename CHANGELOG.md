@@ -11,22 +11,23 @@ StormByte Database is the C++26 SQL layer of the StormByte suite.
 
 One API covers SQLite, PostgreSQL and MariaDB.
 Backends are base classes: you derive your schema, prepare statements and hook connect there.
-This repository is not Base, Buffer, Config, Crypto, Logger, Multimedia, Network, String or System.
-It requires StormByte-Logger 2.0.0 or newer, which vendors StormByte-String and StormByte Base.
+This repository is not Base, Buffer, Config, Crypto, Logger, Multimedia, Network or System.
+It requires StormByte-Logger 2.0.0 or newer, which supplies the bundled text and StormByte Base dependencies.
 The original StormByte-Database source is dual-licensed under LGPL v3.0-or-later or a commercial license.
 
 If you landed here from a release link and have not read the tree:
 
-- What this module is, how to build it, and short examples: [README.md](https://github.com/StormBytePP/StormByte-Database/blob/master/README.md)
-- License: dual LGPL v3.0-or-later / commercial, [LICENSE](https://github.com/StormBytePP/StormByte-Database/blob/master/LICENSE) and [COPYING.LGPLv3](https://github.com/StormBytePP/StormByte-Database/blob/master/COPYING.LGPLv3)
+- What this module is, how to build it, and short examples: [README.md](https://github.com/StormByte-Suite/StormByte-Database/blob/master/README.md)
+- License: dual LGPL v3.0-or-later / commercial, [LICENSE](https://github.com/StormByte-Suite/StormByte-Database/blob/master/LICENSE) and [COPYING.LGPLv3](https://github.com/StormByte-Suite/StormByte-Database/blob/master/COPYING.LGPLv3)
 
 ## [Unreleased]
-[Unreleased]: https://github.com/StormBytePP/StormByte-Database/compare/2.0.0...HEAD
+[Unreleased]: https://github.com/StormByte-Suite/StormByte-Database/compare/2.0.0...HEAD
 
-## [2.0.0] - 2026-09-30
+## [2.0.0] - 2026-10-02
 
 ### Changed
 
+- **StormByte Suite port** — Migrated first-party repository and documentation links to StormByte-Suite, removed the retired String repository from the suite listing and Doxygen tag references, and updated the Logger and BuildMaster submodule URLs.
 - **Database API and connection behavior**
 	- **Breaking**: `BeginTransaction` now returns `Expected<Transaction, TransactionError>` instead of throwing when transaction start fails. `Database` construction may also report allocation failure rather than terminating from a `noexcept` constructor; rebuild consumers against this API revision.
 	- **Breaking**: The public API contract changed beyond the DLL boundary fix. Inputs and storage were migrated to StormByte 2.0 types (`StormByte::String::String`, `StormByte::BinaryData`, `StormByte::Size`, `StormByte::ByteSize`, `std::string_view`), backend logger ownership is now shared (`StormByte::Shared<Logger::Log>`) instead of raw pointers, and statement/query factory signatures now accept view-based names and SQL text rather than rvalue strings. The exported layout of `Database`, `PreparedSTMT`, `Row`, `Rows`, `Value`, `NamedValue` and backend result containers was tightened to enforce DLL-safe ownership and out-of-line heap operations; consumers must recompile and update code that relied on old string, logger, or STL-owning ABI assumptions.
@@ -34,7 +35,7 @@ If you landed here from a release link and have not read the tree:
 	- **Breaking**: `Value::Type::LongInteger` and `Value::Type::UnsignedLongInteger` now store `long long int` and `unsigned long long int`, so they are 64-bit on every platform; use `Get<long long int>()` / `Get<unsigned long long int>()`. `long int` and `unsigned long int` are still accepted when constructing values.
 	- Serialized operations on each built-in connection. RAII transactions hold exclusive connection access through commit or rollback and must remain on their creating thread.
 - **Telemetry** — Added thread-safe operation counts, success/failure totals, returned-row counts, latency aggregates, backend error/warning categories, retained `StormByte::Shared` snapshots, and `StormByte::String::String` / `std::string` flattening for SQLite, PostgreSQL and MariaDB.
-- **Build and distribution** — Ported the library to BuildMaster 2 HOST with shared/static selection. Static consumers receive flattened private vendor dependencies; vendor archives do not need repacking. Updated Doxygen configuration for StormByte Base/String/Logger 2.0 and the dual-license terms.
+- **Build and distribution** — Ported the library to BuildMaster 2 HOST with shared/static selection. Static consumers receive flattened private vendor dependencies; vendor archives do not need repacking. Updated Doxygen configuration for StormByte Base and Logger 2.0 and the dual-license terms.
 - **Robustness tests** — Expanded tests for numeric boundaries, Row/Rows value semantics, backend scalar and binary round-trips, transaction rollback, prepared-statement failures, same-connection concurrency, and an installed external consumer.
 
 ### Fixed
@@ -50,7 +51,7 @@ If you landed here from a release link and have not read the tree:
 	- Windows Release builds no longer use `/fp:fast`, so NaN and infinity handling in value conversions follows IEEE semantics.
 	- 64-bit integer results from SQLite, PostgreSQL and MariaDB are no longer truncated to the 32-bit Windows `long`, which turned values such as `UINT_MAX` negative and made reads throw.
 
-[2.0.0]: https://github.com/StormBytePP/StormByte-Database/compare/1.1.0...2.0.0
+[2.0.0]: https://github.com/StormByte-Suite/StormByte-Database/compare/1.1.0...2.0.0
 
 ## [1.1.0] - 2026-09-13
 
@@ -73,7 +74,7 @@ If you landed here from a release link and have not read the tree:
 - Updated the minimum requirements to StormByte Base 1.1.0 and StormByte-Logger 1.1.0, including component-aware Database exceptions.
 - Adopted StormByte Base type concepts for Database value conversions.
 
-[1.1.0]: https://github.com/StormBytePP/StormByte-Database/compare/1.0.0...1.1.0
+[1.1.0]: https://github.com/StormByte-Suite/StormByte-Database/compare/1.0.0...1.1.0
 
 ## [1.0.0] - 2026-09-05
 
@@ -97,4 +98,4 @@ Initial public release of StormByte Database.
 - First stable release of StormByte Database.
 - Not thread-safe: one connection per thread.
 - Needs a C++26 compiler and CMake ≥ 3.28.
-[1.0.0]: https://github.com/StormBytePP/StormByte-Database/releases/tag/1.0.0
+[1.0.0]: https://github.com/StormByte-Suite/StormByte-Database/releases/tag/1.0.0

@@ -10,7 +10,7 @@ string(STRIP "${_sb_ver}" _sb_ver)
 project("StormByte C++ Library: Database module"
 	VERSION ${_sb_ver}
 	DESCRIPTION "StormByte-Database is the SQL module of the StormByte C++ suite."
-	HOMEPAGE_URL "https://dev.stormbyte.org/StormByte-Database"
+	HOMEPAGE_URL "http://suite.stormbyte.org/StormByte-Database"
 )
 
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)

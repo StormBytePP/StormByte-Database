@@ -30,7 +30,9 @@ If you landed here from a release link and have not read the tree:
   - Connections enable `QUOTED_IDENTIFIER`, so double-quoted identifiers resolve as identifiers on older DB-Library releases.
   - NULL prepared-statement parameters are sent as untyped `NULL`, allowing them in any column type such as `VARBINARY(MAX)`.
   - SQL Server error messages are kept instead of DB-Library's generic notice, and `Telemetry::Errors()` now counts them.
-- **Windows bundled PostgreSQL** — The Meson configure now links `ws2_32` and `crypt32`, so the OpenSSL function checks succeed against the static bundled OpenSSL.
+- **Windows bundled OpenSSL consumers** — Nested builds now link `ws2_32` and `crypt32` alongside the static bundled OpenSSL:
+  - PostgreSQL's Meson configure, so its OpenSSL function checks succeed.
+  - MariaDB Connector/C plugin DLLs such as `sha256_password.dll`.
 
 ## [2.0.0] - 2026-10-02
 

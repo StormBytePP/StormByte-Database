@@ -19,7 +19,8 @@ if(NOT WITH_MARIADB STREQUAL "OFF")
 		)
 
 		if(MSVC)
-			set(_mdb_optstr "ALIAS=MariaDB::ConnectorC;LINK={shlwapi;ws2_32;secur32;bcrypt;ncrypt;crypt32}")
+			# Plugin DLLs link static OpenSSL via plain library paths, missing its Winsock/CryptoAPI deps.
+			set(_mdb_optstr "ALIAS=MariaDB::ConnectorC;LINK={shlwapi;ws2_32;secur32;bcrypt;ncrypt;crypt32};LINKFLAGS={ws2_32.lib;crypt32.lib}")
 		else()
 			set(_mdb_optstr "ALIAS=MariaDB::ConnectorC")
 		endif()

@@ -33,7 +33,12 @@ namespace {
 	bool SetLoginPort(LOGINREC* login, const int port) {
 		if (port <= 0 || port > std::numeric_limits<unsigned short>::max())
 			return false;
+	#ifdef DBSETPORT
 		return dbsetlshort(login, port, DBSETPORT) != FAIL;
+	#else
+		(void)login;
+		return true;
+	#endif
 	}
 
 	std::string ErrorText(const char* message, const std::string& fallback) {
@@ -243,15 +248,28 @@ bool MSSQL::DoConnect() noexcept {
 			case SslMode::Require: encryption = "require"; break;
 			case SslMode::Default: break;
 		}
+	#ifdef DBSETENCRYPTION
 		if (configured && encryption)
 			configured = dbsetlname(login, encryption, DBSETENCRYPTION) != FAIL;
+	#else
+		if (encryption) {
+			m_last_error = "This DB-Library does not support per-connection TLS modes";
+			dbloginfree(login);
+			return false;
+		}
+	#endif
 		if (!configured) {
 			m_last_error = "DB-Library rejected an MSSQL connection option";
 			dbloginfree(login);
 			return false;
 		}
 
-		DBPROCESS* process = dbopen(login, m_host.c_str());
+		std::string server_name = m_host;
+	#ifndef DBSETPORT
+		if (m_port != 1433)
+			server_name += ":" + std::to_string(m_port);
+	#endif
+		DBPROCESS* process = dbopen(login, server_name.c_str());
 		dbloginfree(login);
 		if (!process) {
 			RecordBackendEvent(BackendEvent::Connection);

@@ -465,7 +465,7 @@ StormByte::Database::ExpectedRows MSSQL::ExecuteParameterized(const std::string_
 				break;
 			}
 			case Value::Type::Blob:
-				parameter.type = SYBVARBINARY;
+				parameter.type = SYBIMAGE;
 				parameter.binary = value.Get<StormByte::BinaryData>();
 				parameter.has_empty_marker = true;
 				parameter.empty_value = parameter.binary.empty();

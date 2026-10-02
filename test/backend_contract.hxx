@@ -75,10 +75,12 @@ int verify_scalar_backend_contract(DatabaseType& db, const std::string& test_nam
  * @tparam DatabaseType Built-in backend test fixture.
  * @param db Connected database fixture.
  * @param test_name Name used in assertion output.
+ * @param null_query SQL query selecting the newest NULL test row.
  * @return Test-handler result.
  */
 template <typename DatabaseType>
-int verify_binary_backend_contract(DatabaseType& db, const std::string& test_name) {
+int verify_binary_backend_contract(DatabaseType& db, const std::string& test_name,
+		const std::string_view null_query = "SELECT value FROM nulls ORDER BY id DESC LIMIT 1;") {
 	ASSERT_TRUE(test_name, db.Connect());
 	ASSERT_TRUE(test_name, db.ExecuteSTMT("insert_blob", StormByte::BinaryData{}).has_value());
 	auto empty_blob_rows = db.ExecuteSTMT("select_blob");
@@ -98,7 +100,7 @@ int verify_binary_backend_contract(DatabaseType& db, const std::string& test_nam
 	ASSERT_TRUE(test_name, std::equal(large_blob.begin(), large_blob.end(), returned_blob.begin()));
 
 	ASSERT_TRUE(test_name, db.ExecuteSTMT("insert_null", nullptr).has_value());
-	auto null_rows = db.Query("SELECT value FROM nulls ORDER BY id DESC LIMIT 1;");
+	auto null_rows = db.Query(null_query);
 	ASSERT_TRUE(test_name, null_rows.has_value());
 	ASSERT_EQUAL(test_name, 1, null_rows.value().Count());
 	ASSERT_TRUE(test_name, null_rows.value()[0][0].IsNull());

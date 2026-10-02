@@ -25,15 +25,28 @@ using namespace StormByte::Database;
 namespace {
 	using StormByte::Database::Value;
 
-	StormByte::Expected<Value, ExecuteError> ReadValue(DBPROCESS* process, const int column) noexcept {
+	StormByte::Expected<Value, ExecuteError> ReadValue(DBPROCESS* process, const int column,
+			const bool is_null) noexcept {
+		if (is_null)
+			return Value{};
 		BYTE* data = dbdata(process, column);
 		const DBINT length = dbdatlen(process, column);
-		if (!data)
-			return Value{};
 		if (length < 0)
 			return StormByte::Unexpected<ExecuteError>("DB-Library returned a negative column length");
 
 		const int type = dbcoltype(process, column);
+		if (!data && length == 0) {
+			switch (type) {
+				case SYBBINARY:
+				case SYBVARBINARY:
+				case SYBIMAGE:
+					return Value{StormByte::BinaryData{}};
+				default:
+					return Value{std::string_view{}};
+			}
+		}
+		if (!data)
+			return StormByte::Unexpected<ExecuteError>("DB-Library returned no data for a non-NULL MSSQL value");
 		switch (type) {
 			case SYBINT1:
 			case SYBINT2:
@@ -139,6 +152,11 @@ ExpectedRows StormByte::Database::MSSQL::StepResults(DBPROCESS* process) noexcep
 		const int column_count = dbnumcols(process);
 		if (column_count < 0)
 			return StormByte::Unexpected<QueryException>(ExecuteError("DB-Library returned an invalid column count"));
+		std::vector<DBINT> null_indicators(static_cast<std::size_t>(column_count));
+		for (int column = 1; column <= column_count; ++column) {
+			if (dbnullbind(process, column, &null_indicators[static_cast<std::size_t>(column - 1)]) == FAIL)
+				return StormByte::Unexpected<QueryException>(ExecuteError("DB-Library could not bind an MSSQL NULL indicator"));
+		}
 
 		for (;;) {
 			const STATUS row_status = dbnextrow(process);
@@ -153,7 +171,8 @@ ExpectedRows StormByte::Database::MSSQL::StepResults(DBPROCESS* process) noexcep
 			for (int column = 1; column <= column_count; ++column) {
 				const char* column_name = dbcolname(process, column);
 				const std::string_view name{column_name ? column_name : ""};
-				auto value = ReadValue(process, column);
+				auto value = ReadValue(process, column,
+					null_indicators[static_cast<std::size_t>(column - 1)] == -1);
 				if (!value)
 					return StormByte::Unexpected<QueryException>(*value.error());
 				row.add(name, std::move(*value));

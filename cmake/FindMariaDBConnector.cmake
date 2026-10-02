@@ -103,6 +103,14 @@ if(MARIADB_CONNECTOR_FOUND)
       set_target_properties(MariaDB::ConnectorC PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${MARIADB_CONNECTOR_INCLUDE_DIR}")
     endif()
 
+    if(_mariadb_connector_lib MATCHES "\\.a$")
+      find_package(OpenSSL REQUIRED)
+      find_package(ZLIB REQUIRED)
+      set_property(TARGET MariaDB::ConnectorC APPEND PROPERTY INTERFACE_LINK_LIBRARIES
+        OpenSSL::SSL OpenSSL::Crypto ZLIB::ZLIB
+      )
+    endif()
+
     message(STATUS "Created imported target MariaDB::ConnectorC")
   endif()
 endif()

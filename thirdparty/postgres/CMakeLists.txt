@@ -39,7 +39,8 @@ if(NOT WITH_POSTGRES STREQUAL "OFF")
 		)
 
 		if(WIN32)
-			set(_pg_optstr "TOOLCHAIN=msvc;ALIAS=PostgreSQL::PostgreSQL")
+			# Meson reads openssl.pc without --static, so static OpenSSL's Winsock/CryptoAPI deps are dropped.
+			set(_pg_optstr "TOOLCHAIN=msvc;ALIAS=PostgreSQL::PostgreSQL;LINKFLAGS={ws2_32.lib;crypt32.lib}")
 		else()
 			set(_pg_optstr "ALIAS=PostgreSQL::PostgreSQL")
 		endif()

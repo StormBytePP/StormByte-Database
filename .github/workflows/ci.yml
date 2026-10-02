@@ -288,7 +288,7 @@ jobs:
 
     env:
       DYLD_LIBRARY_PATH: ${{ github.workspace }}/build/buildmaster/install/lib64:${{ github.workspace }}/build/lib
-      MSSQL_HOST: ${{ secrets.TS_OAUTH_CLIENT_ID != '' && secrets.TS_AUDIENCE != '' && vars.MSSQL_REMOTE_HOST || '' }}
+      MSSQL_HOST: ${{ github.ref == 'refs/heads/master' && secrets.TS_OAUTH_CLIENT_ID != '' && secrets.TS_AUDIENCE != '' && vars.MSSQL_REMOTE_HOST || '' }}
       MSSQL_USER: ${{ secrets.MSSQL_USER }}
       MSSQL_PASSWORD: ${{ secrets.MSSQL_PASSWORD }}
       MSSQL_DATABASE: ${{ vars.MSSQL_DATABASE || 'master' }}
@@ -422,7 +422,7 @@ jobs:
     name: windows-clang-cl
     env:
       PG_VERSION: "18.6-1"
-      MSSQL_HOST: ${{ secrets.TS_OAUTH_CLIENT_ID != '' && secrets.TS_AUDIENCE != '' && vars.MSSQL_REMOTE_HOST || '' }}
+      MSSQL_HOST: ${{ github.ref == 'refs/heads/master' && secrets.TS_OAUTH_CLIENT_ID != '' && secrets.TS_AUDIENCE != '' && vars.MSSQL_REMOTE_HOST || '' }}
       MSSQL_USER: ${{ secrets.MSSQL_USER }}
       MSSQL_PASSWORD: ${{ secrets.MSSQL_PASSWORD }}
       MSSQL_DATABASE: ${{ vars.MSSQL_DATABASE || 'master' }}

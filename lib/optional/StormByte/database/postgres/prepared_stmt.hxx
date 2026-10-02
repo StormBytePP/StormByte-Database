@@ -111,6 +111,7 @@ namespace StormByte {
 					 * @param name Statement name.
 					 * @param query SQL text.
 					 * @param logger Non-owning logger observer.
+					 * @param telemetry Shared operation telemetry.
 					 */
 					PreparedSTMT(ConstructionKey key, std::string_view name, std::string_view query,
 						const StormByte::Safe::Shared<Logger::Log>& logger,

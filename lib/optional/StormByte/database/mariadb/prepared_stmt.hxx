@@ -115,6 +115,7 @@ namespace StormByte {
 					 * @param query SQL text.
 					 * @param conn Connection handle.
 					 * @param logger Non-owning logger observer.
+					 * @param telemetry Shared operation telemetry.
 					 */
 					PreparedSTMT(ConstructionKey key, std::string_view name, std::string_view query, struct st_mysql* conn,
 						const StormByte::Safe::Shared<Logger::Log>& logger,

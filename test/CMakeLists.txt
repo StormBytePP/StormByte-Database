@@ -24,6 +24,13 @@ if(ENABLE_TEST)
 		add_test(NAME MariaDBTests COMMAND MariaDBTests)
 	endif()
 
+	if (NOT WITH_MSSQL STREQUAL "OFF")
+		add_executable(MSSQLTests mssql_test.cxx)
+		target_link_libraries(MSSQLTests StormByte::Database)
+		add_test(NAME MSSQLTests COMMAND MSSQLTests)
+		set_tests_properties(MSSQLTests PROPERTIES SKIP_RETURN_CODE 77)
+	endif()
+
 	if(BUILD_SHARED_LIBS)
 		add_test(NAME InstalledConsumerSmoke
 			COMMAND "${CMAKE_COMMAND}"

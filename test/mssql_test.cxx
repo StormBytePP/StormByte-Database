@@ -1,0 +1,356 @@
+/*
+ * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+ *
+ * This file is part of StormByte-Database.
+ *
+ * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
+ */
+
+#include <StormByte/database/mssql/mssql.hxx>
+#include <StormByte/database/mssql/telemetry.hxx>
+#include <StormByte/database/transaction.hxx>
+#include <StormByte/test_handlers.h>
+#include "backend_contract.hxx"
+
+#include <atomic>
+#include <cstdlib>
+#include <chrono>
+#include <future>
+#include <iostream>
+#include <limits>
+#include <memory>
+#include <string>
+#include <thread>
+#include <vector>
+
+using namespace StormByte::Database;
+using namespace StormByte::Database::MSSQL;
+
+namespace {
+	std::string EnvironmentValue(const char* const name, const char* const fallback) {
+		const char* const value = std::getenv(name);
+		return value ? value : fallback;
+	}
+
+	class TestDatabase final : public MSSQL {
+		public:
+			TestDatabase(): MSSQL(
+				EnvironmentValue("MSSQL_HOST", ""),
+				EnvironmentValue("MSSQL_USER", "testuser"),
+				EnvironmentValue("MSSQL_PASSWORD", "testpass"),
+				EnvironmentValue("MSSQL_DATABASE", "master"),
+				std::stoi(EnvironmentValue("MSSQL_PORT", "1433")), nullptr) {}
+
+			const StormByte::Database::ExpectedRows Count(const std::string_view table) {
+				return Query("SELECT CAST(COUNT(*) AS bigint) AS value FROM " + std::string{table} + ";");
+			}
+
+		private:
+			void DoPostConnect() noexcept override {
+				DoSilentQuery("CREATE TABLE #sb_scalar (id int IDENTITY PRIMARY KEY, signed_integer int NOT NULL, unsigned_integer bigint NOT NULL, signed_long bigint NOT NULL, unsigned_long decimal(20,0) NOT NULL, real_number float NOT NULL, text_value nvarchar(max) NOT NULL, blob_value varbinary(max) NOT NULL, flag bit NOT NULL, nullable_value nvarchar(max) NULL);");
+				DoSilentQuery("CREATE TABLE #sb_blobs (id int IDENTITY PRIMARY KEY, data varbinary(max) NULL);");
+				DoSilentQuery("CREATE TABLE #sb_nulls (id int IDENTITY PRIMARY KEY, value nvarchar(max) NULL);");
+				DoSilentQuery("CREATE TABLE #sb_required (id int IDENTITY PRIMARY KEY, value nvarchar(64) NOT NULL);");
+				DoSilentQuery("CREATE TABLE #sb_unique (id int IDENTITY PRIMARY KEY, value nvarchar(64) NOT NULL UNIQUE);");
+				DoSilentQuery("CREATE TABLE #sb_concurrent (id int IDENTITY PRIMARY KEY, value int NOT NULL);");
+				DoPrepareSTMT("insert_scalar_types", "INSERT INTO #sb_scalar (signed_integer, unsigned_integer, signed_long, unsigned_long, real_number, text_value, blob_value, flag, nullable_value) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);");
+				DoPrepareSTMT("insert_blob", "INSERT INTO #sb_blobs (data) VALUES (?);");
+				DoPrepareSTMT("select_blob", "SELECT TOP (1) data FROM #sb_blobs ORDER BY id DESC;");
+				DoPrepareSTMT("insert_null", "INSERT INTO #sb_nulls (value) VALUES (?);");
+				DoPrepareSTMT("select_nulls", "SELECT value FROM #sb_nulls ORDER BY id;");
+				DoPrepareSTMT("insert_required", "INSERT INTO #sb_required (value) VALUES (?);");
+				DoPrepareSTMT("insert_unique", "INSERT INTO #sb_unique (value) VALUES (?);");
+				DoPrepareSTMT("insert_concurrent", "INSERT INTO #sb_concurrent (value) VALUES (?);");
+				DoPrepareSTMT("count_concurrent", "SELECT CAST(COUNT(*) AS bigint) AS value FROM #sb_concurrent;");
+				DoPrepareSTMT("integer_parameter", "SELECT CAST(? AS int) AS value;");
+				DoPrepareSTMT("text_parameter", "SELECT CAST(? AS nvarchar(64)) AS value;");
+				DoPrepareSTMT("two_parameters", "SELECT CAST(? AS int) + CAST(? AS int) AS value;");
+				DoPrepareSTMT("scanner", "SELECT ? AS bound_value, '?' AS literal_value, [question?] AS bracket_value, \"double?\" AS double_value FROM (SELECT 9 AS [question?], 11 AS [double?]) AS source WHERE ? = ? -- ?\n/* outer ? /* nested ? */ ? */;");
+			}
+	};
+}
+
+int not_connected_operations() {
+	const std::string test_name = "mssql_not_connected_operations";
+	TestDatabase database;
+	ASSERT_FALSE(test_name, database.Query("SELECT 1;").has_value());
+	ASSERT_FALSE(test_name, database.SilentQuery("SELECT 1;"));
+	ASSERT_FALSE(test_name, database.ExecuteSTMT("integer_parameter", 1).has_value());
+	ASSERT_FALSE(test_name, database.BeginTransaction().has_value());
+	RETURN_TEST(test_name, 0);
+}
+
+int connection_lifecycle_and_move() {
+	const std::string test_name = "mssql_connection_lifecycle_and_move";
+	std::unique_ptr<TestDatabase> moved;
+	{
+		TestDatabase source;
+		ASSERT_TRUE(test_name, source.Connect());
+		ASSERT_FALSE(test_name, source.Connect());
+		moved = std::make_unique<TestDatabase>(std::move(source));
+	}
+	ASSERT_TRUE(test_name, moved->IsConnected());
+	ASSERT_TRUE(test_name, moved->Query("SELECT 1 AS value;").has_value());
+	moved->Disconnect();
+	ASSERT_FALSE(test_name, moved->IsConnected());
+	ASSERT_TRUE(test_name, moved->Connect());
+	RETURN_TEST(test_name, 0);
+}
+
+int shared_backend_contract() {
+	TestDatabase scalar_database;
+	const int scalar_result = verify_scalar_backend_contract(scalar_database, "mssql_scalar_contract");
+	TestDatabase binary_database;
+	const int binary_result = verify_binary_backend_contract(binary_database, "mssql_binary_contract");
+	return scalar_result + binary_result;
+}
+
+int prepared_statement_parameter_types() {
+	const std::string test_name = "mssql_prepared_statement_parameter_types";
+	TestDatabase database;
+	ASSERT_TRUE(test_name, database.Connect());
+	ASSERT_TRUE(test_name, database.ExecuteSTMT("integer_parameter", std::numeric_limits<int>::min()).has_value());
+	ASSERT_EQUAL(test_name, std::numeric_limits<int>::min(), database.ExecuteSTMT("integer_parameter", std::numeric_limits<int>::min()).value()[0][0].Get<int>());
+	ASSERT_EQUAL(test_name, StormByte::Safe::String{"quoted ' text with \\ backslashes"},
+		database.ExecuteSTMT("text_parameter", "quoted ' text with \\ backslashes").value()[0][0].Get<StormByte::Safe::String>());
+	ASSERT_EQUAL(test_name, std::numeric_limits<unsigned long long int>::max(),
+		database.Query("SELECT CAST(18446744073709551615 AS decimal(20,0)) AS value;").value()[0][0].Get<unsigned long long int>());
+	ASSERT_FALSE(test_name, database.ExecuteSTMT("two_parameters", 1).has_value());
+	ASSERT_FALSE(test_name, database.ExecuteSTMT("two_parameters", 1, 2, 3).has_value());
+	ASSERT_EQUAL(test_name, 7, database.ExecuteSTMT("two_parameters", 3, 4).value()[0][0].Get<int>());
+	RETURN_TEST(test_name, 0);
+}
+
+int placeholder_scanner_ignores_sql_literals_and_comments() {
+	const std::string test_name = "mssql_placeholder_scanner_ignores_literals_comments_and_identifiers";
+	TestDatabase database;
+	ASSERT_TRUE(test_name, database.Connect());
+	auto rows = database.ExecuteSTMT("scanner", 23, 7, 7);
+	ASSERT_TRUE(test_name, rows.has_value());
+	ASSERT_EQUAL(test_name, 1, rows.value().Count());
+	ASSERT_EQUAL(test_name, 23, rows.value()[0]["bound_value"].Get<int>());
+	ASSERT_EQUAL(test_name, StormByte::Safe::String{"?"}, rows.value()[0]["literal_value"].Get<StormByte::Safe::String>());
+	ASSERT_EQUAL(test_name, 9, rows.value()[0]["bracket_value"].Get<int>());
+	ASSERT_EQUAL(test_name, 11, rows.value()[0]["double_value"].Get<int>());
+	RETURN_TEST(test_name, 0);
+}
+
+int empty_and_null_values_are_distinct() {
+	const std::string test_name = "mssql_empty_and_null_values_are_distinct";
+	TestDatabase database;
+	ASSERT_TRUE(test_name, database.Connect());
+
+	ASSERT_TRUE(test_name, database.ExecuteSTMT("insert_blob", StormByte::BinaryData{}).has_value());
+	auto empty_blob = database.ExecuteSTMT("select_blob");
+	ASSERT_TRUE(test_name, empty_blob.has_value());
+	ASSERT_FALSE(test_name, empty_blob.value()[0][0].IsNull());
+	ASSERT_TRUE(test_name, empty_blob.value()[0][0].Get<StormByte::BinaryData>().empty());
+
+	ASSERT_TRUE(test_name, database.ExecuteSTMT("insert_blob", nullptr).has_value());
+	auto null_blob = database.ExecuteSTMT("select_blob");
+	ASSERT_TRUE(test_name, null_blob.has_value());
+	ASSERT_TRUE(test_name, null_blob.value()[0][0].IsNull());
+
+	auto empty_text = database.ExecuteSTMT("text_parameter", "");
+	ASSERT_TRUE(test_name, empty_text.has_value());
+	ASSERT_TRUE(test_name, empty_text.value()[0][0].Get<StormByte::Safe::String>().empty());
+	ASSERT_TRUE(test_name, database.ExecuteSTMT("insert_null", nullptr).has_value());
+	auto null_text = database.Query("SELECT value FROM #sb_nulls ORDER BY id DESC;");
+	ASSERT_TRUE(test_name, null_text.has_value());
+	ASSERT_TRUE(test_name, null_text.value()[0][0].IsNull());
+	RETURN_TEST(test_name, 0);
+}
+
+int multiple_result_sets_and_silent_drain() {
+	const std::string test_name = "mssql_multiple_result_sets_and_silent_drain";
+	TestDatabase database;
+	ASSERT_TRUE(test_name, database.Connect());
+	auto rows = database.Query("SELECT 10 AS value; SELECT 20 AS value;");
+	ASSERT_TRUE(test_name, rows.has_value());
+	ASSERT_EQUAL(test_name, 2, rows.value().Count());
+	ASSERT_EQUAL(test_name, 10, rows.value()[0]["value"].Get<int>());
+	ASSERT_EQUAL(test_name, 20, rows.value()[1]["value"].Get<int>());
+	ASSERT_TRUE(test_name, database.SilentQuery("SELECT 1 AS value; SELECT 2 AS value;"));
+	ASSERT_EQUAL(test_name, 30, database.Query("SELECT 30 AS value;").value()[0][0].Get<int>());
+	RETURN_TEST(test_name, 0);
+}
+
+int query_errors_preserve_connection() {
+	const std::string test_name = "mssql_query_errors_preserve_connection";
+	TestDatabase database;
+	ASSERT_TRUE(test_name, database.Connect());
+	ASSERT_FALSE(test_name, database.Query("SELEC 1;").has_value());
+	ASSERT_FALSE(test_name, database.SilentQuery("SELEC 1;"));
+	ASSERT_TRUE(test_name, database.SilentQuery("SELECT 1;"));
+	auto rows = database.Query("SELECT 42 AS value;");
+	ASSERT_TRUE(test_name, rows.has_value());
+	ASSERT_EQUAL(test_name, 42, rows.value()[0]["value"].Get<int>());
+	RETURN_TEST(test_name, 0);
+}
+
+int constraint_failure_preserves_connection() {
+	const std::string test_name = "mssql_constraint_failure_preserves_connection";
+	TestDatabase database;
+	ASSERT_TRUE(test_name, database.Connect());
+	ASSERT_TRUE(test_name, database.ExecuteSTMT("insert_unique", "same").has_value());
+	ASSERT_FALSE(test_name, database.ExecuteSTMT("insert_unique", "same").has_value());
+	ASSERT_EQUAL(test_name, 1, database.Count("#sb_unique").value()[0][0].Get<long long int>());
+	RETURN_TEST(test_name, 0);
+}
+
+int transactions_commit_and_rollback() {
+	const std::string test_name = "mssql_transactions_commit_and_rollback";
+	TestDatabase database;
+	ASSERT_TRUE(test_name, database.Connect());
+	{
+		auto transaction = database.BeginTransaction(IsolationLevel::ReadCommitted);
+		ASSERT_TRUE(test_name, transaction.has_value());
+		ASSERT_TRUE(test_name, database.ExecuteSTMT("insert_required", "commit").has_value());
+		transaction->Commit();
+	}
+	{
+		auto transaction = database.BeginTransaction(IsolationLevel::ReadUncommitted);
+		ASSERT_TRUE(test_name, transaction.has_value());
+		transaction->Commit();
+	}
+	{
+		auto transaction = database.BeginTransaction(IsolationLevel::RepeatableRead);
+		ASSERT_TRUE(test_name, transaction.has_value());
+		transaction->Commit();
+	}
+	ASSERT_EQUAL(test_name, 1, database.Count("#sb_required").value()[0][0].Get<long long int>());
+	{
+		auto transaction = database.BeginTransaction(IsolationLevel::Serializable);
+		ASSERT_TRUE(test_name, transaction.has_value());
+		ASSERT_TRUE(test_name, database.ExecuteSTMT("insert_required", "rollback").has_value());
+		transaction->Rollback();
+	}
+	ASSERT_EQUAL(test_name, 1, database.Count("#sb_required").value()[0][0].Get<long long int>());
+	{
+		auto transaction = database.BeginTransaction();
+		ASSERT_TRUE(test_name, transaction.has_value());
+		ASSERT_TRUE(test_name, database.ExecuteSTMT("insert_required", "auto rollback").has_value());
+	}
+	ASSERT_EQUAL(test_name, 1, database.Count("#sb_required").value()[0][0].Get<long long int>());
+	RETURN_TEST(test_name, 0);
+}
+
+int failed_statement_rolls_back_transaction() {
+	const std::string test_name = "mssql_failed_statement_rolls_back_transaction";
+	TestDatabase database;
+	ASSERT_TRUE(test_name, database.Connect());
+	ASSERT_TRUE(test_name, database.ExecuteSTMT("insert_unique", "duplicate").has_value());
+	auto transaction = database.BeginTransaction();
+	ASSERT_TRUE(test_name, transaction.has_value());
+	ASSERT_TRUE(test_name, database.ExecuteSTMT("insert_required", "transient").has_value());
+	ASSERT_FALSE(test_name, database.ExecuteSTMT("insert_unique", "duplicate").has_value());
+	transaction->Rollback();
+	ASSERT_EQUAL(test_name, 0, database.Query("SELECT COUNT(*) AS value FROM #sb_required WHERE value = 'transient';").value()[0][0].Get<int>());
+	ASSERT_EQUAL(test_name, 1, database.Count("#sb_unique").value()[0][0].Get<long long int>());
+	RETURN_TEST(test_name, 0);
+}
+
+int same_connection_concurrency_and_transaction_exclusion() {
+	const std::string test_name = "mssql_same_connection_concurrency_and_transaction_exclusion";
+	TestDatabase database;
+	ASSERT_TRUE(test_name, database.Connect());
+	constexpr int thread_count = 4;
+	constexpr int writes_per_thread = 20;
+	std::atomic<int> failures{};
+	std::vector<std::thread> workers;
+	for (int thread_index{}; thread_index < thread_count; ++thread_index) {
+		workers.emplace_back([thread_index, &database, &failures] {
+			for (int write_index{}; write_index < writes_per_thread; ++write_index)
+				if (!database.ExecuteSTMT("insert_concurrent", thread_index * 1000 + write_index).has_value())
+					++failures;
+		});
+	}
+	for (auto& worker : workers)
+		worker.join();
+	ASSERT_EQUAL(test_name, 0, failures.load());
+	ASSERT_EQUAL(test_name, thread_count * writes_per_thread,
+		database.ExecuteSTMT("count_concurrent").value()[0][0].Get<long long int>());
+
+	ASSERT_TRUE(test_name, database.SilentQuery("DELETE FROM #sb_concurrent;"));
+	auto transaction = database.BeginTransaction();
+	ASSERT_TRUE(test_name, transaction.has_value());
+	ASSERT_TRUE(test_name, database.ExecuteSTMT("insert_concurrent", 1).has_value());
+	auto worker = std::async(std::launch::async, [&database] {
+		return database.ExecuteSTMT("insert_concurrent", 2).has_value();
+	});
+	ASSERT_TRUE(test_name, worker.wait_for(std::chrono::milliseconds(50)) == std::future_status::timeout);
+	transaction->Rollback();
+	ASSERT_TRUE(test_name, worker.get());
+	ASSERT_EQUAL(test_name, 1, database.ExecuteSTMT("count_concurrent").value()[0][0].Get<long long int>());
+	RETURN_TEST(test_name, 0);
+}
+
+int separate_connections_run_concurrently() {
+	const std::string test_name = "mssql_separate_connections_run_concurrently";
+	constexpr int connection_count = 4;
+	std::atomic<int> failures{};
+	std::vector<std::thread> workers;
+	for (int connection_index{}; connection_index < connection_count; ++connection_index) {
+		workers.emplace_back([connection_index, &failures] {
+			TestDatabase database;
+			if (!database.Connect()
+					|| !database.ExecuteSTMT("insert_concurrent", connection_index).has_value()
+					|| !database.ExecuteSTMT("count_concurrent").has_value()
+					|| database.ExecuteSTMT("count_concurrent").value()[0][0].Get<long long int>() != 1)
+				++failures;
+		});
+	}
+	for (auto& worker : workers)
+		worker.join();
+	ASSERT_EQUAL(test_name, 0, failures.load());
+	RETURN_TEST(test_name, 0);
+}
+
+int telemetry_tracks_errors_and_survives_database() {
+	const std::string test_name = "mssql_telemetry_tracks_errors_and_survives_database";
+	StormByte::Safe::Shared<StormByte::Database::Telemetry> retained;
+	{
+		TestDatabase database;
+		retained = database.GetTelemetry();
+		ASSERT_TRUE(test_name, dynamic_cast<StormByte::Database::MSSQL::Telemetry*>(retained.get()) != nullptr);
+		ASSERT_TRUE(test_name, database.Connect());
+		ASSERT_TRUE(test_name, database.Query("SELECT 1 AS value;").has_value());
+		ASSERT_FALSE(test_name, database.Query("SELEC 1;").has_value());
+		ASSERT_TRUE(test_name, database.ExecuteSTMT("integer_parameter", 1).has_value());
+		ASSERT_FALSE(test_name, database.ExecuteSTMT("missing_statement").has_value());
+		database.Disconnect();
+	}
+	const auto* telemetry = dynamic_cast<const StormByte::Database::MSSQL::Telemetry*>(retained.get());
+	ASSERT_TRUE(test_name, telemetry != nullptr);
+	ASSERT_EQUAL(test_name, 2, telemetry->Metrics(Operation::Query).Attempts);
+	ASSERT_EQUAL(test_name, 1, telemetry->Metrics(Operation::Query).Successes);
+	ASSERT_EQUAL(test_name, 1, telemetry->Metrics(Operation::Query).Failures);
+	ASSERT_EQUAL(test_name, 1, telemetry->Metrics(Operation::PreparedStatement).Successes);
+	ASSERT_EQUAL(test_name, 1, telemetry->Metrics(Operation::PreparedStatement).Failures);
+	ASSERT_TRUE(test_name, telemetry->Errors() > 0);
+	ASSERT_TRUE(test_name, static_cast<std::string>(*retained).find("MSSQL{") != std::string::npos);
+	RETURN_TEST(test_name, 0);
+}
+
+int main() {
+	if (EnvironmentValue("MSSQL_HOST", "").empty()) {
+		std::cout << "MSSQL_HOST is unset; skipping MSSQL integration test.\n";
+		return 77;
+	}
+	int result{};
+	result += not_connected_operations();
+	result += connection_lifecycle_and_move();
+	result += shared_backend_contract();
+	result += prepared_statement_parameter_types();
+	result += placeholder_scanner_ignores_sql_literals_and_comments();
+	result += empty_and_null_values_are_distinct();
+	result += multiple_result_sets_and_silent_drain();
+	result += query_errors_preserve_connection();
+	result += constraint_failure_preserves_connection();
+	result += transactions_commit_and_rollback();
+	result += failed_statement_rolls_back_transaction();
+	result += same_connection_concurrency_and_transaction_exclusion();
+	result += separate_connections_run_concurrently();
+	result += telemetry_tracks_errors_and_survives_database();
+	return result;
+}

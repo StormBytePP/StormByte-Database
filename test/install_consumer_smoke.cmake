@@ -31,8 +31,9 @@ set_target_properties(InstalledConsumer PROPERTIES BUILD_RPATH "${DATABASE_LIBRA
 if(ENABLE_SQLITE)
 	target_compile_definitions(InstalledConsumer PRIVATE STORMBYTE_TEST_SQLITE)
 endif()
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 16)
-	target_compile_options(InstalledConsumer PRIVATE -Wno-error=changes-meaning)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	# Logger's ThrottleSpec::Level member trips GCC's default-on changes-meaning error.
+	target_compile_options(InstalledConsumer PRIVATE -Wno-changes-meaning)
 endif()
 ]=])
 

@@ -277,6 +277,11 @@ bool MSSQL::DoConnect() noexcept {
 				*m_logger << Logger::Level::Error << "MSSQL connection failed: " << ErrorText(nullptr, m_last_error) << std::endl;
 			return false;
 		}
+		if (dbsetopt(process, DBTEXTSIZE, "2147483647", -1) == FAIL) {
+			m_last_error = "DB-Library could not configure the MSSQL text size";
+			dbclose(process);
+			return false;
+		}
 		m_connection = process;
 		dbsetuserdata(process, reinterpret_cast<BYTE*>(this));
 		return true;

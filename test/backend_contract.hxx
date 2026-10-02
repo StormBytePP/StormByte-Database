@@ -20,10 +20,12 @@
  * @tparam DatabaseType Built-in backend test fixture.
  * @param db Connected database fixture.
  * @param test_name Name used in assertion output.
+ * @param query SQL query selecting the scalar test table.
  * @return Test-handler result.
  */
 template <typename DatabaseType>
-int verify_scalar_backend_contract(DatabaseType& db, const std::string& test_name) {
+int verify_scalar_backend_contract(DatabaseType& db, const std::string& test_name,
+		const std::string_view query = "SELECT signed_integer, unsigned_integer, signed_long, unsigned_long, real_number, text_value, blob_value, flag, nullable_value FROM scalar_types ORDER BY id;") {
 	const int signed_int = std::numeric_limits<int>::min();
 	const unsigned int unsigned_int = std::numeric_limits<unsigned int>::max();
 	const long long int signed_long = std::numeric_limits<long long int>::min();
@@ -37,7 +39,7 @@ int verify_scalar_backend_contract(DatabaseType& db, const std::string& test_nam
 	ASSERT_TRUE(test_name, db.ExecuteSTMT("insert_scalar_types", signed_int, unsigned_int, signed_long, unsigned_long, floating, text, blob, true, nullptr).has_value());
 	ASSERT_TRUE(test_name, db.ExecuteSTMT("insert_scalar_types", signed_int, unsigned_int, signed_long, unsigned_long, floating, text, blob, false, "not null").has_value());
 
-	auto result = db.Query("SELECT signed_integer, unsigned_integer, signed_long, unsigned_long, real_number, text_value, blob_value, flag, nullable_value FROM scalar_types ORDER BY id;");
+	auto result = db.Query(query);
 	ASSERT_TRUE(test_name, result.has_value());
 	ASSERT_EQUAL(test_name, 2, result.value().Count());
 

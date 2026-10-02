@@ -98,6 +98,14 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
+      - name: Check OpenSSL build tools
+        if: matrix.dependencies == 'BUNDLED'
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v perl
+          command -v make
+
       - name: Install Postgres client tools (when backend enabled)
         if: matrix.dependencies != 'OFF'
         uses: stormbytepp/githubactions/.github/actions/install-cached@master
@@ -303,6 +311,14 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
+      - name: Check OpenSSL build tools
+        if: matrix.dependencies == 'BUNDLED'
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v perl
+          command -v make
+
       - name: Install and start Postgres (brew)
         if: matrix.dependencies != 'OFF'
         shell: bash
@@ -450,6 +466,20 @@ jobs:
         uses: stormbytepp/githubactions/.github/actions/install-cached@master
         with:
           packages: "strawberryperl"
+
+      - name: Install OpenSSL build tools
+        uses: stormbytepp/githubactions/.github/actions/install-cached@master
+        with:
+          packages: "nasm jom"
+
+      - name: Check OpenSSL build tools
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          foreach ($tool in @("perl", "nasm", "jom")) {
+            $command = Get-Command $tool -ErrorAction Stop
+            Write-Host "$tool`: $($command.Source)"
+          }
 
       - name: Ensure flex/bison and Perl on PATH
         shell: pwsh

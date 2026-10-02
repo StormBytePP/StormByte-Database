@@ -99,7 +99,8 @@ int connection_lifecycle_and_move() {
 
 int shared_backend_contract() {
 	TestDatabase scalar_database;
-	const int scalar_result = verify_scalar_backend_contract(scalar_database, "mssql_scalar_contract");
+	const int scalar_result = verify_scalar_backend_contract(scalar_database, "mssql_scalar_contract",
+		"SELECT signed_integer, unsigned_integer, signed_long, unsigned_long, real_number, text_value, blob_value, flag, nullable_value FROM #sb_scalar ORDER BY id;");
 	TestDatabase binary_database;
 	const int binary_result = verify_binary_backend_contract(binary_database, "mssql_binary_contract");
 	return scalar_result + binary_result;

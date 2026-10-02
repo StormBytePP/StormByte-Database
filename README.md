@@ -59,7 +59,7 @@ The suite is split on purpose. Base, Buffer, Config, Crypto, Logger, Multimedia,
 
 ## Installation
 
-Needs a C++26 compiler, CMake 3.28 or newer, and StormByte-Logger 2.0.0 or newer. Logger supplies the bundled text and StormByte Base dependencies used by Database. Enable the backends you want (`WITH_SQLITE`, `WITH_POSTGRES`, `WITH_MARIADB`, `WITH_MSSQL`: `OFF`, `SYSTEM` or `BUNDLED`); `SYSTEM` discovers installed client libraries and `BUNDLED` builds them. The bundled MSSQL backend uses FreeTDS DB-Library under its LGPL license; FreeTDS utilities and ODBC/CT-Library targets are excluded.
+Needs a C++26 compiler, CMake 3.28 or newer, and StormByte-Logger 2.0.0 or newer. Logger supplies the bundled text and StormByte Base dependencies used by Database. Enable the backends you want (`WITH_SQLITE`, `WITH_POSTGRES`, `WITH_MARIADB`, `WITH_MSSQL`: `OFF`, `SYSTEM` or `BUNDLED`); `SYSTEM` discovers installed client libraries and `BUNDLED` builds them. Bundled PostgreSQL, MariaDB and MSSQL builds share the pinned OpenSSL 3.5.9 source in this repository and do not use host OpenSSL libraries; these builds require Perl and a make implementation, plus NASM on Windows. The bundled MSSQL backend uses FreeTDS DB-Library under its LGPL license; FreeTDS utilities and ODBC/CT-Library targets are excluded.
 
 ```sh
 git clone --recurse-submodules https://github.com/StormByte-Suite/StormByte-Database.git

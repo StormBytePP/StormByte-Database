@@ -1,9 +1,3 @@
-if(WIN32)
-	set(WITH_MARIADB "BUNDLED" CACHE STRING "MariaDB mode: OFF, SYSTEM, BUNDLED" FORCE)
-else()
-	set(WITH_MARIADB "BUNDLED" CACHE STRING "MariaDB mode: OFF, SYSTEM, BUNDLED")
-endif()
-
 if(NOT WITH_MARIADB STREQUAL "OFF")
 	if(WITH_MARIADB STREQUAL "SYSTEM")
 		list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
@@ -14,6 +8,9 @@ if(NOT WITH_MARIADB STREQUAL "OFF")
 	else()
 		set(MARIADB_C_OPTIONS
 			WITH_MYSQLCOMPAT=OFF
+			WITH_SSL=OPENSSL
+			OPENSSL_ROOT_DIR=${BUILDMASTER_INSTALL_DIR}
+			OPENSSL_USE_STATIC_LIBS=ON
 			WITH_UNIT_TESTS=OFF
 			ZLIB_BUILD_EXAMPLES=OFF
 			INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR}
@@ -24,7 +21,7 @@ if(NOT WITH_MARIADB STREQUAL "OFF")
 		if(MSVC)
 			set(_mdb_optstr "ALIAS=MariaDB::ConnectorC;LINK={shlwapi;ws2_32;secur32;bcrypt;ncrypt;crypt32}")
 		else()
-			set(_mdb_optstr "ALIAS=MariaDB::ConnectorC;LINK={ssl;crypto}")
+			set(_mdb_optstr "ALIAS=MariaDB::ConnectorC")
 		endif()
 
 		buildmaster_component(
@@ -36,6 +33,7 @@ if(NOT WITH_MARIADB STREQUAL "OFF")
 			"mariadbclient"
 			"${_mdb_optstr}"
 		)
+		buildmaster_link(MariaDB-ConnectorC OpenSSL)
 
 		target_include_directories(MariaDB-ConnectorC
 			SYSTEM INTERFACE

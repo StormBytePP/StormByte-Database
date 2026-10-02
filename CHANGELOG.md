@@ -41,6 +41,8 @@ If you landed here from a release link and have not read the tree:
 
 ### Fixed
 
+- **Bundled TLS backends** — Build one pinned OpenSSL 3.5.9 for bundled FreeTDS, MariaDB Connector C and PostgreSQL instead of relying on host OpenSSL libraries.
+- **MSSQL behavior tests** — Query the fixture's temporary scalar table and set DB-Library's text-size limit so large LOB results are not truncated to 4 KiB.
 - **Base 2.0 and backend diagnostics**
 	- Migrated ownership and text types to Base Safe APIs and updated the public headers for the new Base include layout.
 	- `BeginTransaction` now converts `StormByte::Exception` failures into `TransactionError` rather than falling through to the generic unknown-backend result.

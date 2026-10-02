@@ -17,3 +17,9 @@
 	path = thirdparty/freetds/gperf/src
 	url = https://github.com/jwinarske/gperf.git
 	branch = cmake
+[submodule "thirdparty/openssl/cmake"]
+	path = thirdparty/openssl/cmake
+	url = https://github.com/jimmy-park/openssl-cmake.git
+[submodule "thirdparty/openssl/src"]
+	path = thirdparty/openssl/src
+	url = https://github.com/openssl/openssl.git

@@ -1,9 +1,3 @@
-if(WIN32)
-	set(WITH_POSTGRES "BUNDLED" CACHE STRING "Postgres mode: OFF, SYSTEM, BUNDLED" FORCE)
-else()
-	set(WITH_POSTGRES "BUNDLED" CACHE STRING "Postgres mode: OFF, SYSTEM, BUNDLED")
-endif()
-
 if(NOT WITH_POSTGRES STREQUAL "OFF")
 	if(WITH_POSTGRES STREQUAL "SYSTEM")
 		find_package(PostgreSQL REQUIRED QUIET)
@@ -35,7 +29,8 @@ if(NOT WITH_POSTGRES STREQUAL "OFF")
 			plpython=disabled
 			pltcl=disabled
 			uuid=none
-			ssl=none
+			ssl=openssl
+			pkg_config_path=${BUILDMASTER_INSTALL_LIBDIR}/pkgconfig
 			ldap=disabled
 			libcurl=disabled
 			dtrace=disabled
@@ -58,6 +53,7 @@ if(NOT WITH_POSTGRES STREQUAL "OFF")
 			"pq;pgport;pgport_shlib;pgcommon;pgcommon_shlib"
 			"${_pg_optstr}"
 		)
+		buildmaster_link(PostgreSQL OpenSSL)
 	endif()
 
 	buildmaster_link(StormByte-Database PostgreSQL)

@@ -1,10 +1,3 @@
-if(WIN32)
-	set(WITH_MSSQL "BUNDLED" CACHE STRING "MSSQL mode: OFF, SYSTEM, BUNDLED" FORCE)
-else()
-	set(WITH_MSSQL "BUNDLED" CACHE STRING "MSSQL mode: OFF, SYSTEM, BUNDLED")
-endif()
-set_property(CACHE WITH_MSSQL PROPERTY STRINGS OFF SYSTEM BUNDLED)
-
 if(WITH_MSSQL STREQUAL "SYSTEM")
 	find_path(FREETDS_INCLUDE_DIR NAMES sybdb.h PATH_SUFFIXES freetds REQUIRED)
 	find_library(FREETDS_DBLIB_LIBRARY NAMES sybdb REQUIRED)
@@ -25,6 +18,8 @@ elseif(WITH_MSSQL STREQUAL "BUNDLED")
 		FREETDS_BUILD_SERVER=OFF
 		FREETDS_BUILD_POOL=OFF
 		FREETDS_BUILD_TESTS=OFF
+		OPENSSL_ROOT_DIR=${BUILDMASTER_INSTALL_DIR}
+		OPENSSL_USE_STATIC_LIBS=ON
 	)
 	find_program(GPERF_SYSTEM_EXECUTABLE NAMES gperf)
 	if(GPERF_SYSTEM_EXECUTABLE)
@@ -36,11 +31,11 @@ elseif(WITH_MSSQL STREQUAL "BUNDLED")
 		set(_build_gperf ON)
 	endif()
 	if(WIN32)
-		set(FREETDS_LINK "LINK={tds;replacements;tdsutils;ssl;crypto;ws2_32;crypt32}")
+		set(FREETDS_LINK "LINK={tds;replacements;tdsutils;ws2_32;crypt32}")
 	elseif(APPLE)
-		set(FREETDS_LINK "LINK={tds;replacements;tdsutils;ssl;crypto;iconv}")
+		set(FREETDS_LINK "LINK={tds;replacements;tdsutils;iconv}")
 	else()
-		set(FREETDS_LINK "LINK={tds;replacements;tdsutils;ssl;crypto}")
+		set(FREETDS_LINK "LINK={tds;replacements;tdsutils}")
 	endif()
 
 	buildmaster_component(
@@ -55,6 +50,7 @@ elseif(WITH_MSSQL STREQUAL "BUNDLED")
 	if(_build_gperf)
 		buildmaster_depend(FreeTDS-DBLib gperf)
 	endif()
+	buildmaster_link(FreeTDS-DBLib OpenSSL)
 	buildmaster_link(StormByte-Database FreeTDS-DBLib)
 elseif(NOT WITH_MSSQL STREQUAL "OFF")
 	message(FATAL_ERROR "WITH_MSSQL must be OFF, SYSTEM, or BUNDLED")

@@ -28,8 +28,18 @@ using namespace StormByte::Database::MSSQL;
 
 namespace {
 	std::string EnvironmentValue(const char* const name, const char* const fallback) {
+	#ifdef _WIN32
+		char* value = nullptr;
+		std::size_t length = 0;
+		if (_dupenv_s(&value, &length, name) != 0 || !value)
+			return fallback;
+		std::string result{value};
+		std::free(value);
+		return result;
+	#else
 		const char* const value = std::getenv(name);
 		return value ? value : fallback;
+	#endif
 	}
 
 	class TestDatabase final : public MSSQL {

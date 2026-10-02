@@ -23,6 +23,14 @@ If you landed here from a release link and have not read the tree:
 ## [Unreleased]
 [Unreleased]: https://github.com/StormByte-Suite/StormByte-Database/compare/2.0.0...HEAD
 
+### Fixed
+
+- **MSSQL backend** — Fixed result and statement handling across FreeTDS versions:
+  - Zero-length text and binary values are returned as empty values instead of being padded by `dbconvert()`.
+  - Connections enable `QUOTED_IDENTIFIER`, so double-quoted identifiers resolve as identifiers on older DB-Library releases.
+  - NULL prepared-statement parameters are sent as untyped `NULL`, allowing them in any column type such as `VARBINARY(MAX)`.
+  - SQL Server error messages are kept instead of DB-Library's generic notice, and `Telemetry::Errors()` now counts them.
+
 ## [2.0.0] - 2026-10-02
 
 ### Changed

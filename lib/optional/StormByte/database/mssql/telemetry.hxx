@@ -47,6 +47,7 @@ namespace StormByte {
 			private:
 				friend class MSSQL;
 				friend class PreparedSTMT;
+				/** @brief Count one SQL Server error reported to the DB-Library message handler. */
 				void RecordError() noexcept;
 				void RecordEvent(BackendEvent event) noexcept override;
 				std::atomic<std::uint64_t> m_errors{0}; ///< DB-Library SQL Server errors.

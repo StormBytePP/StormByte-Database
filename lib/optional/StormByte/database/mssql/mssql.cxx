@@ -119,6 +119,9 @@ namespace {
 					} else if (parameter.Type() == Value::Type::Blob) {
 						declarations += ", " + parameter_name + "_empty bit";
 						translated += "(CASE WHEN " + parameter_name + "_empty = 1 THEN CAST(0x AS varbinary(max)) ELSE " + parameter_name + " END)";
+					} else if (parameter.IsNull()) {
+						// An untyped NULL converts implicitly to any column type.
+						translated += "NULL";
 					} else {
 						translated += parameter_name;
 					}
@@ -195,10 +198,10 @@ MSSQL::~MSSQL() noexcept {
 int MSSQL::ErrorHandler(DBPROCESS* const process, const int severity, const int database_error,
 		const int operating_system_error, char* database_message, char* operating_system_message) {
 	(void)severity;
-	(void)database_error;
 	(void)operating_system_error;
 	auto* self = process ? reinterpret_cast<MSSQL*>(dbgetuserdata(process)) : nullptr;
-	if (self)
+	// Keep the server message instead of DB-Library's generic "check messages" notice.
+	if (self && !(database_error == SYBESMSG && !self->m_last_error.empty()))
 		self->m_last_error = ErrorText(database_message, operating_system_message ? operating_system_message : "");
 	return INT_CANCEL;
 }
@@ -213,8 +216,10 @@ int MSSQL::MessageHandler(DBPROCESS* const process, const int message_number, co
 	if (severity <= 10)
 		return INT_CONTINUE;
 	auto* self = process ? reinterpret_cast<MSSQL*>(dbgetuserdata(process)) : nullptr;
-	if (self)
+	if (self) {
 		self->m_last_error = ErrorText(text, "SQL Server reported an error");
+		static_cast<StormByte::Database::MSSQL::Telemetry*>(self->GetTelemetry().get())->RecordError();
+	}
 	return INT_CANCEL;
 }
 
@@ -279,6 +284,20 @@ bool MSSQL::DoConnect() noexcept {
 		}
 		if (dbsetopt(process, DBTEXTSIZE, "2147483647", -1) == FAIL) {
 			m_last_error = "DB-Library could not configure the MSSQL text size";
+			dbclose(process);
+			return false;
+		}
+		// Older DB-Library releases leave QUOTED_IDENTIFIER OFF, which turns "identifiers" into strings.
+		bool session_configured = dbcmd(process, "SET QUOTED_IDENTIFIER ON;") != FAIL
+			&& dbsqlexec(process) != FAIL;
+		while (session_configured) {
+			const RETCODE result_status = dbresults(process);
+			if (result_status == NO_MORE_RESULTS)
+				break;
+			session_configured = result_status != FAIL && dbcanquery(process) != FAIL;
+		}
+		if (!session_configured) {
+			m_last_error = "DB-Library could not configure the MSSQL session options";
 			dbclose(process);
 			return false;
 		}

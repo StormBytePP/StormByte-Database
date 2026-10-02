@@ -18,7 +18,6 @@ std::uint64_t Telemetry::Errors() const noexcept {
 
 void Telemetry::RecordError() noexcept {
 	m_errors.fetch_add(1, std::memory_order_relaxed);
-	RecordEvent(BackendEvent::Other);
 }
 
 void Telemetry::RecordEvent(const BackendEvent event) noexcept {

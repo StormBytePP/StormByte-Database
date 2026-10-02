@@ -35,7 +35,8 @@ namespace {
 			return StormByte::Unexpected<ExecuteError>("DB-Library returned a negative column length");
 
 		const int type = dbcoltype(process, column);
-		if (!data && length == 0) {
+		// dbconvert() treats zero-length input as NULL and pads the destination buffer.
+		if (length == 0) {
 			switch (type) {
 				case SYBBINARY:
 				case SYBVARBINARY:

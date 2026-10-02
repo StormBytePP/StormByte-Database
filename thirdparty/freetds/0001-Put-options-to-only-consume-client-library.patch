@@ -1,0 +1,187 @@
+From c68be4d7e27cb61751e9d20f127ec781e3d2adeb Mon Sep 17 00:00:00 2001
+From: "David C. Manuelda" <StormByte@gmail.com>
+Date: Fri, 2 Oct 2026 02:21:14 +0200
+Subject: [PATCH 1/2] Put options to only consume client library
+
+---
+ CMakeLists.txt                  | 37 +++++++++++++++++++--------
+ src/dblib/CMakeLists.txt        | 45 ++++++++++++++++++---------------
+ src/replacements/CMakeLists.txt |  4 ++-
+ src/tds/CMakeLists.txt          |  4 ++-
+ src/utils/CMakeLists.txt        |  4 ++-
+ 5 files changed, 61 insertions(+), 33 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 17c555afe..74f8b7fd1 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -8,6 +8,13 @@ option(ENABLE_KRB5         "Enable Kerberos support" OFF)
+ option(ENABLE_ODBC_MARS    "Enable MARS" ON)
+ option(ENABLE_EXTRA_CHECKS "Enable internal extra checks, DO NOT USE in production" OFF)
+ option(ENABLE_MSDBLIB      "Enable MS style dblib" OFF)
++option(FREETDS_BUILD_SHARED "Build FreeTDS shared client libraries" ON)
++option(FREETDS_BUILD_CTLIB "Build CT-Library" ON)
++option(FREETDS_BUILD_ODBC "Build the ODBC driver" ON)
++option(FREETDS_BUILD_TOOLS "Build FreeTDS command-line tools" ON)
++option(FREETDS_BUILD_SERVER "Build the FreeTDS test server" ON)
++option(FREETDS_BUILD_POOL "Build the FreeTDS connection pool" ON)
++option(FREETDS_BUILD_TESTS "Build FreeTDS tests" ON)
+ 
+ if(COMMAND cmake_policy)
+ 	cmake_policy(SET CMP0003 NEW)
+@@ -458,8 +465,10 @@ endif()
+ if(WIN32)
+ 	set(lib_NETWORK ws2_32 crypt32)
+ else(WIN32)
+-	# TODO check libraries
+-	set(lib_NETWORK gssapi_krb5)
++	set(lib_NETWORK)
++	if(ENABLE_KRB5)
++		list(APPEND lib_NETWORK gssapi_krb5)
++	endif()
+ endif(WIN32)
+ 
+ if(OPENSSL_FOUND)
+@@ -473,18 +482,27 @@ include_directories(${CMAKE_BINARY_DIR}/include include iconv/include)
+ add_subdirectory(src/utils)
+ add_subdirectory(src/replacements)
+ add_subdirectory(src/tds)
+-add_subdirectory(src/ctlib)
+ add_subdirectory(src/dblib)
+-add_subdirectory(src/odbc)
+-add_subdirectory(src/apps)
+-add_subdirectory(src/server)
+-add_subdirectory(src/pool)
+-
+-configure_file(${CMAKE_BINARY_DIR}/include/config.h.in ${CMAKE_BINARY_DIR}/include/config.h)
++if(FREETDS_BUILD_CTLIB)
++	add_subdirectory(src/ctlib)
++endif()
++if(FREETDS_BUILD_ODBC)
++	add_subdirectory(src/odbc)
++endif()
++if(FREETDS_BUILD_TOOLS)
++	add_subdirectory(src/apps)
++endif()
++if(FREETDS_BUILD_SERVER)
++	add_subdirectory(src/server)
++endif()
++if(FREETDS_BUILD_POOL)
++	add_subdirectory(src/pool)
++endif()
++configure_file(${CMAKE_BINARY_DIR}/include/config.h.in ${CMAKE_BINARY_DIR}/include/config.h)
+ configure_file(${CMAKE_SOURCE_DIR}/include/tds_sysdep_public.h.in ${CMAKE_BINARY_DIR}/include/tds_sysdep_public.h)
+ configure_file(${CMAKE_SOURCE_DIR}/include/freetds/sysdep_types.h.in ${CMAKE_BINARY_DIR}/include/freetds/sysdep_types.h)
+ configure_file(${CMAKE_SOURCE_DIR}/include/freetds/version.h.in ${CMAKE_BINARY_DIR}/include/freetds/version.h)
+-if(NOT EXISTS "${CMAKE_SOURCE_DIR}/configure")
++if(FREETDS_BUILD_ODBC AND NOT EXISTS "${CMAKE_SOURCE_DIR}/configure")
+ 	configure_file(${CMAKE_SOURCE_DIR}/src/odbc/version.rc.in ${CMAKE_SOURCE_DIR}/src/odbc/version.rc)
+ endif(NOT EXISTS "${CMAKE_SOURCE_DIR}/configure")
+ 
+diff --git a/src/dblib/CMakeLists.txt b/src/dblib/CMakeLists.txt
+index 5f1766f45..08381e47f 100644
+--- a/src/dblib/CMakeLists.txt
++++ b/src/dblib/CMakeLists.txt
+@@ -1,17 +1,32 @@
+-add_subdirectory(unittests)
++if(FREETDS_BUILD_TESTS)
++	add_subdirectory(unittests)
++endif()
+ 
+ if(WIN32)
+ 	set(win_SRCS winmain.c dblib.def dbopen.c)
+ endif()
+ 
+ # TODO add dbopen.c if necessary
+-add_library(sybdb SHARED
+-	dblib.c dbutil.c rpc.c bcp.c xact.c dbpivot.c buffering.h
+-	${win_SRCS}
+-)
+-target_compile_definitions(sybdb PUBLIC DLL_EXPORT=1)
+-add_dependencies(sybdb encodings_h)
+-target_link_libraries(sybdb tds replacements tdsutils ${lib_NETWORK} ${lib_BASE})
++if(FREETDS_BUILD_SHARED)
++	add_library(sybdb SHARED
++		dblib.c dbutil.c rpc.c bcp.c xact.c dbpivot.c buffering.h
++		${win_SRCS}
++	)
++	target_compile_definitions(sybdb PUBLIC DLL_EXPORT=1)
++	add_dependencies(sybdb encodings_h)
++	target_link_libraries(sybdb tds replacements tdsutils ${lib_NETWORK} ${lib_BASE})
++	if(NOT WIN32)
++		set_target_properties(sybdb PROPERTIES SOVERSION "5.1.0")
++	endif()
++	if(MINGW OR CYGWIN)
++		set_target_properties(sybdb PROPERTIES LINK_FLAGS "--static")
++	endif()
++	INSTALL(TARGETS sybdb
++		RUNTIME DESTINATION bin
++		LIBRARY DESTINATION lib
++		ARCHIVE DESTINATION lib
++	)
++endif()
+ 
+ add_library(db-lib STATIC
+ 	dblib.c dbutil.c rpc.c bcp.c xact.c dbpivot.c buffering.h
+@@ -19,17 +34,7 @@ add_library(db-lib STATIC
+ add_dependencies(db-lib encodings_h)
+ target_link_libraries(db-lib tds replacements tdsutils ${lib_NETWORK} ${lib_BASE})
+ 
+-if(NOT WIN32)
+-	set_target_properties(sybdb PROPERTIES SOVERSION "5.1.0")
+-endif()
+-
+-if(MINGW OR CYGWIN)
+-	set_target_properties(sybdb PROPERTIES LINK_FLAGS "--static")
+-endif(MINGW OR CYGWIN)
+-
+-INSTALL(TARGETS sybdb db-lib
++INSTALL(TARGETS db-lib
+ 	PUBLIC_HEADER DESTINATION include
+-		RUNTIME DESTINATION bin
+-		LIBRARY DESTINATION lib
+-		ARCHIVE DESTINATION lib
++		ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+ 	)
+diff --git a/src/replacements/CMakeLists.txt b/src/replacements/CMakeLists.txt
+index 48d7e5363..4369e3654 100644
+--- a/src/replacements/CMakeLists.txt
++++ b/src/replacements/CMakeLists.txt
+@@ -41,7 +41,9 @@ if (NOT WIN32)
+ 	set_target_properties(replacements PROPERTIES POSITION_INDEPENDENT_CODE ON)
+ endif()
+ 
+-add_subdirectory(unittests)
++if(FREETDS_BUILD_TESTS)
++	add_subdirectory(unittests)
++endif()
+ 
+ 
+ INSTALL(TARGETS replacements
+diff --git a/src/tds/CMakeLists.txt b/src/tds/CMakeLists.txt
+index 134a30cb8..5c66f492b 100644
+--- a/src/tds/CMakeLists.txt
++++ b/src/tds/CMakeLists.txt
+@@ -1,4 +1,6 @@
+-add_subdirectory(unittests)
++if(FREETDS_BUILD_TESTS)
++	add_subdirectory(unittests)
++endif()
+ 
+ if(PERL_FOUND AND NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tds_willconvert.h")
+ 	if (NOT GPERF)
+diff --git a/src/utils/CMakeLists.txt b/src/utils/CMakeLists.txt
+index c91650740..152be2817 100644
+--- a/src/utils/CMakeLists.txt
++++ b/src/utils/CMakeLists.txt
+@@ -1,4 +1,6 @@
+-add_subdirectory(unittests)
++if(FREETDS_BUILD_TESTS)
++	add_subdirectory(unittests)
++endif()
+ 
+ if(WIN32)
+ 	set(add_SRCS md5.c)
+-- 
+2.55.0
+

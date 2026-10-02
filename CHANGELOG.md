@@ -27,6 +27,7 @@ If you landed here from a release link and have not read the tree:
 
 ### Changed
 
+- **MSSQL backend** — Added an optional Microsoft SQL Server backend using the LGPL FreeTDS DB-Library client. Bundled builds compile only the static DB-Library and its required TDS support archives; logical prepared statements use `sp_executesql` RPC with typed, separately transmitted parameters.
 - **StormByte Suite port** — Migrated first-party repository and documentation links to StormByte-Suite, removed the retired String repository from the suite listing and Doxygen tag references, and updated the Logger and BuildMaster submodule URLs.
 - **Database API and connection behavior**
 	- **Breaking**: `BeginTransaction` now returns `Expected<Transaction, TransactionError>` instead of throwing when transaction start fails. `Database` construction may also report allocation failure rather than terminating from a `noexcept` constructor; rebuild consumers against this API revision.

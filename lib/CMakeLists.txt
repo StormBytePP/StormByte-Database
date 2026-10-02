@@ -76,6 +76,19 @@ if(NOT WITH_MARIADB STREQUAL "OFF")
 	endif()
 endif()
 
+if(NOT WITH_MSSQL STREQUAL "OFF")
+	file(GLOB_RECURSE STORMBYTE_DATABASE_MSSQL_SOURCES CONFIGURE_DEPENDS
+		"${CMAKE_CURRENT_LIST_DIR}/optional/StormByte/database/mssql/*.cxx"
+		"${CMAKE_CURRENT_LIST_DIR}/private/StormByte/database/mssql/*.cxx"
+	)
+	target_sources(StormByte-Database PRIVATE
+		${STORMBYTE_DATABASE_MSSQL_SOURCES}
+	)
+	target_include_directories(StormByte-Database SYSTEM PRIVATE
+		"${BUILDMASTER_INSTALL_INCLUDEDIR}"
+	)
+endif()
+
 if(MSVC)
 	target_compile_options(StormByte-Database PRIVATE
 		/EHsc

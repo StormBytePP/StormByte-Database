@@ -11,19 +11,19 @@ This repository is **StormByte Database**: the C++26 SQL layer of the StormByte 
 
 It depends on StormByte-Logger 2.0.0 or newer, which supplies the bundled text and StormByte Base dependencies. Public headers live under `StormByte/database/`.
 
-One API covers SQLite, PostgreSQL and MariaDB. You do **not** construct those backends as generic objects. They are **base classes**: derive your schema, call the backend constructor, prepare statements and hook connect/disconnect there.
+One API covers SQLite, PostgreSQL, MariaDB and Microsoft SQL Server (MSSQL). You do **not** construct those backends as generic objects. They are **base classes**: derive your schema, call the backend constructor, prepare statements and hook connect/disconnect there.
 
 The suite is split on purpose. Base, Buffer, Config, Crypto, Logger, Multimedia, Network and System are **other repositories**. This repository does not implement them.
 
 ## What this module does
 
 - **One connection type** — `StormByte::Database::Database` with Connect / Disconnect, Query / SilentQuery, named prepared statements and RAII transactions.
-- **Inheritance first** — SQLite3, MariaDB and Postgres constructors are protected. Your application database is a subclass.
+- **Inheritance first** — SQLite3, MariaDB, Postgres and MSSQL constructors are protected. Your application database is a subclass.
 - **Values** — type-erased `Value` (NULL, integers, double, text, blob, bool) with safe numeric `Get<T>()`.
 - **Rows** — ordered columns, lookup by name (`ColumnNotFound` / `OutOfBounds`).
 - **Prepared statements** — bind by position (0-based), `nullptr` is SQL NULL, `ExpectedRows` on execute.
 - **Transactions** — `BeginTransaction(IsolationLevel)` returns `Expected<Transaction, TransactionError>`; failed starts are reported as a value, and an uncommitted transaction rolls back on destruction.
-- **Telemetry** — `GetTelemetry()` returns a thread-safe, cumulative `StormByte::Safe::Shared` handle with operation counts, outcomes, rows and latency min/mean/max. Database telemetry extends Base telemetry and uses its named clocks; SQLite, PostgreSQL and MariaDB provide derived telemetry with backend-specific error counters. Retained handles remain readable after disconnect/destruction.
+- **Telemetry** — `GetTelemetry()` returns a thread-safe, cumulative `StormByte::Safe::Shared` handle with operation counts, outcomes, rows and latency min/mean/max. Database telemetry extends Base telemetry and uses its named clocks; SQLite, PostgreSQL, MariaDB and MSSQL provide derived telemetry with backend-specific error counters. Retained handles remain readable after disconnect/destruction.
 - **TLS** — `SslMode` for MariaDB and PostgreSQL. SQLite ignores it.
 - **Concurrent access** — operations on one connection are serialized; separate connections can run concurrently. A transaction reserves its connection until commit or rollback and must remain on the thread that created it. Custom backend implementations must lock the shared connection mutex in public operations.
 
@@ -59,7 +59,7 @@ The suite is split on purpose. Base, Buffer, Config, Crypto, Logger, Multimedia,
 
 ## Installation
 
-Needs a C++26 compiler, CMake 3.28 or newer, and StormByte-Logger 2.0.0 or newer. Logger supplies the bundled text and StormByte Base dependencies used by Database. Enable the backends you want (`WITH_SQLITE`, `WITH_POSTGRES`, `WITH_MARIADB`: `OFF`, `SYSTEM` or `BUNDLED`); `SYSTEM` discovers installed connectors and `BUNDLED` builds them.
+Needs a C++26 compiler, CMake 3.28 or newer, and StormByte-Logger 2.0.0 or newer. Logger supplies the bundled text and StormByte Base dependencies used by Database. Enable the backends you want (`WITH_SQLITE`, `WITH_POSTGRES`, `WITH_MARIADB`, `WITH_MSSQL`: `OFF`, `SYSTEM` or `BUNDLED`); `SYSTEM` discovers installed client libraries and `BUNDLED` builds them. The bundled MSSQL backend uses FreeTDS DB-Library under its LGPL license; FreeTDS utilities and ODBC/CT-Library targets are excluded.
 
 ```sh
 git clone --recurse-submodules https://github.com/StormByte-Suite/StormByte-Database.git
@@ -111,6 +111,23 @@ int main() {
 ```
 
 MariaDB / Postgres follow the same pattern: subclass, pass host / user / password / database (and port on MariaDB), optionally `SetSslMode` before `Connect()`. PostgreSQL connection parameters are passed separately, so credentials may contain quotes and backslashes.
+
+MSSQL uses FreeTDS DB-Library. Its logical prepared statements execute through `sp_executesql` RPC with typed parameters; values are not interpolated into SQL text.
+
+```cpp
+#include <StormByte/database/mssql/mssql.hxx>
+
+class AppDb : public StormByte::Database::MSSQL::MSSQL {
+public:
+	AppDb()
+		: MSSQL("sql.example.test", "app_login", "secret", "app_database", 1433, nullptr) {}
+
+protected:
+	void DoPostConnect() noexcept override {
+		PrepareSTMT("user_by_id", "SELECT id, name FROM dbo.users WHERE id = ?");
+	}
+};
+```
 
 ### Values and rows
 

@@ -1,0 +1,53 @@
+From 18ccce9b69ac001a66766e796c0ac62778456e52 Mon Sep 17 00:00:00 2001
+From: "David C. Manuelda" <StormByte@gmail.com>
+Date: Fri, 2 Oct 2026 02:31:23 +0200
+Subject: [PATCH 2/2] Add static linkage
+
+---
+ src/replacements/CMakeLists.txt | 4 ++--
+ src/tds/CMakeLists.txt          | 2 ++
+ src/utils/CMakeLists.txt        | 2 ++
+ 3 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/src/replacements/CMakeLists.txt b/src/replacements/CMakeLists.txt
+index 4369e3654..f82ffbda5 100644
+--- a/src/replacements/CMakeLists.txt
++++ b/src/replacements/CMakeLists.txt
+@@ -49,6 +49,6 @@ endif()
+ INSTALL(TARGETS replacements
+ 	PUBLIC_HEADER DESTINATION include
+ 		RUNTIME DESTINATION bin
+-		LIBRARY DESTINATION lib
+-		ARCHIVE DESTINATION lib
++	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
++	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+ 	)
+diff --git a/src/tds/CMakeLists.txt b/src/tds/CMakeLists.txt
+index 5c66f492b..16de2e479 100644
+--- a/src/tds/CMakeLists.txt
++++ b/src/tds/CMakeLists.txt
+@@ -67,6 +67,8 @@ if (NOT WIN32)
+ 	set_target_properties(tds PROPERTIES POSITION_INDEPENDENT_CODE ON)
+ endif()
+ 
++install(TARGETS tds ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
++
+ if(WIN32)
+ INSTALL(TARGETS tds
+ 	PUBLIC_HEADER DESTINATION include
+diff --git a/src/utils/CMakeLists.txt b/src/utils/CMakeLists.txt
+index 152be2817..f615e134a 100644
+--- a/src/utils/CMakeLists.txt
++++ b/src/utils/CMakeLists.txt
+@@ -27,6 +27,8 @@ if (NOT WIN32)
+ 	set_target_properties(tdsutils PROPERTIES POSITION_INDEPENDENT_CODE ON)
+ endif()
+ 
++install(TARGETS tdsutils ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
++
+ if(WIN32)
+ INSTALL(TARGETS tdsutils
+ 	PUBLIC_HEADER DESTINATION include
+-- 
+2.55.0
+

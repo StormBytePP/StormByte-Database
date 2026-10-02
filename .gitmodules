@@ -10,3 +10,6 @@
 [submodule "PostgreSQL"]
 	path = thirdparty/postgres/src
 	url = https://github.com/postgres/postgres.git
+[submodule "thirdparty/freetds/src"]
+	path = thirdparty/freetds/src
+	url = https://github.com/FreeTDS/freetds.git
